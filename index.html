@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>천원빵</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(180deg, #fff8e7 0%, #fff 50%);
+      min-height: 100vh;
+      color: #2c2c2c;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .wrap {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 1rem;
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    }
+    header {
+      text-align: center;
+      padding: 1.5rem 0;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 5vw, 1.75rem);
+      font-weight: 700;
+      color: #c45c26;
+    }
+    .tagline {
+      margin-top: 0.25rem;
+      font-size: 0.875rem;
+      color: #666;
+    }
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 1rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+      color: #fff;
+      background: #c45c26;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.05s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn.secondary {
+      background: #fff;
+      color: #c45c26;
+      border: 2px solid #c45c26;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-top: 1rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .card h2 {
+      margin: 0 0 0.5rem 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #555;
+    }
+    .card p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #888;
+    }
+    footer {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #999;
+    }
+    @media (min-width: 480px) {
+      .wrap { padding: 1.5rem; }
+      nav { max-width: 320px; margin-left: auto; margin-right: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🍞 천원빵</h1>
+      <p class="tagline">오늘 KOSPI 예측하고, 1등이 빵 몰빵!</p>
+    </header>
+
+    <nav>
+      <a href="#" class="btn">로그인</a>
+      <a href="#" class="btn secondary">오늘 예측하기</a>
+      <a href="#" class="btn secondary">실시간 순위</a>
+      <a href="#" class="btn secondary">오늘 1등</a>
+      <a href="#" class="btn secondary">내 빵지갑</a>
+    </nav>
+
+    <section class="card">
+      <h2>오늘 게임</h2>
+      <p>9시 30분 전까지 예측 입력 · 15시 30분 종가 기준 1등 확정</p>
+    </section>
+
+    <footer>
+      천원빵 · 1빵 = 1,000원 · 입출금 수기
+    </footer>
+  </div>
+</body>
+</html>

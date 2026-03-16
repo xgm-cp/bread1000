@@ -54,7 +54,7 @@ export default function LoginPage() {
           return
         }
         if (row.사용여부 === 'N') {
-          setError('사용이 중지된 계정입니다.')
+          setError('!!!사용이 중지된 계정입니다. 관리자에게 문의하세요!!!!')
           return
         }
 

@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 
 type Mode = 'login' | 'signup'
 
@@ -22,9 +22,10 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
+    const supabase = getSupabase()
+
     try {
       if (mode === 'signup') {
-        // 회원가입 - 회원기본 INSERT
         const { error } = await supabase
           .from('회원기본')
           .insert({ 아이디, 이름, 패스워드 })
@@ -39,7 +40,6 @@ export default function LoginPage() {
         set이름('')
         set패스워드('')
       } else {
-        // 로그인 - 아이디 + 패스워드 확인
         const { data, error } = await supabase
           .from('회원기본')
           .select('*')
@@ -69,7 +69,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0C0F' }}>
       <div className="w-full max-w-sm px-4">
-        {/* 로고 */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-serif" style={{ color: '#C9A84C', fontFamily: 'DM Serif Display, serif' }}>
             천원빵
@@ -79,7 +78,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* 탭 */}
         <div className="flex rounded-xl overflow-hidden mb-6" style={{ background: '#111418', border: '1px solid #1E2430' }}>
           {(['login', 'signup'] as Mode[]).map((m) => (
             <button
@@ -96,7 +94,6 @@ export default function LoginPage() {
           ))}
         </div>
 
-        {/* 폼 */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#8892A0' }}>
@@ -110,11 +107,7 @@ export default function LoginPage() {
               required
               placeholder="최대 10자"
               className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-              style={{
-                background: '#0A0C0F',
-                border: '1.5px solid #252D3A',
-                color: '#EEF0F4',
-              }}
+              style={{ background: '#0A0C0F', border: '1.5px solid #252D3A', color: '#EEF0F4' }}
               onFocus={(e) => (e.target.style.borderColor = '#C9A84C')}
               onBlur={(e) => (e.target.style.borderColor = '#252D3A')}
             />
@@ -133,11 +126,7 @@ export default function LoginPage() {
                 required
                 placeholder="이름 입력"
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                style={{
-                  background: '#0A0C0F',
-                  border: '1.5px solid #252D3A',
-                  color: '#EEF0F4',
-                }}
+                style={{ background: '#0A0C0F', border: '1.5px solid #252D3A', color: '#EEF0F4' }}
                 onFocus={(e) => (e.target.style.borderColor = '#C9A84C')}
                 onBlur={(e) => (e.target.style.borderColor = '#252D3A')}
               />
@@ -155,20 +144,14 @@ export default function LoginPage() {
               required
               placeholder="패스워드 입력"
               className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-              style={{
-                background: '#0A0C0F',
-                border: '1.5px solid #252D3A',
-                color: '#EEF0F4',
-              }}
+              style={{ background: '#0A0C0F', border: '1.5px solid #252D3A', color: '#EEF0F4' }}
               onFocus={(e) => (e.target.style.borderColor = '#C9A84C')}
               onBlur={(e) => (e.target.style.borderColor = '#252D3A')}
             />
           </div>
 
           {error && (
-            <p className="text-sm px-1" style={{ color: '#FF5C5C' }}>
-              {error}
-            </p>
+            <p className="text-sm px-1" style={{ color: '#FF5C5C' }}>{error}</p>
           )}
 
           <button

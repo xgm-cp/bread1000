@@ -22,6 +22,7 @@ export default function PredictPage() {
   const [kospi, setKospi] = useState<KospiData | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [alreadyPredicted, setAlreadyPredicted] = useState(false)
 
   const handleSubmit = async () => {
     if (!price) return
@@ -41,7 +42,7 @@ export default function PredictPage() {
         아이디: user.아이디,
         예측종가: final,
         순위: 0,
-        종가증감구분: sign === '+' ? '1' : '0',
+        종가증감구분: sign === '+' ? 'U' : 'D',
         종가증감값: Number(price),
         등록일시: now.toISOString(),
         변경일시: now.toISOString(),
@@ -64,7 +65,25 @@ export default function PredictPage() {
       .finally(() => setRefreshing(false))
   }
 
-  useEffect(() => { fetchKospi() }, [])
+  useEffect(() => {
+    fetchKospi()
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+    if (!user.아이디) return
+    const today = new Date().toISOString().slice(0, 10)
+    getSupabase()
+      .from('종가예측내역')
+      .select('종가증감구분, 종가증감값')
+      .eq('기준일자', today)
+      .eq('아이디', user.아이디)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setAlreadyPredicted(true)
+          setSign(data.종가증감구분 === 'U' ? '+' : '-')
+          setPrice(String(data.종가증감값))
+        }
+      })
+  }, [])
 
   return (
     <div className="page-predict">
@@ -217,22 +236,27 @@ export default function PredictPage() {
             <div className="quick-buttons">
               <button
                 className={`quick-btn${sign === '+' ? ' quick-btn-active' : ''}`}
-                onClick={() => setSign('+')}
+                onClick={() => { if (!alreadyPredicted) setSign('+') }}
+                disabled={alreadyPredicted}
               >+</button>
               <button
                 className={`quick-btn${sign === '-' ? ' quick-btn-active' : ''}`}
-                onClick={() => setSign('-')}
+                onClick={() => { if (!alreadyPredicted) setSign('-') }}
+                disabled={alreadyPredicted}
               >−</button>
             </div>
             <div className="price-input-wrapper">
-              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => setPrice(e.target.value)} />
+              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted) setPrice(e.target.value) }} readOnly={alreadyPredicted} style={alreadyPredicted ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
             </div>
           </div>
 
+          {alreadyPredicted && (
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측은 이미 제출되었습니다.</p>
+          )}
           <div className="submit-row">
-            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }}>취소</button>
-            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price}>
-              {submitting ? '저장 중...' : '예측 제출하기 →'}
+            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted}>취소</button>
+            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted}>
+              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : '예측 제출하기 →'}
             </button>
           </div>
         </div>

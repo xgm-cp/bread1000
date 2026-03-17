@@ -122,7 +122,7 @@ export default function HomePage() {
         <div className="home-hero">
           <div className="eyebrow">천원으로 시작하는 투자 감각</div>
           <h1>오늘의 <em>종가</em>,<br />당신이 맞춰보세요</h1>
-          <p>실시간 주식 데이터를 바탕으로 종가를 예측하고<br />전국 투자자들과 실력을 겨뤄보세요.</p>
+          <p>실시간 주식 데이터를 바탕으로 종가를 예측하고<br />내부 투자자들과 실력을 겨뤄보세요.</p>
           <div className="home-cta">
             <button className="btn-gold" onClick={() => router.push('/home/predict')}>지금 예측하기</button>
             <button className="btn-ghost" onClick={() => router.push('/home/result')}>오늘의 결과 보기</button>

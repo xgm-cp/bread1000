@@ -90,7 +90,7 @@ export default function HomePage() {
             .limit(50)
             .then(({ data }) => {
               if (!data) return
-              const entries = data as LeaderboardEntry[]
+              const entries = data as unknown as LeaderboardEntry[]
               const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
               const kospiDir = sessionStorage.getItem('kospiDir') ?? ''
 

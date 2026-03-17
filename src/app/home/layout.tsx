@@ -15,7 +15,6 @@ const tabs = [
 export default function HomeLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [userInitial, setUserInitial] = useState('?')
   const [isAdmin, setIsAdmin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -24,8 +23,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
     const stored = sessionStorage.getItem('user')
     if (!stored) { router.push('/'); return }
     const user = JSON.parse(stored)
-    setUserInitial((user.이름 || user.아이디 || '?')[0])
-    setIsAdmin(user.role === 1)
+setIsAdmin(user.role === 1)
   }, [router])
 
   useEffect(() => {
@@ -55,7 +53,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
       <nav>
         <div onClick={() => router.push('/home')} style={{ cursor: 'pointer', width: 60, height: 36, background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)', WebkitMaskImage: 'url(/company_logo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: 'url(/company_logo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }} />
         <div ref={menuRef} style={{ position: 'relative' }}>
-          <div className="avatar" onClick={() => setMenuOpen(v => !v)}>{userInitial}</div>
+          <div className="avatar" onClick={() => setMenuOpen(v => !v)}><User size={16} /></div>
           {menuOpen && (
             <div style={{
               position: 'absolute', top: '44px', right: 0,

@@ -28,7 +28,7 @@ export default function LoginPage() {
       if (mode === 'signup') {
         const { error } = await supabase
           .from('회원기본')
-          .insert({ 아이디, 이름, 패스워드 })
+          .insert({ 아이디, 이름, 패스워드, 사용여부: 'P' })
 
         if (error) {
           if (error.code === '23505') setError('이미 사용 중인 아이디입니다.')
@@ -53,8 +53,12 @@ export default function LoginPage() {
           setError('아이디 또는 패스워드가 올바르지 않습니다.')
           return
         }
+        if (row.사용여부 === 'P') {
+          setError('가입 승인 대기 중입니다. 관리자 승인 후 로그인할 수 있어요.')
+          return
+        }
         if (row.사용여부 === 'N') {
-          setError('!!!사용이 중지된 계정입니다. 관리자에게 문의하세요!!!!')
+          setError('사용이 중지된 계정입니다. 관리자에게 문의하세요.')
           return
         }
 

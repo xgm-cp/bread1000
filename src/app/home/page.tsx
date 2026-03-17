@@ -38,7 +38,7 @@ export default function HomePage() {
   const [hasPrediction, setHasPrediction] = useState<boolean | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
 
-  const fetchStocks = useCallback(async () => {
+  const fetchStocks = useCallback(async (retryCount = 0) => {
     setLoading(true)
     setError(false)
     try {
@@ -56,10 +56,15 @@ export default function HomePage() {
         sessionStorage.setItem('kospiDir', dir)
       }
     } catch {
-      setError(true)
-    } finally {
-      setLoading(false)
+      if (retryCount < 3) {
+        setTimeout(() => fetchStocks(retryCount + 1), 2000)
+      } else {
+        setError(true)
+        setLoading(false)
+      }
+      return
     }
+    setLoading(false)
   }, [])
 
   useEffect(() => {

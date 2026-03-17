@@ -108,6 +108,8 @@ export async function GET() {
       prdy_clpr,
       daily,
       mock: false,
+    }, {
+      headers: { 'Cache-Control': 's-maxage=10, stale-while-revalidate=30' },
     })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

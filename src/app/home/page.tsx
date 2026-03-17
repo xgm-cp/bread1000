@@ -19,6 +19,7 @@ type LeaderboardEntry = {
   종가증감구분: string
   종가증감값: number
   순위: number
+  등록일시: string
   회원기본: { 이름: string } | null
 }
 
@@ -46,9 +47,14 @@ export default function HomePage() {
       const data = await res.json()
       if (!Array.isArray(data.stocks) || data.stocks.length === 0) throw new Error('no data')
       setStocks(data.stocks)
-      // 코스피 현재가 저장 (종목코드 '0001', 첫 번째 항목)
+      // 코스피 현재가 및 방향 저장 (종목코드 '0001')
       const kospi = data.stocks.find((s: StockData) => s.ticker === '0001')
-      if (kospi) sessionStorage.setItem('kospiPrice', kospi.price)
+      if (kospi) {
+        sessionStorage.setItem('kospiPrice', kospi.price)
+        // sign '2'=상승, '1'=상한 → U / '5'=하락, '4'=하한 → D
+        const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
+        sessionStorage.setItem('kospiDir', dir)
+      }
     } catch {
       setError(true)
     } finally {
@@ -78,20 +84,33 @@ export default function HomePage() {
         if (predicted) {
           getSupabase()
             .from('종가예측내역')
-            .select('아이디, 예측종가, 종가증감구분, 종가증감값, 순위, 회원기본(이름)')
+            .select('아이디, 예측종가, 종가증감구분, 종가증감값, 순위, 등록일시, 회원기본(이름)')
             .eq('기준일자', today)
             .eq('종목코드', '0001')
             .limit(50)
             .then(({ data }) => {
               if (!data) return
-              const entries = data as unknown as LeaderboardEntry[]
-              // 현재 코스피 값 기준 오차 오름차순 정렬 (오차 작을수록 1위)
+              const entries = data as LeaderboardEntry[]
               const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
-              if (kospiPrice > 0) {
-                entries.sort((a, b) =>
-                  Math.abs(a.예측종가 - kospiPrice) - Math.abs(b.예측종가 - kospiPrice)
-                )
-              }
+              const kospiDir = sessionStorage.getItem('kospiDir') ?? ''
+
+              entries.sort((a, b) => {
+                // 1순위: 방향 일치 여부 (일치 = 0, 불일치 = 1)
+                const aDir = kospiDir ? (a.종가증감구분 === kospiDir ? 0 : 1) : 0
+                const bDir = kospiDir ? (b.종가증감구분 === kospiDir ? 0 : 1) : 0
+                if (aDir !== bDir) return aDir - bDir
+
+                // 2순위: 현재 코스피와의 오차 오름차순
+                if (kospiPrice > 0) {
+                  const aDiff = Math.abs(a.예측종가 - kospiPrice)
+                  const bDiff = Math.abs(b.예측종가 - kospiPrice)
+                  if (aDiff !== bDiff) return aDiff - bDiff
+                }
+
+                // 3순위: 등록일시 오름차순 (빠를수록 우선)
+                return new Date(a.등록일시).getTime() - new Date(b.등록일시).getTime()
+              })
+
               setLeaderboard(entries.slice(0, 10))
             })
         }
@@ -230,8 +249,11 @@ export default function HomePage() {
                       {entry.회원기본?.이름?.slice(0, 1) ?? entry.아이디.slice(0, 1).toUpperCase()}
                     </div>
                     <div className="lb-user-info">
-                      <div className="lb-user-name">
+                      <div className="lb-user-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {entry.회원기본?.이름 ? `${entry.회원기본.이름}(${entry.아이디})` : entry.아이디}
+                        <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 400 }}>
+                          {new Date(entry.등록일시).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                       <div className="lb-user-score" style={{ color: entry.종가증감구분 === 'U' ? '#FF5C5C' : '#4A90E2', fontWeight: 700 }}>
                         {formatPrediction(entry)}

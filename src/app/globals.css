@@ -11,10 +11,10 @@
   --gold-light: #FF6B9D;
   --gold-dim: rgba(255,61,120,0.12);
   --primary-gradient: linear-gradient(135deg, #FF3D78, #9B2FC9);
-  --up: #2ECC8A;
-  --down: #FF5C5C;
-  --up-dim: rgba(46,204,138,0.1);
-  --down-dim: rgba(255,92,92,0.1);
+  --up: #FF4B4B;
+  --down: #3B8BFF;
+  --up-dim: rgba(255,75,75,0.1);
+  --down-dim: rgba(59,139,255,0.1);
   --text: #EEF0F4;
   --text2: #8892A0;
   --text3: #4A5568;

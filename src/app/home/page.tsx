@@ -81,7 +81,7 @@ export default function HomePage() {
             .order('예측종가', { ascending: false })
             .limit(10)
             .then(({ data }) => {
-              setLeaderboard((data as LeaderboardEntry[]) ?? [])
+              setLeaderboard((data as unknown as LeaderboardEntry[]) ?? [])
             })
         }
       })

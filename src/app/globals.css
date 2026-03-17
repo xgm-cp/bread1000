@@ -118,9 +118,9 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
 .psi-current-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
 .psi-price { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--text); line-height: 1; margin-bottom: 4px; }
 .psi-prev { font-size: 11px; color: var(--text3); }
-.chart-area { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+.chart-area { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px 24px; margin-bottom: 14px; }
 .chart-label { font-size: 11px; color: var(--text3); margin-bottom: 12px; display: flex; justify-content: space-between; }
-.mini-chart { width: 100%; height: 60px; display: block; }
+.mini-chart { width: 100%; height: 100px; display: block; }
 .chart-line { fill: none; stroke: var(--up); stroke-width: 2; }
 .chart-area-fill { fill: url(#chartGrad); }
 .prediction-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
@@ -133,9 +133,10 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
 .price-input { width: 100%; background: var(--bg); border: 1.5px solid var(--border2); color: var(--text); font-family: 'DM Serif Display', serif; font-size: 28px; padding: 14px 16px 14px 40px; border-radius: 12px; outline: none; transition: border-color 0.2s; }
 .price-input:focus { border-color: var(--gold); }
 .price-input::placeholder { color: var(--text3); }
-.quick-buttons { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-top: 8px; }
-.quick-btn { background: var(--bg); border: 1px solid var(--border2); color: var(--text2); padding: 10px 4px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; text-align: center; }
+.quick-buttons { display: grid; grid-template-columns: repeat(2,1fr); gap: 6px; margin-top: 8px; }
+.quick-btn { background: var(--bg); border: 1px solid var(--border2); color: var(--text2); padding: 10px 4px; border-radius: 8px; font-size: 18px; font-weight: 700; cursor: pointer; font-family: inherit; text-align: center; }
 .quick-btn:active { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+.quick-btn-active { border-color: var(--gold) !important; color: var(--gold) !important; background: var(--gold-dim) !important; }
 .confidence-group { margin-bottom: 18px; }
 .confidence-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .confidence-value { font-size: 13px; font-weight: 700; color: var(--gold); }
@@ -228,3 +229,5 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

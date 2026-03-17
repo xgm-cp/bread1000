@@ -176,8 +176,13 @@ export default function HomePage() {
                 {loading ? '🔄 새로고침 중...' : '🔄 새로고침'}
               </button>
             </div>
+            {error && stocks.length > 0 && (
+              <div style={{ fontSize: '11px', color: '#FF5C5C', padding: '4px 0 6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                ⚠ 갱신 실패 · 이전 데이터를 표시 중입니다
+              </div>
+            )}
             <div className="stock-grid">
-              {loading
+              {loading && stocks.length === 0
                 ? [0, 1, 2].map(i => (
                     <div key={i} className="stock-card" style={{ opacity: 0.5 }}>
                       <div className="stock-card-left">
@@ -188,7 +193,7 @@ export default function HomePage() {
                       </div>
                     </div>
                   ))
-                : error
+                : error && stocks.length === 0
                 ? (
                     <div className="stock-card" style={{ gridColumn: '1 / -1', justifyContent: 'center', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
                       <div className="stock-name" style={{ color: '#ff6b6b' }}>데이터를 불러오지 못했습니다</div>

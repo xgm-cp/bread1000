@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
+import { getSupabase } from '@/lib/supabase'
 
 type StockData = {
   ticker: string
@@ -18,6 +19,7 @@ export default function HomePage() {
   const [stocks, setStocks] = useState<StockData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [hasPrediction, setHasPrediction] = useState<boolean | null>(null)
 
   const fetchStocks = useCallback(async () => {
     setLoading(true)
@@ -37,6 +39,20 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchStocks()
+
+    const stored = sessionStorage.getItem('user')
+    if (!stored) return
+    const user = JSON.parse(stored)
+    const today = new Date().toISOString().slice(0, 10)
+
+    getSupabase()
+      .from('종가예측내역')
+      .select('아이디', { count: 'exact', head: true })
+      .eq('기준일자', today)
+      .eq('아이디', user.아이디)
+      .then(({ count }) => {
+        setHasPrediction((count ?? 0) > 0)
+      })
   }, [fetchStocks, pathname])
 
   function getSign(sign: string) {
@@ -134,24 +150,36 @@ export default function HomePage() {
               <span className="lb-title">실시간 리더보드</span>
               <span className="lb-see-all" onClick={() => router.push('/home/result')}>전체 보기 →</span>
             </div>
-            <div className="lb-row">
-              <div className="lb-rank rank-1">1</div>
-              <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#FFD700,#FF8C00)', color: '#111' }}>이</div>
-              <div className="lb-user-info"><div className="lb-user-name">이재윤</div><div className="lb-user-score">4,820점 · 12연속 🔥</div></div>
-              <div className="lb-accuracy"><div className="lb-pct">96.4%</div><div className="lb-streak">정확도</div></div>
-            </div>
-            <div className="lb-row">
-              <div className="lb-rank rank-2">2</div>
-              <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#B0C8DC,#6B9DB5)', color: '#fff' }}>박</div>
-              <div className="lb-user-info"><div className="lb-user-name">박수현</div><div className="lb-user-score">4,510점 · 8연속</div></div>
-              <div className="lb-accuracy"><div className="lb-pct">94.1%</div><div className="lb-streak">정확도</div></div>
-            </div>
-            <div className="lb-row">
-              <div className="lb-rank rank-3">3</div>
-              <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#D49A6A,#A0622A)', color: '#fff' }}>최</div>
-              <div className="lb-user-info"><div className="lb-user-name">최민서</div><div className="lb-user-score">4,380점 · 5연속</div></div>
-              <div className="lb-accuracy"><div className="lb-pct">91.8%</div><div className="lb-streak">정확도</div></div>
-            </div>
+            {hasPrediction === false ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 0' }}>
+                <div style={{ fontSize: '2em' }}>🎯</div>
+                <div style={{ color: 'var(--text2)', fontSize: '14px', textAlign: 'center' }}>오늘 아직 예측하지 않으셨어요!</div>
+                <button className="btn-gold" style={{ fontSize: '13px', padding: '8px 20px' }} onClick={() => router.push('/home/predict')}>
+                  지금 예측해주세요
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="lb-row">
+                  <div className="lb-rank rank-1">1</div>
+                  <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#FFD700,#FF8C00)', color: '#111' }}>이</div>
+                  <div className="lb-user-info"><div className="lb-user-name">이재윤</div><div className="lb-user-score">4,820점 · 12연속 🔥</div></div>
+                  <div className="lb-accuracy"><div className="lb-pct">96.4%</div><div className="lb-streak">정확도</div></div>
+                </div>
+                <div className="lb-row">
+                  <div className="lb-rank rank-2">2</div>
+                  <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#B0C8DC,#6B9DB5)', color: '#fff' }}>박</div>
+                  <div className="lb-user-info"><div className="lb-user-name">박수현</div><div className="lb-user-score">4,510점 · 8연속</div></div>
+                  <div className="lb-accuracy"><div className="lb-pct">94.1%</div><div className="lb-streak">정확도</div></div>
+                </div>
+                <div className="lb-row">
+                  <div className="lb-rank rank-3">3</div>
+                  <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#D49A6A,#A0622A)', color: '#fff' }}>최</div>
+                  <div className="lb-user-info"><div className="lb-user-name">최민서</div><div className="lb-user-score">4,380점 · 5연속</div></div>
+                  <div className="lb-accuracy"><div className="lb-pct">91.8%</div><div className="lb-streak">정확도</div></div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

@@ -92,23 +92,6 @@ export default function PredictPage() {
 
         <div className="predict-stock-info">
           <div>
-            <div className="psi-ticker">전일 종가</div>
-            <div className="psi-name">코스피</div>
-            <div className="psi-market">Previous Day Closing Index</div>
-          </div>
-          <div className="psi-right">
-            <div className="psi-current-label">전일 종가</div>
-            <div className="psi-price">
-              {kospi?.prdy_clpr
-                ? Number(kospi.prdy_clpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 })
-                : '—'}
-            </div>
-            <div className="psi-prev">전영업일 기준</div>
-          </div>
-        </div>
-
-        <div className="predict-stock-info">
-          <div>
             <div className="psi-ticker">KOSPI 지수</div>
             <div className="psi-name">코스피</div>
             <div className="psi-market">Korea Composite Stock Price Index</div>
@@ -137,19 +120,27 @@ export default function PredictPage() {
                 ? (() => {
                     const up = kospi.prdy_vrss_sign === '2' || kospi.prdy_vrss_sign === '1'
                     const down = kospi.prdy_vrss_sign === '4' || kospi.prdy_vrss_sign === '5'
-                    const sign = up ? '+' : down ? '-' : ''
+                    const s = up ? '+' : down ? '-' : ''
                     const cls = up ? 'change-up' : down ? 'change-down' : ''
                     return (
                       <>
                         전일 대비{' '}
                         <span className={cls}>
-                          {sign}{Number(kospi.bstp_nmix_prdy_vrss).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
-                          {' '}({sign}{kospi.bstp_nmix_prdy_ctrt}%)
+                          {s}{Number(kospi.bstp_nmix_prdy_vrss).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
+                          {' '}({s}{kospi.bstp_nmix_prdy_ctrt}%)
                         </span>
                       </>
                     )
                   })()
                 : '데이터 로딩 중...'}
+            </div>
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border, rgba(255,255,255,0.08))', fontSize: 12, color: 'var(--text2)' }}>
+              전일 종가{' '}
+              <span style={{ fontWeight: 600, color: 'var(--text1)' }}>
+                {kospi?.prdy_clpr
+                  ? Number(kospi.prdy_clpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 })
+                  : '—'}
+              </span>
             </div>
           </div>
         </div>

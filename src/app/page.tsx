@@ -74,23 +74,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#0A0C0F', display: 'flex', flexDirection: 'column' }}>
-      {/* 헤더 영역 */}
-      <div style={{ padding: '72px 24px 44px', textAlign: 'center', animation: 'loginFadeUp 0.5s ease both' }}>
-        <img src="/company_logo.png" alt="logo" style={{ width: '88px', height: '88px', objectFit: 'contain', marginBottom: '16px', filter: 'drop-shadow(0 0 20px rgba(232,61,120,0.4))' }} />
-        <div style={{
-          fontFamily: 'DM Serif Display, serif', fontSize: '26px',
-          background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}>
+    <div style={{ minHeight: '100dvh', background: '#0A0C0F', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+      {/* 플로팅 오브 */}
+      <div style={{ position: 'absolute', top: '10%', left: '30%', width: '220px', height: '220px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,61,120,0.28), transparent 70%)', filter: 'blur(32px)', animation: 'orb1 9s ease-in-out infinite', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: '20%', right: '10%', width: '180px', height: '180px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(155,47,201,0.24), transparent 70%)', filter: 'blur(28px)', animation: 'orb2 12s ease-in-out infinite', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: '5%', left: '10%', width: '140px', height: '140px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,120,61,0.18), transparent 70%)', filter: 'blur(24px)', animation: 'orb3 15s ease-in-out infinite', pointerEvents: 'none' }} />
+
+      <div style={{ padding: '72px 24px 44px', textAlign: 'center', animation: 'loginFadeUp 0.5s ease both', position: 'relative', zIndex: 1 }}>
+        <img src="/company_logo.png" alt="logo" style={{ width: '120px', objectFit: 'contain', display: 'block', margin: '0 auto 4px' , filter: 'drop-shadow(0 0 20px rgba(232,61,120,0.4))' }} />
+        <div style={{ fontSize: '12px', letterSpacing: '0.14em', color: '#8892A0', fontWeight: 500 }}>
           bread1000
         </div>
       </div>
 
-      {/* 폼 영역 */}
-      <div style={{ flex: 1, padding: '0 24px 48px', animation: 'loginFadeUp 0.5s ease 0.1s both' }}>
-        {/* 탭 */}
+      <div style={{ flex: 1, padding: '0 24px 48px', animation: 'loginFadeUp 0.5s ease 0.1s both', position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', background: '#111418', border: '1px solid #1E2430', borderRadius: '12px', marginBottom: '24px', overflow: 'hidden' }}>
           {(['login', 'signup'] as Mode[]).map((m) => (
             <button key={m} onClick={() => { setMode(m); setError('') }} style={{

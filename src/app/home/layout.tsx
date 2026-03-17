@@ -3,18 +3,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { Home, TrendingUp, Trophy, User, Settings, LogOut } from 'lucide-react'
 
 const tabs = [
-  { href: '/home',         icon: '🏠', label: '홈' },
-  { href: '/home/predict', icon: '📈', label: '예측' },
-  { href: '/home/result',  icon: '🏆', label: '결과' },
-  { href: '/home/mypage',  icon: '👤', label: '마이' },
+  { href: '/home',         icon: Home,        label: '홈' },
+  { href: '/home/predict', icon: TrendingUp,  label: '예측' },
+  { href: '/home/result',  icon: Trophy,      label: '결과' },
+  { href: '/home/mypage',  icon: User,        label: '마이' },
 ]
 
 export default function HomeLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [userInitial, setUserInitial] = useState('?')
+  const [isAdmin, setIsAdmin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -23,6 +25,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
     if (!stored) { router.push('/'); return }
     const user = JSON.parse(stored)
     setUserInitial((user.이름 || user.아이디 || '?')[0])
+    setIsAdmin(user.role === 1)
   }, [router])
 
   useEffect(() => {
@@ -40,11 +43,18 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
     router.push('/')
   }
 
+  const menuBtnStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 10,
+    width: '100%', padding: '12px 18px',
+    textAlign: 'left', background: 'none', border: 'none',
+    fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+  }
+
   return (
     <>
       <nav>
         <div className="logo" onClick={() => router.push('/home')}>
-          천원빵<sub>종가 예측 게임</sub>
+          bread1000
         </div>
         <div ref={menuRef} style={{ position: 'relative' }}>
           <div className="avatar" onClick={() => setMenuOpen(v => !v)}>{userInitial}</div>
@@ -53,20 +63,23 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
               position: 'absolute', top: '44px', right: 0,
               background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: '12px', overflow: 'hidden',
-              minWidth: '140px', zIndex: 200,
+              minWidth: '160px', zIndex: 200,
               boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
             }}>
-              <button onClick={() => { setMenuOpen(false); router.push('/home/mypage') }} style={{
-                display: 'block', width: '100%', padding: '13px 18px',
-                textAlign: 'left', background: 'none', border: 'none',
-                color: 'var(--text)', fontSize: '14px', cursor: 'pointer',
-                borderBottom: '1px solid var(--border)',
-              }}>👤 마이페이지</button>
-              <button onClick={logout} style={{
-                display: 'block', width: '100%', padding: '13px 18px',
-                textAlign: 'left', background: 'none', border: 'none',
-                color: 'var(--down)', fontSize: '14px', cursor: 'pointer',
-              }}>🚪 로그아웃</button>
+              <button onClick={() => { setMenuOpen(false); router.push('/home/mypage') }}
+                style={{ ...menuBtnStyle, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}>
+                <User size={15} /> 마이페이지
+              </button>
+              {isAdmin && (
+                <button onClick={() => { setMenuOpen(false); router.push('/admin') }}
+                  style={{ ...menuBtnStyle, color: 'var(--accent)', borderBottom: '1px solid var(--border)' }}>
+                  <Settings size={15} /> 관리자 페이지
+                </button>
+              )}
+              <button onClick={logout}
+                style={{ ...menuBtnStyle, color: 'var(--down)' }}>
+                <LogOut size={15} /> 로그아웃
+              </button>
             </div>
           )}
         </div>
@@ -75,12 +88,16 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
       {children}
 
       <div className="bottom-nav">
-        {tabs.map(tab => (
-          <Link key={tab.href} href={tab.href} className={`bn-tab${pathname === tab.href ? ' active' : ''}`}>
-            <span className="bn-icon">{tab.icon}</span>
-            <span className="bn-label">{tab.label}</span>
-          </Link>
-        ))}
+        {tabs.map(tab => {
+          const Icon = tab.icon
+          const active = pathname === tab.href
+          return (
+            <Link key={tab.href} href={tab.href} className={`bn-tab${active ? ' active' : ''}`}>
+              <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
+              <span className="bn-label">{tab.label}</span>
+            </Link>
+          )
+        })}
       </div>
     </>
   )

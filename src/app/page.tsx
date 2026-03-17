@@ -47,7 +47,7 @@ export default function LoginPage() {
           .eq('패스워드', 패스워드)
           .single()
 
-        const row = data as { 아이디: string; 이름: string; 사용여부: string } | null
+        const row = data as { 아이디: string; 이름: string; 사용여부: string; role: number } | null
 
         if (error || !row) {
           setError('아이디 또는 패스워드가 올바르지 않습니다.')
@@ -58,7 +58,7 @@ export default function LoginPage() {
           return
         }
 
-        sessionStorage.setItem('user', JSON.stringify({ 아이디: row.아이디, 이름: row.이름 }))
+        sessionStorage.setItem('user', JSON.stringify({ 아이디: row.아이디, 이름: row.이름, role: row.role }))
         router.push('/home')
       }
     } finally {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const BASE_URL = 'https://openapi.koreainvestment.com:9443'
+const BASE_URL = 'https://openapivts.koreainvestment.com:29443'  
 
 function toDateStr(d: Date) {
   return d.toISOString().slice(0, 10).replace(/-/g, '')

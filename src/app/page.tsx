@@ -81,7 +81,7 @@ export default function LoginPage() {
       <div style={{ position: 'absolute', top: '5%', left: '10%', width: '140px', height: '140px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,120,61,0.18), transparent 70%)', filter: 'blur(24px)', animation: 'orb3 15s ease-in-out infinite', pointerEvents: 'none' }} />
 
       <div style={{ padding: '72px 24px 44px', textAlign: 'center', animation: 'loginFadeUp 0.5s ease both', position: 'relative', zIndex: 1 }}>
-        <img src="/company_logo.png" alt="logo" style={{ width: '120px', objectFit: 'contain', display: 'block', margin: '0 auto 4px' , filter: 'drop-shadow(0 0 20px rgba(232,61,120,0.4))' }} />
+        <div style={{ width: '120px', height: '60px', margin: '0 auto 4px', background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)', WebkitMaskImage: 'url(/company_logo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: 'url(/company_logo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center', filter: 'drop-shadow(0 0 20px rgba(232,61,120,0.4))' }} />
         <div style={{ fontSize: '12px', letterSpacing: '0.14em', color: '#8892A0', fontWeight: 500 }}>
           bread1000
         </div>

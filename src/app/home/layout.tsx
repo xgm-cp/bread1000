@@ -53,9 +53,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   return (
     <>
       <nav>
-        <div className="logo" onClick={() => router.push('/home')}>
-          bread1000
-        </div>
+        <div onClick={() => router.push('/home')} style={{ cursor: 'pointer', width: 60, height: 36, background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)', WebkitMaskImage: 'url(/company_logo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: 'url(/company_logo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }} />
         <div ref={menuRef} style={{ position: 'relative' }}>
           <div className="avatar" onClick={() => setMenuOpen(v => !v)}>{userInitial}</div>
           {menuOpen && (

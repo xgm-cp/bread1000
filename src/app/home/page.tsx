@@ -84,7 +84,7 @@ export default function HomePage() {
             .limit(50)
             .then(({ data }) => {
               if (!data) return
-              const entries = data as LeaderboardEntry[]
+              const entries = data as unknown as LeaderboardEntry[]
               // 현재 코스피 값 기준 오차 오름차순 정렬 (오차 작을수록 1위)
               const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
               if (kospiPrice > 0) {

@@ -76,26 +76,29 @@ export default function LoginPage() {
   return (
     <div style={{ minHeight: '100dvh', background: '#0A0C0F', display: 'flex', flexDirection: 'column' }}>
       {/* 헤더 영역 */}
-      <div style={{ padding: '60px 24px 40px', textAlign: 'center' }}>
-        <img src="/company_logo.png" alt="logo" style={{ width: '100px', height: '100px', objectFit: 'contain', marginBottom: '12px' }} />
-        <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '22px', color: '#C9A84C', marginBottom: '4px' }}>
+      <div style={{ padding: '72px 24px 44px', textAlign: 'center', animation: 'loginFadeUp 0.5s ease both' }}>
+        <img src="/company_logo.png" alt="logo" style={{ width: '88px', height: '88px', objectFit: 'contain', marginBottom: '16px', filter: 'drop-shadow(0 0 20px rgba(232,61,120,0.4))' }} />
+        <div style={{
+          fontFamily: 'DM Serif Display, serif', fontSize: '26px',
+          background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+        }}>
           bread1000
-        </div>
-        <div style={{ fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#4A5568' }}>
-          종가 예측 게임
         </div>
       </div>
 
       {/* 폼 영역 */}
-      <div style={{ flex: 1, padding: '0 24px 40px' }}>
+      <div style={{ flex: 1, padding: '0 24px 48px', animation: 'loginFadeUp 0.5s ease 0.1s both' }}>
         {/* 탭 */}
         <div style={{ display: 'flex', background: '#111418', border: '1px solid #1E2430', borderRadius: '12px', marginBottom: '24px', overflow: 'hidden' }}>
           {(['login', 'signup'] as Mode[]).map((m) => (
             <button key={m} onClick={() => { setMode(m); setError('') }} style={{
               flex: 1, padding: '13px', fontSize: '14px', fontWeight: 600,
-              background: mode === m ? 'rgba(201,168,76,0.12)' : 'transparent',
-              color: mode === m ? '#C9A84C' : '#4A5568',
+              background: mode === m ? 'rgba(232,61,120,0.12)' : 'transparent',
+              color: mode === m ? '#FF3D78' : '#4A5568',
               border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              transition: 'all 0.2s',
             }}>
               {m === 'login' ? '로그인' : '회원가입'}
             </button>
@@ -106,7 +109,7 @@ export default function LoginPage() {
           <div>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8892A0', marginBottom: '8px' }}>아이디</label>
             <input style={inp} type="text" value={아이디} onChange={e => set아이디(e.target.value)} maxLength={10} required placeholder="최대 10자"
-              onFocus={e => (e.target.style.borderColor = '#C9A84C')}
+              onFocus={e => (e.target.style.borderColor = '#FF3D78')}
               onBlur={e => (e.target.style.borderColor = '#252D3A')} />
           </div>
 
@@ -114,7 +117,7 @@ export default function LoginPage() {
             <div>
               <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8892A0', marginBottom: '8px' }}>이름</label>
               <input style={inp} type="text" value={이름} onChange={e => set이름(e.target.value)} maxLength={50} required placeholder="이름 입력"
-                onFocus={e => (e.target.style.borderColor = '#C9A84C')}
+                onFocus={e => (e.target.style.borderColor = '#FF3D78')}
                 onBlur={e => (e.target.style.borderColor = '#252D3A')} />
             </div>
           )}
@@ -122,7 +125,7 @@ export default function LoginPage() {
           <div>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8892A0', marginBottom: '8px' }}>패스워드</label>
             <input style={inp} type="password" value={패스워드} onChange={e => set패스워드(e.target.value)} required placeholder="패스워드 입력"
-              onFocus={e => (e.target.style.borderColor = '#C9A84C')}
+              onFocus={e => (e.target.style.borderColor = '#FF3D78')}
               onBlur={e => (e.target.style.borderColor = '#252D3A')} />
           </div>
 
@@ -131,9 +134,11 @@ export default function LoginPage() {
           <button type="submit" disabled={loading} style={{
             width: '100%', padding: '15px', borderRadius: '12px',
             fontWeight: 700, fontSize: '15px', border: 'none',
-            background: loading ? '#8B6A2A' : '#C9A84C',
-            color: '#0A0C0F', cursor: loading ? 'not-allowed' : 'pointer',
+            background: loading ? '#6B1F4A' : 'linear-gradient(135deg, #FF3D78, #9B2FC9)',
+            color: '#fff', cursor: loading ? 'not-allowed' : 'pointer',
             marginTop: '4px', fontFamily: 'inherit',
+            boxShadow: loading ? 'none' : '0 4px 20px rgba(232,61,120,0.35)',
+            transition: 'opacity 0.2s',
           }}>
             {loading ? '처리 중...' : mode === 'login' ? '로그인' : '회원가입'}
           </button>

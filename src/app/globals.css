@@ -147,7 +147,7 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
 .chart-area { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px 24px; margin-bottom: 14px; }
 .chart-label { font-size: 11px; color: var(--text3); margin-bottom: 12px; display: flex; justify-content: space-between; }
 .mini-chart { width: 100%; height: 100px; display: block; }
-.chart-line { fill: none; stroke: var(--up); stroke-width: 2; }
+.chart-line { fill: none; stroke: #FF3D78; stroke-width: 2; }
 .chart-area-fill { fill: url(#chartGrad); }
 .prediction-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
 .prediction-panel h3 { font-family: var(--font-serif), serif; font-size: 18px; margin-bottom: 4px; }

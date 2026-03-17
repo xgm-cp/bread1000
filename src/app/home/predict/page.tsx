@@ -168,8 +168,8 @@ export default function PredictPage() {
                 <svg className="mini-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2ECC8A" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#2ECC8A" stopOpacity="0" />
+                      <stop offset="0%" stopColor="#FF3D78" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#FF3D78" stopOpacity="0" />
                     </linearGradient>
                   </defs>
                   <path className="chart-area-fill" d={areaPath} />
@@ -181,8 +181,8 @@ export default function PredictPage() {
                     const dd = daily[i].date.slice(6, 8)
                     return (
                       <g key={i}>
-                        <circle cx={cx} cy={cy} r={isLast ? 4 : 3} fill={isLast ? '#2ECC8A' : '#2ECC8A'} opacity={isLast ? 1 : 0.7} />
-                        <text x={cx} y={cy - 8} textAnchor="middle" fontSize="10" fill="#2ECC8A" fontFamily="inherit">{v.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</text>
+                        <circle cx={cx} cy={cy} r={isLast ? 4 : 3} fill={isLast ? '#FF3D78' : '#FF3D78'} opacity={isLast ? 1 : 0.7} />
+                        <text x={cx} y={cy - 8} textAnchor="middle" fontSize="10" fill="#FF3D78" fontFamily="inherit">{v.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</text>
                         <text x={cx} y={chartH + 14} textAnchor="middle" fontSize="11" fill="#8892A0" fontFamily="inherit">{mm}.{dd}</text>
                       </g>
                     )

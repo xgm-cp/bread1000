@@ -142,7 +142,6 @@ export default function MypagePage() {
             </div>
             <div style={{ flex: 1 }}>
               <div className="profile-name" style={{ textAlign: 'left', marginBottom: 2 }}>{userName || '-'}</div>
-              <div className="profile-handle" style={{ textAlign: 'left', marginBottom: 0 }}>오늘도 빵 벌어가세요 🍞</div>
             </div>
           </div>
 
@@ -172,96 +171,93 @@ export default function MypagePage() {
           <button className="btn-edit-profile" onClick={logout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><LogOut size={15} /> 로그아웃</button>
         </div>
 
-        {/* 오늘 내 예측 */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>오늘 내 예측</div>
+        {/* 예측 히스토리 */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            예측 기록
+          </div>
 
-          {todayPred === 'none' && (
-            <div style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 13, padding: '8px 0' }}>불러오는 중...</div>
-          )}
-
-          {todayPred === null && (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 14 }}>오늘 아직 예측하지 않았어요</div>
-              <button onClick={() => router.push('/home/predict')} style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
-                예측하러 가기 →
+          {/* 오늘 행 */}
+          {todayPred === 'none' ? (
+            <div style={{ padding: '16px 18px', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>불러오는 중...</div>
+          ) : todayPred === null ? (
+            <div style={{ padding: '16px 18px', borderBottom: history.length > 0 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'rgba(255,61,120,0.12)', color: '#FF3D78' }}>오늘</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date().toISOString().slice(0, 10)}</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text3)' }}>아직 예측하지 않았어요</div>
+              </div>
+              <button onClick={() => router.push('/home/predict')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                예측하기 →
               </button>
             </div>
-          )}
-
-          {todayPred && todayPred !== 'none' && (
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-                <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 6 }}>예측 방향</div>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}><DirIcon code={todayPred.종가증감구분} /></div>
+          ) : (
+            <div style={{ padding: '14px 18px', borderBottom: history.length > 0 ? '1px solid var(--border)' : 'none', background: 'rgba(255,61,120,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'rgba(255,61,120,0.12)', color: '#FF3D78' }}>오늘</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date().toISOString().slice(0, 10)}</span>
                 </div>
-                <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 6 }}>예측 지수</div>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20 }}>{Number(todayPred.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
-                </div>
+                <DirIcon code={todayPred.종가증감구분} />
               </div>
-
-              {kospi ? (
-                <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '14px 16px' }}>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 8 }}>현재 코스피 지수</div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 26 }}>{kospi.price}</div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: isUp(kospi.changeSign) ? 'var(--up)' : 'var(--down)' }}>
-                        {isUp(kospi.changeSign) ? '▲' : '▼'} {Math.abs(Number(kospi.change)).toFixed(2)}
-                      </div>
-                      <div style={{ fontSize: 12, color: isUp(kospi.changeSign) ? 'var(--up)' : 'var(--down)' }}>
-                        {Math.abs(Number(kospi.changePct)).toFixed(2)}%
-                      </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: kospi ? 10 : 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>예측 지수</div>
+                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>{Number(todayPred.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+              </div>
+              {kospi && (
+                <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>현재 코스피</div>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>{kospi.price}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: isUp(kospi.changeSign) ? 'var(--up)' : 'var(--down)' }}>
+                      {isUp(kospi.changeSign) ? '▲' : '▼'} {Math.abs(Number(kospi.change)).toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                      오차 ±{Math.abs(Number(kospi.price.replace(/,/g, '')) - todayPred.예측종가).toFixed(2)}p
                     </div>
                   </div>
-                  <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
-                    내 예측과 현재 오차:{' '}
-                    <span style={{ fontWeight: 700, color: 'var(--text2)' }}>
-                      ±{Math.abs(Number(kospi.price.replace(/,/g, '')) - todayPred.예측종가).toFixed(2)}p
-                    </span>
-                  </div>
                 </div>
-              ) : (
-                <div style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '8px 0' }}>실시간 지수 불러오는 중...</div>
+              )}
+              {!kospi && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center' }}>실시간 지수 불러오는 중...</div>
               )}
             </div>
           )}
-        </div>
 
-        {/* 지난 게임 히스토리 */}
-        {history.length > 0 && (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              지난 게임 기록
-            </div>
-            {history.map((item, i) => (
-              <div key={i} style={{ padding: '13px 18px', borderBottom: i < history.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>{item.기준일자}</div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>
-                    <DirIcon code={item.종가증감구분} /> · {Number(item.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  {item.순위 === 1 ? (
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}><Trophy size={14} /> 우승</div>
-                  ) : item.순위 ? (
-                    <div style={{ fontSize: 14, color: 'var(--text2)' }}>{item.순위}위</div>
-                  ) : (
-                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
-                  )}
-                  {item.종가증감값 !== null && (
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      오차 ±{Number(item.종가증감값).toFixed(2)}p
-                    </div>
-                  )}
+          {/* 지난 기록 */}
+          {history.map((item, i) => (
+            <div key={i} style={{ padding: '13px 18px', borderBottom: i < history.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>{item.기준일자}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                  <DirIcon code={item.종가증감구분} />
+                  <span style={{ color: 'var(--text3)' }}>·</span>
+                  <span style={{ fontFamily: 'var(--font-serif)' }}>{Number(item.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+              <div style={{ textAlign: 'right' }}>
+                {item.순위 === 1 ? (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}><Trophy size={13} /> 우승</div>
+                ) : item.순위 ? (
+                  <div style={{ fontSize: 13, color: 'var(--text2)' }}>{item.순위}위</div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
+                )}
+                {item.종가증감값 !== null && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>±{Number(item.종가증감값).toFixed(2)}p</div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {todayPred !== 'none' && history.length === 0 && todayPred !== null && (
+            <div style={{ padding: '12px 18px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>아직 지난 기록이 없어요</div>
+          )}
+        </div>
 
       </div>
     </div>

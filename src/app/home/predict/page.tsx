@@ -195,7 +195,7 @@ export default function PredictPage() {
 
         <div className="prediction-panel">
           <h3>오늘의 종가를 예측하세요</h3>
-          <p>장 마감(오후 3:30) 시 삼성전자의 최종 거래 가격을 입력하세요.<br />정확할수록 높은 점수를 받습니다.</p>
+          <p>장 마감 시의 최종 지수를 입력하세요.</p>
           <div className="input-group">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 10 }}>
               예측 증감값

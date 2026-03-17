@@ -123,7 +123,16 @@ export default function HomePage() {
 
   function formatPrediction(entry: LeaderboardEntry) {
     const dir = entry.종가증감구분 === 'U' ? '▲' : '▼'
-    return `${entry.예측종가.toFixed(2)} (${dir}${entry.종가증감값})`
+    const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
+    const diff = kospiPrice > 0 ? Math.abs(entry.예측종가 - kospiPrice).toFixed(2) : null
+    return (
+      <span>
+        {entry.예측종가.toFixed(2)} {dir}{entry.종가증감값}
+        {diff !== null && (
+          <span> (현재차이 : <span style={{ color: '#ffffff' }}>{diff}</span>)</span>
+        )}
+      </span>
+    )
   }
 
   return (
@@ -224,7 +233,9 @@ export default function HomePage() {
                       <div className="lb-user-name">
                         {entry.회원기본?.이름 ? `${entry.회원기본.이름}(${entry.아이디})` : entry.아이디}
                       </div>
-                      <div className="lb-user-score">{formatPrediction(entry)}</div>
+                      <div className="lb-user-score" style={{ color: entry.종가증감구분 === 'U' ? '#FF5C5C' : '#4A90E2', fontWeight: 700 }}>
+                        {formatPrediction(entry)}
+                      </div>
                     </div>
                     <div className="lb-accuracy">
                       <div className="lb-pct" style={{ color: entry.종가증감구분 === 'U' ? 'var(--up)' : 'var(--down)' }}>

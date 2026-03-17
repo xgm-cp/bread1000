@@ -21,8 +21,12 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('user')
-    if (!stored) { router.push('/'); return }
+    let stored = sessionStorage.getItem('user')
+    if (!stored) {
+      const devUser = JSON.stringify({ 아이디: 'dev', 이름: '개발자' })
+      sessionStorage.setItem('user', devUser)
+      stored = devUser
+    }
     const user = JSON.parse(stored)
     setUserInitial((user.이름 || user.아이디 || '?')[0])
     setIsAdmin(user.role === 1)

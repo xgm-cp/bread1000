@@ -89,16 +89,6 @@ export default function PredictPage() {
   return (
     <div className="page-predict">
       <div className="predict-body">
-        <div className="predict-step">
-          <div className="step-dot done" />
-          <div className="step-line" />
-          <div className="step-dot current" />
-          <div className="step-line" />
-          <div className="step-dot" />
-          <div className="step-label" style={{ marginLeft: 8 }}>
-            종목 선택 → <strong style={{ color: 'var(--gold)' }}>가격 입력</strong> → 제출
-          </div>
-        </div>
 
         <div className="predict-stock-info">
           <div>

@@ -19,6 +19,7 @@ type LeaderboardEntry = {
   종가증감구분: string
   종가증감값: number
   순위: number
+  회원기본: { 이름: string } | null
 }
 
 const RANK_STYLES = [
@@ -45,6 +46,9 @@ export default function HomePage() {
       const data = await res.json()
       if (!Array.isArray(data.stocks) || data.stocks.length === 0) throw new Error('no data')
       setStocks(data.stocks)
+      // 코스피 현재가 저장 (종목코드 '0001', 첫 번째 항목)
+      const kospi = data.stocks.find((s: StockData) => s.ticker === '0001')
+      if (kospi) sessionStorage.setItem('kospiPrice', kospi.price)
     } catch {
       setError(true)
     } finally {
@@ -74,14 +78,21 @@ export default function HomePage() {
         if (predicted) {
           getSupabase()
             .from('종가예측내역')
-            .select('아이디, 예측종가, 종가증감구분, 종가증감값, 순위')
+            .select('아이디, 예측종가, 종가증감구분, 종가증감값, 순위, 회원기본(이름)')
             .eq('기준일자', today)
             .eq('종목코드', '0001')
-            .order('순위', { ascending: true })
-            .order('예측종가', { ascending: false })
-            .limit(10)
+            .limit(50)
             .then(({ data }) => {
-              setLeaderboard((data as unknown as LeaderboardEntry[]) ?? [])
+              if (!data) return
+              const entries = data as LeaderboardEntry[]
+              // 현재 코스피 값 기준 오차 오름차순 정렬 (오차 작을수록 1위)
+              const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
+              if (kospiPrice > 0) {
+                entries.sort((a, b) =>
+                  Math.abs(a.예측종가 - kospiPrice) - Math.abs(b.예측종가 - kospiPrice)
+                )
+              }
+              setLeaderboard(entries.slice(0, 10))
             })
         }
       })
@@ -207,10 +218,12 @@ export default function HomePage() {
                   <div key={entry.아이디} className="lb-row">
                     <div className={`lb-rank ${rankClass}`}>{idx + 1}</div>
                     <div className="lb-avatar" style={{ background: rankStyle.bg, color: rankStyle.color }}>
-                      {entry.아이디.slice(0, 1).toUpperCase()}
+                      {entry.회원기본?.이름?.slice(0, 1) ?? entry.아이디.slice(0, 1).toUpperCase()}
                     </div>
                     <div className="lb-user-info">
-                      <div className="lb-user-name">{entry.아이디}</div>
+                      <div className="lb-user-name">
+                        {entry.회원기본?.이름 ? `${entry.회원기본.이름}(${entry.아이디})` : entry.아이디}
+                      </div>
                       <div className="lb-user-score">{formatPrediction(entry)}</div>
                     </div>
                     <div className="lb-accuracy">

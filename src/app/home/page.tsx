@@ -1,9 +1,66 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+
+type StockData = {
+  ticker: string
+  name: string
+  price: string
+  change: string
+  changeRate: string
+  sign: string // '2':상승, '5':하락, '3':보합
+}
 
 export default function HomePage() {
   const router = useRouter()
+  const pathname = usePathname()
+  const [stocks, setStocks] = useState<StockData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  const fetchStocks = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const res = await fetch('/api/stocks')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      if (!Array.isArray(data.stocks) || data.stocks.length === 0) throw new Error('no data')
+      setStocks(data.stocks)
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchStocks()
+  }, [fetchStocks, pathname])
+
+  function getSign(sign: string) {
+    if (sign === '2' || sign === '1') return 'up'
+    if (sign === '5' || sign === '4') return 'down'
+    return 'neutral'
+  }
+
+  function formatPrice(price: string) {
+    return Number(price).toLocaleString('ko-KR')
+  }
+
+  function formatChange(change: string, sign: string) {
+    const direction = getSign(sign)
+    if (direction === 'up') return `▲ ${Number(change).toLocaleString('ko-KR')}원`
+    if (direction === 'down') return `▼ ${Number(change).toLocaleString('ko-KR')}원`
+    return `${Number(change).toLocaleString('ko-KR')}원`
+  }
+
+  function formatRate(rate: string, sign: string) {
+    const direction = getSign(sign)
+    const prefix = direction === 'up' ? '+' : direction === 'down' ? '-' : ''
+    return `${prefix}${Number(rate).toFixed(2)}%`
+  }
 
   return (
     <div className="page-home">
@@ -23,62 +80,52 @@ export default function HomePage() {
           <div>
             <div className="section-header">
               <div className="section-title">오늘의 종목</div>
-              <div className="section-sub">마감까지 2시간 18분</div>
+              <button className="section-sub" onClick={fetchStocks} disabled={loading} style={{ fontSize: '2em', lineHeight: 1 }}>
+                {loading ? '🔄 새로고침 중...' : '🔄 새로고침'}
+              </button>
             </div>
             <div className="stock-grid">
-              <div className="stock-card" onClick={() => router.push('/home/predict')}>
-                <div className="stock-card-left">
-                  <div className="stock-card-top">
-                    <div className="stock-ticker">005930</div>
-                    <div className="stock-badge badge-up">+1.24%</div>
-                  </div>
-                  <div className="stock-name">삼성전자</div>
-                  <div className="stock-participants">
-                    <span className="participants-label">참여자</span>
-                    <span className="participants-count">1,248명</span>
-                  </div>
-                </div>
-                <div className="stock-card-right">
-                  <div className="stock-price">74,800</div>
-                  <div className="stock-change change-up">▲ 920원</div>
-                </div>
-              </div>
-
-              <div className="stock-card" onClick={() => router.push('/home/predict')}>
-                <div className="stock-card-left">
-                  <div className="stock-card-top">
-                    <div className="stock-ticker">000660</div>
-                    <div className="stock-badge badge-down">-0.87%</div>
-                  </div>
-                  <div className="stock-name">SK하이닉스</div>
-                  <div className="stock-participants">
-                    <span className="participants-label">참여자</span>
-                    <span className="participants-count">934명</span>
-                  </div>
-                </div>
-                <div className="stock-card-right">
-                  <div className="stock-price">186,500</div>
-                  <div className="stock-change change-down">▼ 1,600원</div>
-                </div>
-              </div>
-
-              <div className="stock-card" onClick={() => router.push('/home/predict')}>
-                <div className="stock-card-left">
-                  <div className="stock-card-top">
-                    <div className="stock-ticker">035420</div>
-                    <div className="stock-badge badge-neutral">예측중</div>
-                  </div>
-                  <div className="stock-name">NAVER</div>
-                  <div className="stock-participants">
-                    <span className="participants-label">참여자</span>
-                    <span className="participants-count">712명</span>
-                  </div>
-                </div>
-                <div className="stock-card-right">
-                  <div className="stock-price">198,000</div>
-                  <div className="stock-change change-up">▲ 500원</div>
-                </div>
-              </div>
+              {loading
+                ? [0, 1, 2].map(i => (
+                    <div key={i} className="stock-card" style={{ opacity: 0.5 }}>
+                      <div className="stock-card-left">
+                        <div className="stock-card-top">
+                          <div className="stock-ticker">------</div>
+                        </div>
+                        <div className="stock-name">불러오는 중...</div>
+                      </div>
+                    </div>
+                  ))
+                : error
+                ? (
+                    <div className="stock-card" style={{ gridColumn: '1 / -1', justifyContent: 'center', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
+                      <div className="stock-name" style={{ color: '#ff6b6b' }}>데이터를 불러오지 못했습니다</div>
+                      <button className="btn-ghost" onClick={fetchStocks} style={{ fontSize: '0.85em' }}>다시 시도</button>
+                    </div>
+                  )
+                : stocks.map(stock => {
+                    const direction = getSign(stock.sign)
+                    return (
+                      <div key={stock.ticker} className="stock-card" onClick={() => router.push('/home/predict')}>
+                        <div className="stock-card-left">
+                          <div className="stock-card-top">
+                            <div className="stock-ticker">{stock.ticker}</div>
+                            <div className={`stock-badge badge-${direction}`}>
+                              {formatRate(stock.changeRate, stock.sign)}
+                            </div>
+                          </div>
+                          <div className="stock-name">{stock.name}</div>
+                        </div>
+                        <div className="stock-card-right">
+                          <div className="stock-price">{formatPrice(stock.price)}</div>
+                          <div className={`stock-change change-${direction}`}>
+                            {formatChange(stock.change, stock.sign)}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+              }
             </div>
           </div>
 

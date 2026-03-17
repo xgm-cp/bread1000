@@ -13,6 +13,20 @@ type StockData = {
   sign: string // '2':상승, '5':하락, '3':보합
 }
 
+type LeaderboardEntry = {
+  아이디: string
+  예측종가: number
+  종가증감구분: string
+  종가증감값: number
+  순위: number
+}
+
+const RANK_STYLES = [
+  { bg: 'linear-gradient(135deg,#FFD700,#FF8C00)', color: '#111' },
+  { bg: 'linear-gradient(135deg,#B0C8DC,#6B9DB5)', color: '#fff' },
+  { bg: 'linear-gradient(135deg,#D49A6A,#A0622A)', color: '#fff' },
+]
+
 export default function HomePage() {
   const router = useRouter()
   const pathname = usePathname()
@@ -20,6 +34,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [hasPrediction, setHasPrediction] = useState<boolean | null>(null)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
 
   const fetchStocks = useCallback(async () => {
     setLoading(true)
@@ -45,13 +60,30 @@ export default function HomePage() {
     const user = JSON.parse(stored)
     const today = new Date().toISOString().slice(0, 10)
 
+    // 로그인 유저 예측 여부 확인
     getSupabase()
       .from('종가예측내역')
       .select('아이디', { count: 'exact', head: true })
       .eq('기준일자', today)
       .eq('아이디', user.아이디)
       .then(({ count }) => {
-        setHasPrediction((count ?? 0) > 0)
+        const predicted = (count ?? 0) > 0
+        setHasPrediction(predicted)
+
+        // 예측한 경우 전체 리더보드 조회 (코스피 기준, 예측종가 내림차순)
+        if (predicted) {
+          getSupabase()
+            .from('종가예측내역')
+            .select('아이디, 예측종가, 종가증감구분, 종가증감값, 순위')
+            .eq('기준일자', today)
+            .eq('종목코드', '0001')
+            .order('순위', { ascending: true })
+            .order('예측종가', { ascending: false })
+            .limit(10)
+            .then(({ data }) => {
+              setLeaderboard(data ?? [])
+            })
+        }
       })
   }, [fetchStocks, pathname])
 
@@ -76,6 +108,11 @@ export default function HomePage() {
     const direction = getSign(sign)
     const prefix = direction === 'up' ? '+' : direction === 'down' ? '-' : ''
     return `${prefix}${Number(rate).toFixed(2)}%`
+  }
+
+  function formatPrediction(entry: LeaderboardEntry) {
+    const dir = entry.종가증감구분 === 'U' ? '▲' : '▼'
+    return `${entry.예측종가.toFixed(2)} (${dir}${entry.종가증감값})`
   }
 
   return (
@@ -158,27 +195,33 @@ export default function HomePage() {
                   지금 예측해주세요
                 </button>
               </div>
+            ) : leaderboard.length === 0 ? (
+              <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text2)', fontSize: '14px' }}>
+                데이터를 불러오는 중...
+              </div>
             ) : (
-              <>
-                <div className="lb-row">
-                  <div className="lb-rank rank-1">1</div>
-                  <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#FFD700,#FF8C00)', color: '#111' }}>이</div>
-                  <div className="lb-user-info"><div className="lb-user-name">이재윤</div><div className="lb-user-score">4,820점 · 12연속 🔥</div></div>
-                  <div className="lb-accuracy"><div className="lb-pct">96.4%</div><div className="lb-streak">정확도</div></div>
-                </div>
-                <div className="lb-row">
-                  <div className="lb-rank rank-2">2</div>
-                  <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#B0C8DC,#6B9DB5)', color: '#fff' }}>박</div>
-                  <div className="lb-user-info"><div className="lb-user-name">박수현</div><div className="lb-user-score">4,510점 · 8연속</div></div>
-                  <div className="lb-accuracy"><div className="lb-pct">94.1%</div><div className="lb-streak">정확도</div></div>
-                </div>
-                <div className="lb-row">
-                  <div className="lb-rank rank-3">3</div>
-                  <div className="lb-avatar" style={{ background: 'linear-gradient(135deg,#D49A6A,#A0622A)', color: '#fff' }}>최</div>
-                  <div className="lb-user-info"><div className="lb-user-name">최민서</div><div className="lb-user-score">4,380점 · 5연속</div></div>
-                  <div className="lb-accuracy"><div className="lb-pct">91.8%</div><div className="lb-streak">정확도</div></div>
-                </div>
-              </>
+              leaderboard.map((entry, idx) => {
+                const rankStyle = RANK_STYLES[idx] ?? { bg: 'var(--surface2)', color: 'var(--text)' }
+                const rankClass = idx < 3 ? `rank-${idx + 1}` : ''
+                return (
+                  <div key={entry.아이디} className="lb-row">
+                    <div className={`lb-rank ${rankClass}`}>{idx + 1}</div>
+                    <div className="lb-avatar" style={{ background: rankStyle.bg, color: rankStyle.color }}>
+                      {entry.아이디.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="lb-user-info">
+                      <div className="lb-user-name">{entry.아이디}</div>
+                      <div className="lb-user-score">{formatPrediction(entry)}</div>
+                    </div>
+                    <div className="lb-accuracy">
+                      <div className="lb-pct" style={{ color: entry.종가증감구분 === 'U' ? 'var(--up)' : 'var(--down)' }}>
+                        {entry.종가증감구분 === 'U' ? '▲' : '▼'}
+                      </div>
+                      <div className="lb-streak">예측</div>
+                    </div>
+                  </div>
+                )
+              })
             )}
           </div>
         </div>

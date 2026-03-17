@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User } from 'lucide-react'
+import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff } from 'lucide-react'
+import { subscribePush } from '@/lib/usePushSubscription'
 
 type ModalType = 'charge' | 'withdraw' | null
 
@@ -40,6 +41,9 @@ export default function MypagePage() {
   const [amount, setAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [modalError, setModalError] = useState('')
+  const [isPushSupported, setIsPushSupported] = useState(false)
+  const [isPushSubscribed, setIsPushSubscribed] = useState(false)
+  const [pushLoading, setPushLoading] = useState(false)
 
   useEffect(() => {
     const stored = sessionStorage.getItem('user')
@@ -80,6 +84,43 @@ export default function MypagePage() {
         if (data) setHistory(data as unknown as HistoryItem[])
       })
   }, [])
+
+  // Push 알림 지원 여부 및 구독 상태 확인
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    setIsPushSupported(true)
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      reg.pushManager.getSubscription().then(sub => {
+        setIsPushSubscribed(!!sub)
+      })
+    })
+  }, [])
+
+  async function togglePushSubscription() {
+    const stored = sessionStorage.getItem('user')
+    if (!stored) return
+    const user = JSON.parse(stored)
+    setPushLoading(true)
+    try {
+      if (isPushSubscribed) {
+        const reg = await navigator.serviceWorker.ready
+        const sub = await reg.pushManager.getSubscription()
+        if (sub) {
+          await sub.unsubscribe()
+          await getSupabase()
+            .from('push_subscriptions')
+            .update({ is_active: false })
+            .eq('endpoint', sub.endpoint)
+        }
+        setIsPushSubscribed(false)
+      } else {
+        await subscribePush(user.아이디)
+        setIsPushSubscribed(true)
+      }
+    } finally {
+      setPushLoading(false)
+    }
+  }
 
   // 오늘 배팅한 경우에만 KOSPI API 호출
   useEffect(() => {
@@ -167,6 +208,20 @@ export default function MypagePage() {
           {isAdmin && (
             <button className="btn-edit-profile" style={{ marginBottom: 8, color: 'var(--accent)', borderColor: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }} onClick={() => router.push('/admin')}>
               <Settings size={15} /> 관리자 페이지
+            </button>
+          )}
+          {isPushSupported && (
+            <button
+              className="btn-edit-profile"
+              onClick={togglePushSubscription}
+              disabled={pushLoading}
+              style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, color: isPushSubscribed ? 'var(--text3)' : '#FF3D78', borderColor: isPushSubscribed ? 'var(--border2)' : '#FF3D78' }}
+            >
+              {pushLoading
+                ? '처리 중...'
+                : isPushSubscribed
+                ? <><BellOff size={15} /> 알림 구독 중</>
+                : <><Bell size={15} /> 알림 받기</>}
             </button>
           )}
           <button className="btn-edit-profile" onClick={logout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><LogOut size={15} /> 로그아웃</button>

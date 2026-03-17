@@ -77,8 +77,9 @@ export default function LoginPage() {
     <div style={{ minHeight: '100dvh', background: '#0A0C0F', display: 'flex', flexDirection: 'column' }}>
       {/* 헤더 영역 */}
       <div style={{ padding: '60px 24px 40px', textAlign: 'center' }}>
-        <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '36px', color: '#C9A84C', marginBottom: '6px' }}>
-          천원빵
+        <img src="/company_logo.png" alt="logo" style={{ width: '100px', height: '100px', objectFit: 'contain', marginBottom: '12px' }} />
+        <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '22px', color: '#C9A84C', marginBottom: '4px' }}>
+          bread1000
         </div>
         <div style={{ fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#4A5568' }}>
           종가 예측 게임

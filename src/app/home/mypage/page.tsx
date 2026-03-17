@@ -114,8 +114,8 @@ export default function MypagePage() {
         }
         setIsPushSubscribed(false)
       } else {
-        await subscribePush(user.아이디)
-        setIsPushSubscribed(true)
+        const ok = await subscribePush(user.아이디)
+        setIsPushSubscribed(ok)
       }
     } finally {
       setPushLoading(false)

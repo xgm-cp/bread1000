@@ -80,7 +80,7 @@ export default function HomePage() {
           <div>
             <div className="section-header">
               <div className="section-title">오늘의 종목</div>
-              <button className="section-sub" onClick={fetchStocks} disabled={loading} style={{ fontSize: '2em', lineHeight: 1 }}>
+              <button className="section-sub" onClick={fetchStocks} disabled={loading}>
                 {loading ? '🔄 새로고침 중...' : '🔄 새로고침'}
               </button>
             </div>

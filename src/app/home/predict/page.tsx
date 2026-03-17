@@ -77,10 +77,11 @@ export default function PredictPage() {
       .eq('아이디', user.아이디)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) {
+        const row = data as unknown as { 종가증감구분: string; 종가증감값: number } | null
+        if (row) {
           setAlreadyPredicted(true)
-          setSign(data.종가증감구분 === 'U' ? '+' : '-')
-          setPrice(String(data.종가증감값))
+          setSign(row.종가증감구분 === 'U' ? '+' : '-')
+          setPrice(String(row.종가증감값))
         }
       })
   }, [])

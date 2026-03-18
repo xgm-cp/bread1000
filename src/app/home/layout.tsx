@@ -52,6 +52,8 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
       prompt.prompt()
       const { outcome } = await prompt.userChoice
       if (outcome === 'accepted') setDeferredPrompt(null)
+    } else {
+      setShowIOSGuide(true)
     }
   }
 
@@ -93,7 +95,7 @@ setIsAdmin(user.role === 1)
       <nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div onClick={() => router.push('/home')} style={{ cursor: 'pointer', width: 60, height: 36, background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)', WebkitMaskImage: 'url(/company_logo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: 'url(/company_logo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }} />
-          {isMobile && !isInstalled && (isIOS || deferredPrompt) && (
+          {isMobile && !isInstalled && (
             <button
               onClick={handleInstall}
               title="홈 화면에 추가"

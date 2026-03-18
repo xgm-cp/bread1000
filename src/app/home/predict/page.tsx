@@ -31,7 +31,8 @@ export default function PredictPage() {
     const prevClose = kospi?.prdy_clpr ? Number(kospi.prdy_clpr) : 0
     const final = prevClose + delta
     const now = new Date()
-    const 기준일자 = now.toISOString().slice(0, 10)
+    const kstISO = now.toISOString()
+    const 기준일자 = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
     setSubmitting(true)
     const supabase = getSupabase()

@@ -140,12 +140,11 @@ export default function PredictPage() {
             <div className="psi-current-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               현재 지수{kospi?.mock ? ' (목업)' : ''}
               <button
-                onClick={() => { sessionStorage.removeItem('kospiCache'); fetchKospi(true) }}
-                disabled={refreshing}
-                style={{ background: 'none', border: 'none', cursor: refreshing ? 'default' : 'pointer', padding: 0, lineHeight: 1, opacity: refreshing ? 0.4 : 1 }}
+                onClick={() => { if (!refreshing) { sessionStorage.removeItem('kospiCache'); fetchKospi(true) } }}
+                style={{ background: 'none', border: 'none', cursor: refreshing ? 'default' : 'pointer', padding: 0, lineHeight: 1, opacity: refreshing ? 0.4 : 1, pointerEvents: refreshing ? 'none' : 'auto' }}
                 title="새로고침"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }} className={refreshing ? 'icon-spin' : ''}>
                   <path d="M23 4v6h-6" />
                   <path d="M1 20v-6h6" />
                   <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15" />

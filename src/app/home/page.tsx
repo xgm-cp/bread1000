@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { getAvatar } from '@/lib/avatar'
+import { RefreshCw } from 'lucide-react'
 
 type StockData = {
   ticker: string
@@ -31,6 +32,7 @@ export default function HomePage() {
   const [stocks, setStocks] = useState<StockData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [hasPrediction, setHasPrediction] = useState<boolean | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
 
@@ -210,8 +212,20 @@ export default function HomePage() {
           <div>
             <div className="section-header">
               <div className="section-title">오늘의 종목</div>
-              <button className="section-sub" onClick={() => { sessionStorage.removeItem('stocksCache'); fetchStocks() }} disabled={loading}>
-                {loading ? '🔄 새로고침 중...' : '🔄 새로고침'}
+              <button
+                className={`section-sub${refreshing ? ' loading' : ''}`}
+                onClick={async () => {
+                  if (refreshing) return
+                  setRefreshing(true)
+                  sessionStorage.removeItem('stocksCache')
+                  await Promise.all([
+                    fetchStocks(),
+                    new Promise<void>(r => setTimeout(r, 700)),
+                  ])
+                  setRefreshing(false)
+                }}
+              >
+                <RefreshCw size={14} className={refreshing ? 'icon-spin' : ''} />
               </button>
             </div>
             {error && stocks.length > 0 && (

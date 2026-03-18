@@ -93,7 +93,7 @@ export default function HomePage() {
     const stored = sessionStorage.getItem('user')
     if (!stored) return
     const user = JSON.parse(stored)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
     // 로그인 유저 예측 여부 확인
     getSupabase()

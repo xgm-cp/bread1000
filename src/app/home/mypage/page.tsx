@@ -115,8 +115,12 @@ export default function MypagePage() {
         setIsPushSubscribed(false)
       } else {
         const ok = await subscribePush(user.아이디)
+        if (!ok) alert('알림 설정에 실패했어요. 브라우저 알림 권한을 확인해주세요.')
         setIsPushSubscribed(ok)
       }
+    } catch (e) {
+      console.error('Push 구독 오류:', e)
+      alert('알림 설정 중 오류가 발생했어요.')
     } finally {
       setPushLoading(false)
     }

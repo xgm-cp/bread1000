@@ -129,12 +129,13 @@ export default function MypagePage() {
         setIsPushSubscribed(false)
       } else {
         const ok = await subscribePush(user.아이디)
-        if (!ok) alert('알림 설정에 실패했어요. 브라우저 알림 권한을 확인해주세요.')
+        if (!ok) alert('알림 권한이 거부되었어요.\n브라우저 설정에서 이 사이트의 알림을 \'허용\'으로 변경한 후 다시 시도해주세요.')
         setIsPushSubscribed(ok)
       }
     } catch (e) {
       console.error('Push 구독 오류:', e)
-      alert('알림 설정 중 오류가 발생했어요.')
+      const msg = e instanceof Error ? e.message : String(e)
+      alert(`알림 설정 중 오류가 발생했어요.\n${msg}`)
     } finally {
       setPushLoading(false)
     }

@@ -31,7 +31,7 @@ export default function PredictPage() {
     const prevClose = kospi?.prdy_clpr ? Number(kospi.prdy_clpr) : 0
     const final = prevClose + delta
     const now = new Date()
-    const 기준일자 = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const 기준일자 = now.toISOString().slice(0, 10)
 
     setSubmitting(true)
     const supabase = getSupabase()
@@ -59,8 +59,8 @@ export default function PredictPage() {
         예측종가: final,
         종가증감구분: sign === '+' ? 'U' : 'D',
         종가증감값: Number(price),
-        등록일시: now.toISOString(),
-        변경일시: now.toISOString(),
+        등록일시: kstISO,
+        변경일시: kstISO,
       })
 
     if (error) {

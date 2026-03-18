@@ -7,6 +7,7 @@ import { getSupabase } from '@/lib/supabase'
 type 종가Row = {
   기준일자: string
   종가: number
+  변경일시: string | null
 }
 
 const CACHE_TTL = 2 * 60 * 1000
@@ -90,7 +91,7 @@ export default function PredictPage() {
     setRefreshing(true)
     const { data } = await getSupabase()
       .from('종가관리내역')
-      .select('기준일자, 종가')
+      .select('기준일자, 종가, 변경일시')
       .eq('종목코드', '0001')
       .order('기준일자', { ascending: false })
       .limit(6)
@@ -138,7 +139,14 @@ export default function PredictPage() {
 
         <div className="predict-stock-info">
           <div>
-            <div className="psi-ticker">KOSPI 지수</div>
+            <div className="psi-ticker">
+              KOSPI 지수
+              {latest?.변경일시 && (
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>
+                  {new Date(latest.변경일시).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
             <div className="psi-name">코스피</div>
             <div className="psi-market">Korea Composite Stock Price Index</div>
           </div>

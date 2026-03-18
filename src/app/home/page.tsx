@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { getAvatar } from '@/lib/avatar'
 
 type StockData = {
   ticker: string
@@ -23,11 +24,6 @@ type LeaderboardEntry = {
   회원기본: { 이름: string } | null
 }
 
-const RANK_STYLES = [
-  { bg: 'linear-gradient(135deg,#FFD700,#FF8C00)', color: '#111' },
-  { bg: 'linear-gradient(135deg,#B0C8DC,#6B9DB5)', color: '#fff' },
-  { bg: 'linear-gradient(135deg,#D49A6A,#A0622A)', color: '#fff' },
-]
 
 export default function HomePage() {
   const router = useRouter()
@@ -300,7 +296,7 @@ export default function HomePage() {
                     <div className="lb-winner-banner">
                       <span className="lb-winner-badge">WINNER</span>
                       <div className="lb-winner-avatar">
-                        {winner.회원기본?.이름?.slice(0, 1) ?? winner.아이디.slice(0, 1).toUpperCase()}
+                        {getAvatar(winner.아이디)}
                       </div>
                       <div className="lb-winner-info">
                         <div className="lb-winner-name">
@@ -315,13 +311,12 @@ export default function HomePage() {
                   )
                 })()}
               {leaderboard.map((entry, idx) => {
-                const rankStyle = RANK_STYLES[idx] ?? { bg: 'var(--surface2)', color: 'var(--text)' }
                 const rankClass = idx < 3 ? `rank-${idx + 1}` : ''
                 return (
                   <div key={entry.아이디} className={`lb-row${idx === 0 ? ' lb-row-first' : ''}`}>
                     <div className={`lb-rank ${rankClass}`}>{idx === 0 ? '👑' : idx + 1}</div>
-                    <div className="lb-avatar" style={{ background: rankStyle.bg, color: rankStyle.color }}>
-                      {entry.회원기본?.이름?.slice(0, 1) ?? entry.아이디.slice(0, 1).toUpperCase()}
+                    <div className="lb-avatar">
+                      {getAvatar(entry.아이디)}
                     </div>
                     <div className="lb-user-info">
                       <div className="lb-user-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

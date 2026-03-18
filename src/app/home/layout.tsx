@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Home, TrendingUp, Trophy, User, Settings, LogOut, Smartphone } from 'lucide-react'
+import { getAvatar } from '@/lib/avatar'
 
 const tabs = [
   { href: '/home',         icon: Home,        label: '홈' },
@@ -16,6 +17,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter()
   const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [userId, setUserId] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -65,7 +67,8 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
       stored = devUser
     }
     const user = JSON.parse(stored)
-setIsAdmin(user.role === 1)
+    setIsAdmin(user.role === 1)
+    setUserId(user.아이디 || '')
   }, [router])
 
   useEffect(() => {
@@ -107,7 +110,9 @@ setIsAdmin(user.role === 1)
           )}
         </div>
         <div ref={menuRef} style={{ position: 'relative' }}>
-          <div className="avatar" onClick={() => setMenuOpen(v => !v)}><User size={16} /></div>
+          <div className="avatar" onClick={() => setMenuOpen(v => !v)} style={{ fontSize: 18 }}>
+            {userId ? getAvatar(userId) : <User size={16} />}
+          </div>
           {menuOpen && (
             <div style={{
               position: 'absolute', top: '44px', right: 0,

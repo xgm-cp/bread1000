@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff } from 'lucide-react'
 import { subscribePush } from '@/lib/usePushSubscription'
+import { getAvatar } from '@/lib/avatar'
 
 type ModalType = 'charge' | 'withdraw' | null
 
@@ -42,6 +43,7 @@ export default function MypagePage() {
   const [amount, setAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [modalError, setModalError] = useState('')
+  const [visibleCount, setVisibleCount] = useState(5)
   const [isPushSupported, setIsPushSupported] = useState(false)
   const [isPushSubscribed, setIsPushSubscribed] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
@@ -80,7 +82,7 @@ export default function MypagePage() {
       .eq('아이디', user.아이디)
       .lt('기준일자', today)
       .order('기준일자', { ascending: false })
-      .limit(10)
+      .limit(30)
       .then(async ({ data }) => {
         if (!data) return
         const preds = data as unknown as HistoryItem[]
@@ -214,8 +216,8 @@ export default function MypagePage() {
         {/* 프로필 + 빵 잔액 */}
         <div className="profile-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-            <div className="profile-avatar-big" style={{ margin: 0, flexShrink: 0 }}>
-              <User size={28} />
+            <div className="profile-avatar-big" style={{ margin: 0, flexShrink: 0, fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {userId ? getAvatar(userId) : <User size={28} />}
             </div>
             <div style={{ flex: 1 }}>
               <div className="profile-name" style={{ textAlign: 'left', marginBottom: 2 }}>{userName || '-'}</div>
@@ -320,8 +322,8 @@ export default function MypagePage() {
           )}
 
           {/* 지난 기록 */}
-          {history.map((item, i) => (
-            <div key={i} style={{ padding: '13px 18px', borderBottom: i < history.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {history.slice(0, visibleCount).map((item, i) => (
+            <div key={i} style={{ padding: '13px 18px', borderBottom: i < Math.min(visibleCount, history.length) - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.기준일자}</span>
@@ -359,6 +361,14 @@ export default function MypagePage() {
 
           {todayPred !== 'none' && history.length === 0 && todayPred !== null && (
             <div style={{ padding: '12px 18px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>아직 지난 기록이 없어요</div>
+          )}
+          {history.length > visibleCount && (
+            <button
+              onClick={() => setVisibleCount(v => v + 5)}
+              style={{ width: '100%', padding: '13px', background: 'none', border: 'none', borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text3)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
+            >
+              더보기 ({history.length - visibleCount}개 남음)
+            </button>
           )}
         </div>
 

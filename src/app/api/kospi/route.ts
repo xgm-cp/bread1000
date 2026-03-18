@@ -10,6 +10,10 @@ function toDateStr(d: Date) {
 let cachedToken: string | null = null
 let tokenExpireAt = 0
 
+type KospiCache = { data: Record<string, unknown>; at: number }
+let kospiCache: KospiCache | null = null
+const KOSPI_CACHE_TTL = 3 * 60 * 1000 // 3분
+
 async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
   if (cachedToken && Date.now() < tokenExpireAt) return cachedToken
 
@@ -44,6 +48,10 @@ const MOCK_DAILY = [
 export async function GET() {
   const appKey = process.env.KIS_APP_KEY
   const appSecret = process.env.KIS_APP_SECRET
+
+  if (kospiCache && Date.now() - kospiCache.at < KOSPI_CACHE_TTL) {
+    return NextResponse.json({ ...kospiCache.data, cached: true })
+  }
 
   if (!appKey || !appSecret) {
     return NextResponse.json({
@@ -101,7 +109,7 @@ export async function GET() {
 
     const prdy_clpr = (Number(output.bstp_nmix_prpr) - Number(output.bstp_nmix_prdy_vrss)).toFixed(2)
 
-    return NextResponse.json({
+    const responseData = {
       bstp_nmix_prpr: output.bstp_nmix_prpr,
       bstp_nmix_prdy_vrss: output.bstp_nmix_prdy_vrss,
       prdy_vrss_sign: output.prdy_vrss_sign,
@@ -109,7 +117,9 @@ export async function GET() {
       prdy_clpr,
       daily,
       mock: false,
-    })
+    }
+    kospiCache = { data: responseData, at: Date.now() }
+    return NextResponse.json(responseData)
   } catch (e) {
     console.error('[kospi] KIS API 실패, 목업 반환:', e)
     return NextResponse.json({

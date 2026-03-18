@@ -22,6 +22,7 @@ export default function PredictPage() {
   const [kospi, setKospi] = useState<KospiData | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [alreadyPredicted, setAlreadyPredicted] = useState(false)
 
   const handleSubmit = async () => {
     if (!price) return
@@ -30,72 +31,104 @@ export default function PredictPage() {
     const prevClose = kospi?.prdy_clpr ? Number(kospi.prdy_clpr) : 0
     const final = prevClose + delta
     const now = new Date()
-    const 기준일자 = now.toISOString().slice(0, 10)
+    const kstISO = now.toISOString()
+    const 기준일자 = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
     setSubmitting(true)
-    const { error } = await getSupabase()
+    const supabase = getSupabase()
+
+    // 빵 잔액 확인
+    const { data: bal } = await supabase
+      .from('빵보유기본')
+      .select('빵갯수')
+      .eq('아이디', user.아이디)
+      .single()
+    const current = (bal as { 빵갯수: number } | null)?.빵갯수 ?? 0
+    if (current < 1) {
+      alert('빵이 부족해요! 충전 후 참여해주세요.')
+      setSubmitting(false)
+      return
+    }
+
+    // 예측 저장
+    const { error } = await supabase
       .from('종가예측내역')
       .insert({
         기준일자,
         종목코드: '0001',
         아이디: user.아이디,
         예측종가: final,
-        순위: 0,
-        종가증감구분: sign === '+' ? '1' : '0',
+        종가증감구분: sign === '+' ? 'U' : 'D',
         종가증감값: Number(price),
-        등록일시: now.toISOString(),
-        변경일시: now.toISOString(),
+        등록일시: kstISO,
+        변경일시: kstISO,
       })
-    setSubmitting(false)
 
     if (error) {
       alert('저장 실패: ' + error.message)
+      setSubmitting(false)
       return
     }
+
+    // 1빵 차감
+    await supabase
+      .from('빵보유기본')
+      .upsert({ 아이디: user.아이디, 빵갯수: current - 1 })
+
+    setSubmitting(false)
     router.push('/home/result')
   }
 
-  const fetchKospi = () => {
+  const KOSPI_CACHE_TTL = 2 * 60 * 1000 // 2분
+
+  const fetchKospi = (forceRefresh = false) => {
+    if (!forceRefresh) {
+      try {
+        const cached = sessionStorage.getItem('kospiCache')
+        if (cached) {
+          const { data, at } = JSON.parse(cached)
+          if (Date.now() - at < KOSPI_CACHE_TTL) {
+            setKospi(data)
+            return
+          }
+        }
+      } catch { /* 파싱 실패 시 무시 */ }
+    }
     setRefreshing(true)
     fetch('/api/kospi')
       .then(res => res.json())
-      .then(data => setKospi(data))
+      .then(data => {
+        setKospi(data)
+        sessionStorage.setItem('kospiCache', JSON.stringify({ data, at: Date.now() }))
+      })
       .catch(() => {})
       .finally(() => setRefreshing(false))
   }
 
-  useEffect(() => { fetchKospi() }, [])
+  useEffect(() => {
+    fetchKospi()
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+    if (!user.아이디) return
+    const today = new Date().toISOString().slice(0, 10)
+    getSupabase()
+      .from('종가예측내역')
+      .select('종가증감구분, 종가증감값')
+      .eq('기준일자', today)
+      .eq('아이디', user.아이디)
+      .maybeSingle()
+      .then(({ data }) => {
+        const row = data as unknown as { 종가증감구분: string; 종가증감값: number } | null
+        if (row) {
+          setAlreadyPredicted(true)
+          setSign(row.종가증감구분 === 'U' ? '+' : '-')
+          setPrice(String(row.종가증감값))
+        }
+      })
+  }, [])
 
   return (
     <div className="page-predict">
       <div className="predict-body">
-        <div className="predict-step">
-          <div className="step-dot done" />
-          <div className="step-line" />
-          <div className="step-dot current" />
-          <div className="step-line" />
-          <div className="step-dot" />
-          <div className="step-label" style={{ marginLeft: 8 }}>
-            종목 선택 → <strong style={{ color: 'var(--gold)' }}>가격 입력</strong> → 제출
-          </div>
-        </div>
-
-        <div className="predict-stock-info">
-          <div>
-            <div className="psi-ticker">전일 종가</div>
-            <div className="psi-name">코스피</div>
-            <div className="psi-market">Previous Day Closing Index</div>
-          </div>
-          <div className="psi-right">
-            <div className="psi-current-label">전일 종가</div>
-            <div className="psi-price">
-              {kospi?.prdy_clpr
-                ? Number(kospi.prdy_clpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 })
-                : '—'}
-            </div>
-            <div className="psi-prev">전영업일 기준</div>
-          </div>
-        </div>
 
         <div className="predict-stock-info">
           <div>
@@ -107,7 +140,7 @@ export default function PredictPage() {
             <div className="psi-current-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               현재 지수{kospi?.mock ? ' (목업)' : ''}
               <button
-                onClick={fetchKospi}
+                onClick={() => { sessionStorage.removeItem('kospiCache'); fetchKospi(true) }}
                 disabled={refreshing}
                 style={{ background: 'none', border: 'none', cursor: refreshing ? 'default' : 'pointer', padding: 0, lineHeight: 1, opacity: refreshing ? 0.4 : 1 }}
                 title="새로고침"
@@ -127,19 +160,27 @@ export default function PredictPage() {
                 ? (() => {
                     const up = kospi.prdy_vrss_sign === '2' || kospi.prdy_vrss_sign === '1'
                     const down = kospi.prdy_vrss_sign === '4' || kospi.prdy_vrss_sign === '5'
-                    const sign = up ? '+' : down ? '-' : ''
+                    const s = up ? '+' : down ? '-' : ''
                     const cls = up ? 'change-up' : down ? 'change-down' : ''
                     return (
                       <>
                         전일 대비{' '}
                         <span className={cls}>
-                          {sign}{Number(kospi.bstp_nmix_prdy_vrss).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
-                          {' '}({sign}{kospi.bstp_nmix_prdy_ctrt}%)
+                          {s}{Number(kospi.bstp_nmix_prdy_vrss).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
+                          {' '}({s}{kospi.bstp_nmix_prdy_ctrt}%)
                         </span>
                       </>
                     )
                   })()
                 : '데이터 로딩 중...'}
+            </div>
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border, rgba(255,255,255,0.08))', fontSize: 12, color: 'var(--text2)' }}>
+              전일 종가{' '}
+              <span style={{ fontWeight: 600, color: 'var(--text1)' }}>
+                {kospi?.prdy_clpr
+                  ? Number(kospi.prdy_clpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 })
+                  : '—'}
+              </span>
             </div>
           </div>
         </div>
@@ -167,8 +208,8 @@ export default function PredictPage() {
                 <svg className="mini-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2ECC8A" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#2ECC8A" stopOpacity="0" />
+                      <stop offset="0%" stopColor="#FF3D78" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#FF3D78" stopOpacity="0" />
                     </linearGradient>
                   </defs>
                   <path className="chart-area-fill" d={areaPath} />
@@ -180,8 +221,8 @@ export default function PredictPage() {
                     const dd = daily[i].date.slice(6, 8)
                     return (
                       <g key={i}>
-                        <circle cx={cx} cy={cy} r={isLast ? 4 : 3} fill={isLast ? '#2ECC8A' : '#2ECC8A'} opacity={isLast ? 1 : 0.7} />
-                        <text x={cx} y={cy - 8} textAnchor="middle" fontSize="10" fill="#2ECC8A" fontFamily="inherit">{v.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</text>
+                        <circle cx={cx} cy={cy} r={isLast ? 4 : 3} fill={isLast ? '#FF3D78' : '#FF3D78'} opacity={isLast ? 1 : 0.7} />
+                        <text x={cx} y={cy - 8} textAnchor="middle" fontSize="10" fill="#FF3D78" fontFamily="inherit">{v.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</text>
                         <text x={cx} y={chartH + 14} textAnchor="middle" fontSize="11" fill="#8892A0" fontFamily="inherit">{mm}.{dd}</text>
                       </g>
                     )
@@ -194,7 +235,7 @@ export default function PredictPage() {
 
         <div className="prediction-panel">
           <h3>오늘의 종가를 예측하세요</h3>
-          <p>장 마감(오후 3:30) 시 삼성전자의 최종 거래 가격을 입력하세요.<br />정확할수록 높은 점수를 받습니다.</p>
+          <p>장 마감 시의 최종 지수를 입력하세요.</p>
           <div className="input-group">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 10 }}>
               예측 증감값
@@ -217,22 +258,27 @@ export default function PredictPage() {
             <div className="quick-buttons">
               <button
                 className={`quick-btn${sign === '+' ? ' quick-btn-active' : ''}`}
-                onClick={() => setSign('+')}
+                onClick={() => { if (!alreadyPredicted) setSign('+') }}
+                disabled={alreadyPredicted}
               >+</button>
               <button
                 className={`quick-btn${sign === '-' ? ' quick-btn-active' : ''}`}
-                onClick={() => setSign('-')}
+                onClick={() => { if (!alreadyPredicted) setSign('-') }}
+                disabled={alreadyPredicted}
               >−</button>
             </div>
             <div className="price-input-wrapper">
-              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => setPrice(e.target.value)} />
+              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted) setPrice(e.target.value) }} readOnly={alreadyPredicted} style={alreadyPredicted ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
             </div>
           </div>
 
+          {alreadyPredicted && (
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측은 이미 제출되었습니다.</p>
+          )}
           <div className="submit-row">
-            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }}>취소</button>
-            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price}>
-              {submitting ? '저장 중...' : '예측 제출하기 →'}
+            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted}>취소</button>
+            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted}>
+              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : '예측 제출하기 →'}
             </button>
           </div>
         </div>

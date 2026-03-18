@@ -28,7 +28,7 @@ export default function LoginPage() {
       if (mode === 'signup') {
         const { error } = await supabase
           .from('회원기본')
-          .insert({ 아이디, 이름, 패스워드 })
+          .insert({ 아이디, 이름, 패스워드, 사용여부: 'P' })
 
         if (error) {
           if (error.code === '23505') setError('이미 사용 중인 아이디입니다.')
@@ -47,18 +47,22 @@ export default function LoginPage() {
           .eq('패스워드', 패스워드)
           .single()
 
-        const row = data as { 아이디: string; 이름: string; 사용여부: string } | null
+        const row = data as { 아이디: string; 이름: string; 사용여부: string; role: number } | null
 
         if (error || !row) {
           setError('아이디 또는 패스워드가 올바르지 않습니다.')
           return
         }
+        if (row.사용여부 === 'P') {
+          setError('가입 승인 대기 중입니다. 관리자 승인 후 로그인할 수 있어요.')
+          return
+        }
         if (row.사용여부 === 'N') {
-          setError('!!!사용이 중지된 계정입니다. 관리자에게 문의하세요!!!!')
+          setError('사용이 중지된 계정입니다. 관리자에게 문의하세요.')
           return
         }
 
-        sessionStorage.setItem('user', JSON.stringify({ 아이디: row.아이디, 이름: row.이름 }))
+        sessionStorage.setItem('user', JSON.stringify({ 아이디: row.아이디, 이름: row.이름, role: row.role }))
         router.push('/home')
       }
     } finally {
@@ -81,7 +85,7 @@ export default function LoginPage() {
       <div style={{ position: 'absolute', top: '5%', left: '10%', width: '140px', height: '140px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,120,61,0.18), transparent 70%)', filter: 'blur(24px)', animation: 'orb3 15s ease-in-out infinite', pointerEvents: 'none' }} />
 
       <div style={{ padding: '72px 24px 44px', textAlign: 'center', animation: 'loginFadeUp 0.5s ease both', position: 'relative', zIndex: 1 }}>
-        <img src="/company_logo.png" alt="logo" style={{ width: '120px', objectFit: 'contain', display: 'block', margin: '0 auto 4px' , filter: 'drop-shadow(0 0 20px rgba(232,61,120,0.4))' }} />
+        <div style={{ width: '120px', height: '60px', margin: '0 auto 4px', background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)', WebkitMaskImage: 'url(/company_logo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: 'url(/company_logo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center', filter: 'drop-shadow(0 0 20px rgba(232,61,120,0.4))' }} />
         <div style={{ fontSize: '12px', letterSpacing: '0.14em', color: '#8892A0', fontWeight: 500 }}>
           bread1000
         </div>

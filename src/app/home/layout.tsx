@@ -3,26 +3,69 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { Home, TrendingUp, Trophy, User, Settings, LogOut, Smartphone } from 'lucide-react'
 
 const tabs = [
-  { href: '/home',         icon: '🏠', label: '홈' },
-  { href: '/home/predict', icon: '📈', label: '예측' },
-  { href: '/home/result',  icon: '🏆', label: '결과' },
-  { href: '/home/mypage',  icon: '👤', label: '마이' },
+  { href: '/home',         icon: Home,        label: '홈' },
+  { href: '/home/predict', icon: TrendingUp,  label: '예측' },
+  { href: '/home/result',  icon: Trophy,      label: '결과' },
+  { href: '/home/mypage',  icon: User,        label: '마이' },
 ]
 
 export default function HomeLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [userInitial, setUserInitial] = useState('?')
+  const [isAdmin, setIsAdmin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null)
+  const [showIOSGuide, setShowIOSGuide] = useState(false)
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('user')
-    if (!stored) { router.push('/'); return }
+    const ua = navigator.userAgent
+    const mobile = /Android|iPhone|iPad|iPod/i.test(ua)
+    const ios = /iPhone|iPad|iPod/i.test(ua)
+    setIsMobile(mobile)
+    setIsIOS(ios)
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true)
+    }
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  async function handleInstall() {
+    if (isIOS) {
+      setShowIOSGuide(true)
+      return
+    }
+    if (deferredPrompt) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const prompt = deferredPrompt as any
+      prompt.prompt()
+      const { outcome } = await prompt.userChoice
+      if (outcome === 'accepted') setDeferredPrompt(null)
+    } else {
+      setShowIOSGuide(true)
+    }
+  }
+
+  useEffect(() => {
+    let stored = sessionStorage.getItem('user')
+    if (!stored) {
+      const devUser = JSON.stringify({ 아이디: 'dev', 이름: '개발자' })
+      sessionStorage.setItem('user', devUser)
+      stored = devUser
+    }
     const user = JSON.parse(stored)
-    setUserInitial((user.이름 || user.아이디 || '?')[0])
+setIsAdmin(user.role === 1)
   }, [router])
 
   useEffect(() => {
@@ -40,47 +83,108 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
     router.push('/')
   }
 
+  const menuBtnStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 10,
+    width: '100%', padding: '12px 18px',
+    textAlign: 'left', background: 'none', border: 'none',
+    fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+  }
+
   return (
     <>
       <nav>
-        <div className="logo" onClick={() => router.push('/home')}>
-          천원빵<sub>종가 예측 게임</sub>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div onClick={() => router.push('/home')} style={{ cursor: 'pointer', width: 60, height: 36, background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)', WebkitMaskImage: 'url(/company_logo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: 'url(/company_logo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }} />
+          {isMobile && !isInstalled && (
+            <button
+              onClick={handleInstall}
+              title="홈 화면에 추가"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(255,61,120,0.4)', background: 'rgba(255,61,120,0.1)', color: '#FF3D78', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.05em' }}
+            >
+              <Smartphone size={13} />
+              APP
+            </button>
+          )}
         </div>
         <div ref={menuRef} style={{ position: 'relative' }}>
-          <div className="avatar" onClick={() => setMenuOpen(v => !v)}>{userInitial}</div>
+          <div className="avatar" onClick={() => setMenuOpen(v => !v)}><User size={16} /></div>
           {menuOpen && (
             <div style={{
               position: 'absolute', top: '44px', right: 0,
               background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: '12px', overflow: 'hidden',
-              minWidth: '140px', zIndex: 200,
+              minWidth: '160px', zIndex: 200,
               boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
             }}>
-              <button onClick={() => { setMenuOpen(false); router.push('/home/mypage') }} style={{
-                display: 'block', width: '100%', padding: '13px 18px',
-                textAlign: 'left', background: 'none', border: 'none',
-                color: 'var(--text)', fontSize: '14px', cursor: 'pointer',
-                borderBottom: '1px solid var(--border)',
-              }}>👤 마이페이지</button>
-              <button onClick={logout} style={{
-                display: 'block', width: '100%', padding: '13px 18px',
-                textAlign: 'left', background: 'none', border: 'none',
-                color: 'var(--down)', fontSize: '14px', cursor: 'pointer',
-              }}>🚪 로그아웃</button>
+              <button onClick={() => { setMenuOpen(false); router.push('/home/mypage') }}
+                style={{ ...menuBtnStyle, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}>
+                <User size={15} /> 마이페이지
+              </button>
+              {isAdmin && (
+                <button onClick={() => { setMenuOpen(false); router.push('/admin') }}
+                  style={{ ...menuBtnStyle, color: 'var(--accent)', borderBottom: '1px solid var(--border)' }}>
+                  <Settings size={15} /> 관리자 페이지
+                </button>
+              )}
+              <button onClick={logout}
+                style={{ ...menuBtnStyle, color: 'var(--down)' }}>
+                <LogOut size={15} /> 로그아웃
+              </button>
             </div>
           )}
         </div>
       </nav>
 
+      {showIOSGuide && (
+        <div onClick={() => setShowIOSGuide(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '28px 24px 40px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <Smartphone size={22} color="#FF3D78" />
+              <span style={{ fontSize: 17, fontWeight: 700 }}>홈 화면에 추가</span>
+            </div>
+            {isIOS ? (
+              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>1</span>
+                  Safari 하단 중앙의 <strong style={{ color: 'var(--text)' }}>⬆ 공유 아이콘</strong>을 탭하세요
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>2</span>
+                  <strong style={{ color: 'var(--text)' }}>홈 화면에 추가</strong>를 선택하세요
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>1</span>
+                  Chrome 우측 상단의 <strong style={{ color: 'var(--text)' }}>⋮ 메뉴</strong>를 탭하세요
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>2</span>
+                  <strong style={{ color: 'var(--text)' }}>홈 화면에 추가</strong>를 선택하세요
+                </div>
+              </div>
+            )}
+            <button onClick={() => setShowIOSGuide(false)} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       {children}
 
       <div className="bottom-nav">
-        {tabs.map(tab => (
-          <Link key={tab.href} href={tab.href} className={`bn-tab${pathname === tab.href ? ' active' : ''}`}>
-            <span className="bn-icon">{tab.icon}</span>
-            <span className="bn-label">{tab.label}</span>
-          </Link>
-        ))}
+        {tabs.map(tab => {
+          const Icon = tab.icon
+          const active = pathname === tab.href
+          return (
+            <Link key={tab.href} href={tab.href} className={`bn-tab${active ? ' active' : ''}`}>
+              <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
+              <span className="bn-label">{tab.label}</span>
+            </Link>
+          )
+        })}
       </div>
     </>
   )

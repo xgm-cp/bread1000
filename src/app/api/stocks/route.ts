@@ -5,6 +5,10 @@ const BASE_URL = 'https://openapi.koreainvestment.com:9443'
 let cachedToken: string | null = null
 let tokenExpireAt = 0
 
+type StockItem = { ticker: string; name: string; price: string; change: string; changeRate: string; sign: string }
+let stockCache: { stocks: StockItem[]; at: number } | null = null
+const STOCK_CACHE_TTL = 3 * 60 * 1000 // 3분
+
 async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
   if (cachedToken && Date.now() < tokenExpireAt) return cachedToken
 
@@ -38,6 +42,10 @@ export async function GET() {
 
   if (!appKey || !appSecret) {
     return NextResponse.json({ stocks: MOCK_DATA, mock: true })
+  }
+
+  if (stockCache && Date.now() - stockCache.at < STOCK_CACHE_TTL) {
+    return NextResponse.json({ stocks: stockCache.stocks, cached: true })
   }
 
   try {
@@ -95,6 +103,7 @@ export async function GET() {
       fetchStock('069500', 'KODEX 200'),
     ])
 
+    stockCache = { stocks: results, at: Date.now() }
     return NextResponse.json({ stocks: results, mock: false })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

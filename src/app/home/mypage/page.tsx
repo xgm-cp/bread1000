@@ -19,6 +19,7 @@ interface HistoryItem {
   종가증감구분: string
   순위: number | null
   종가증감값: number | null
+  종가?: number | null
 }
 
 interface KospiData {
@@ -54,7 +55,7 @@ export default function MypagePage() {
     setIsAdmin(user.role === 1)
 
     const supabase = getSupabase()
-    const today = new Date().toISOString().slice(0, 10)
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
     // 빵 잔액
     supabase.from('빵보유기본').select('빵갯수').eq('아이디', user.아이디).single()
@@ -73,15 +74,28 @@ export default function MypagePage() {
         else setTodayPred(null)
       })
 
-    // 히스토리 (오늘 제외 최근 10개)
+    // 히스토리 (오늘 제외 최근 10개) + 종가 합치기
     supabase.from('종가예측내역')
       .select('기준일자, 예측종가, 종가증감구분, 순위, 종가증감값')
       .eq('아이디', user.아이디)
       .lt('기준일자', today)
       .order('기준일자', { ascending: false })
       .limit(10)
-      .then(({ data }) => {
-        if (data) setHistory(data as unknown as HistoryItem[])
+      .then(async ({ data }) => {
+        if (!data) return
+        const preds = data as unknown as HistoryItem[]
+        const dates = preds.map(p => p.기준일자)
+        const { data: closes } = await supabase
+          .from('종가관리내역')
+          .select('기준일자, 종가')
+          .in('기준일자', dates)
+        const closeMap: Record<string, number> = {}
+        if (closes) {
+          for (const r of (closes as unknown) as { 기준일자: string; 종가: number }[]) {
+            closeMap[r.기준일자] = r.종가
+          }
+        }
+        setHistory(preds.map(p => ({ ...p, 종가: closeMap[p.기준일자] ?? null })))
       })
   }, [])
 
@@ -261,7 +275,7 @@ export default function MypagePage() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'rgba(255,61,120,0.12)', color: '#FF3D78' }}>오늘</span>
-                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date().toISOString().slice(0, 10)}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)}</span>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text3)' }}>아직 예측하지 않았어요</div>
               </div>
@@ -274,7 +288,7 @@ export default function MypagePage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'rgba(255,61,120,0.12)', color: '#FF3D78' }}>오늘</span>
-                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date().toISOString().slice(0, 10)}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)}</span>
                 </div>
                 <DirIcon code={todayPred.종가증감구분} />
               </div>
@@ -307,19 +321,31 @@ export default function MypagePage() {
           {/* 지난 기록 */}
           {history.map((item, i) => (
             <div key={i} style={{ padding: '13px 18px', borderBottom: i < history.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>{item.기준일자}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.기준일자}</span>
                   <DirIcon code={item.종가증감구분} />
-                  <span style={{ color: 'var(--text3)' }}>·</span>
-                  <span style={{ fontFamily: 'var(--font-serif)' }}>{Number(item.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>내 예측</div>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>{Number(item.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                  </div>
+                  {item.종가 != null && (
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>실제 종가</div>
+                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>{Number(item.종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 {item.순위 === 1 ? (
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}><Trophy size={13} /> 우승</div>
                 ) : item.순위 ? (
                   <div style={{ fontSize: 13, color: 'var(--text2)' }}>{item.순위}위</div>
+                ) : item.종가증감값 !== null ? (
+                  <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
                 ) : (
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
                 )}

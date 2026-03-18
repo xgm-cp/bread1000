@@ -31,28 +31,50 @@ export default function PredictPage() {
     const prevClose = kospi?.prdy_clpr ? Number(kospi.prdy_clpr) : 0
     const final = prevClose + delta
     const now = new Date()
-    const 기준일자 = now.toISOString().slice(0, 10)
+    const 기준일자 = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
     setSubmitting(true)
-    const { error } = await getSupabase()
+    const supabase = getSupabase()
+
+    // 빵 잔액 확인
+    const { data: bal } = await supabase
+      .from('빵보유기본')
+      .select('빵갯수')
+      .eq('아이디', user.아이디)
+      .single()
+    const current = (bal as { 빵갯수: number } | null)?.빵갯수 ?? 0
+    if (current < 1) {
+      alert('빵이 부족해요! 충전 후 참여해주세요.')
+      setSubmitting(false)
+      return
+    }
+
+    // 예측 저장
+    const { error } = await supabase
       .from('종가예측내역')
       .insert({
         기준일자,
         종목코드: '0001',
         아이디: user.아이디,
         예측종가: final,
-        순위: 0,
         종가증감구분: sign === '+' ? 'U' : 'D',
         종가증감값: Number(price),
         등록일시: now.toISOString(),
         변경일시: now.toISOString(),
       })
-    setSubmitting(false)
 
     if (error) {
       alert('저장 실패: ' + error.message)
+      setSubmitting(false)
       return
     }
+
+    // 1빵 차감
+    await supabase
+      .from('빵보유기본')
+      .upsert({ 아이디: user.아이디, 빵갯수: current - 1 })
+
+    setSubmitting(false)
     router.push('/home/result')
   }
 

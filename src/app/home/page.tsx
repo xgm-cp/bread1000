@@ -95,51 +95,65 @@ export default function HomePage() {
     const user = JSON.parse(stored)
     const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-    // 로그인 유저 예측 여부 확인
-    getSupabase()
-      .from('종가예측내역')
-      .select('아이디', { count: 'exact', head: true })
-      .eq('기준일자', today)
-      .eq('아이디', user.아이디)
-      .then(({ count }) => {
-        const predicted = (count ?? 0) > 0
-        setHasPrediction(predicted)
+    // 로그인 유저 예측 여부 확인 (최대 3회 재시도)
+    const fetchPrediction = async (retryCount = 0) => {
+      const { count, error } = await getSupabase()
+        .from('종가예측내역')
+        .select('아이디', { count: 'exact', head: true })
+        .eq('기준일자', today)
+        .eq('아이디', user.아이디)
+      if (error) {
+        if (retryCount < 3) {
+          setTimeout(() => fetchPrediction(retryCount + 1), 2000)
+        }
+        return
+      }
+      const predicted = (count ?? 0) > 0
+      setHasPrediction(predicted)
 
-        // 예측한 경우 전체 리더보드 조회 (코스피 기준, 예측종가 내림차순)
-        if (predicted) {
-          getSupabase()
+      // 예측한 경우 전체 리더보드 조회 (코스피 기준, 최대 3회 재시도)
+      if (predicted) {
+        const fetchLeaderboard = async (retryCount = 0) => {
+          const { data, error } = await getSupabase()
             .from('종가예측내역')
             .select('아이디, 예측종가, 종가증감구분, 종가증감값, 순위, 등록일시, 회원기본(이름)')
             .eq('기준일자', today)
             .eq('종목코드', '0001')
             .limit(50)
-            .then(({ data }) => {
-              if (!data) return
-              const entries = data as unknown as LeaderboardEntry[]
-              const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
-              const kospiDir = sessionStorage.getItem('kospiDir') ?? ''
+          if (error) {
+            if (retryCount < 3) {
+              setTimeout(() => fetchLeaderboard(retryCount + 1), 2000)
+            }
+            return
+          }
+          if (!data) return
+          const entries = data as unknown as LeaderboardEntry[]
+          const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
+          const kospiDir = sessionStorage.getItem('kospiDir') ?? ''
 
-              entries.sort((a, b) => {
-                // 1순위: 방향 일치 여부 (일치 = 0, 불일치 = 1)
-                const aDir = kospiDir ? (a.종가증감구분 === kospiDir ? 0 : 1) : 0
-                const bDir = kospiDir ? (b.종가증감구분 === kospiDir ? 0 : 1) : 0
-                if (aDir !== bDir) return aDir - bDir
+          entries.sort((a, b) => {
+            // 1순위: 방향 일치 여부 (일치 = 0, 불일치 = 1)
+            const aDir = kospiDir ? (a.종가증감구분 === kospiDir ? 0 : 1) : 0
+            const bDir = kospiDir ? (b.종가증감구분 === kospiDir ? 0 : 1) : 0
+            if (aDir !== bDir) return aDir - bDir
 
-                // 2순위: 현재 코스피와의 오차 오름차순
-                if (kospiPrice > 0) {
-                  const aDiff = Math.abs(a.예측종가 - kospiPrice)
-                  const bDiff = Math.abs(b.예측종가 - kospiPrice)
-                  if (aDiff !== bDiff) return aDiff - bDiff
-                }
+            // 2순위: 현재 코스피와의 오차 오름차순
+            if (kospiPrice > 0) {
+              const aDiff = Math.abs(a.예측종가 - kospiPrice)
+              const bDiff = Math.abs(b.예측종가 - kospiPrice)
+              if (aDiff !== bDiff) return aDiff - bDiff
+            }
 
-                // 3순위: 등록일시 오름차순 (빠를수록 우선)
-                return new Date(a.등록일시).getTime() - new Date(b.등록일시).getTime()
-              })
+            // 3순위: 등록일시 오름차순 (빠를수록 우선)
+            return new Date(a.등록일시).getTime() - new Date(b.등록일시).getTime()
+          })
 
-              setLeaderboard(entries.slice(0, 10))
-            })
+          setLeaderboard(entries.slice(0, 10))
         }
-      })
+        fetchLeaderboard()
+      }
+    }
+    fetchPrediction()
   }, [fetchStocks, pathname])
 
   function getSign(sign: string) {

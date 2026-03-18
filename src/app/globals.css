@@ -116,6 +116,12 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
 .lb-row:last-child { border-bottom: none; }
 .lb-row:active { background: var(--surface2); }
 .lb-row-first { background: rgba(255, 215, 0, 0.08); border: 1px solid rgba(255, 215, 0, 0.35) !important; border-radius: 8px; margin: 6px 8px 0; }
+.lb-winner-banner { margin: 12px 12px 4px; padding: 14px 16px; background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,140,0,0.08)); border: 1px solid rgba(255,215,0,0.4); border-radius: 12px; display: flex; align-items: center; gap: 12px; }
+.lb-winner-badge { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; color: #FFD700; background: rgba(255,215,0,0.15); border: 1px solid rgba(255,215,0,0.4); padding: 3px 8px; border-radius: 4px; flex-shrink: 0; }
+.lb-winner-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,#FFD700,#FF8C00); color: #111; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; border: 2px solid rgba(255,215,0,0.5); }
+.lb-winner-info { flex: 1; }
+.lb-winner-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.lb-winner-score { font-size: 12px; font-weight: 600; margin-top: 2px; }
 .lb-rank { font-family: var(--font-serif), serif; font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 .rank-1 { color: #FFD700; }
 .rank-2 { color: #C0C0C0; }

@@ -111,8 +111,11 @@ export default function HomePage() {
       const predicted = (count ?? 0) > 0
       setHasPrediction(predicted)
 
-      // 예측한 경우 전체 리더보드 조회 (코스피 기준, 최대 3회 재시도)
-      if (predicted) {
+      const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+      const isAfter930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)
+
+      // 예측한 경우 또는 09:30 이후면 리더보드 조회 (최대 3회 재시도)
+      if (predicted || isAfter930) {
         const fetchLeaderboard = async (retryCount = 0) => {
           const { data, error } = await getSupabase()
             .from('종가예측내역')
@@ -270,7 +273,11 @@ export default function HomePage() {
               <span className="lb-title">실시간 리더보드</span>
               <span className="lb-see-all" onClick={() => router.push('/home/result')}>전체 보기 →</span>
             </div>
-            {hasPrediction === false ? (
+            {(() => {
+              const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+              const isAfter930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)
+              return hasPrediction === false && !isAfter930
+            })() ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 0' }}>
                 <div style={{ fontSize: '2em' }}>🎯</div>
                 <div style={{ color: 'var(--text2)', fontSize: '14px', textAlign: 'center' }}>오늘 아직 예측하지 않으셨어요!</div>
@@ -283,7 +290,31 @@ export default function HomePage() {
                 데이터를 불러오는 중...
               </div>
             ) : (
-              leaderboard.map((entry, idx) => {
+              <>
+                {(() => {
+                  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+                  const isAfter16 = kstNow.getUTCHours() >= 16
+                  if (!isAfter16 || leaderboard.length === 0) return null
+                  const winner = leaderboard[0]
+                  return (
+                    <div className="lb-winner-banner">
+                      <span className="lb-winner-badge">WINNER</span>
+                      <div className="lb-winner-avatar">
+                        {winner.회원기본?.이름?.slice(0, 1) ?? winner.아이디.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="lb-winner-info">
+                        <div className="lb-winner-name">
+                          {winner.회원기본?.이름 ? `${winner.회원기본.이름}(${winner.아이디})` : winner.아이디}
+                        </div>
+                        <div className="lb-winner-score" style={{ color: winner.종가증감구분 === 'U' ? '#FF5C5C' : '#4A90E2' }}>
+                          {formatPrediction(winner)}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '1.5em' }}>🏆</div>
+                    </div>
+                  )
+                })()}
+              {leaderboard.map((entry, idx) => {
                 const rankStyle = RANK_STYLES[idx] ?? { bg: 'var(--surface2)', color: 'var(--text)' }
                 const rankClass = idx < 3 ? `rank-${idx + 1}` : ''
                 return (
@@ -311,7 +342,8 @@ export default function HomePage() {
                     </div>
                   </div>
                 )
-              })
+              })}
+              </>
             )}
           </div>
         </div>

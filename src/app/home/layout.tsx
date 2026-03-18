@@ -142,16 +142,29 @@ setIsAdmin(user.role === 1)
               <Smartphone size={22} color="#FF3D78" />
               <span style={{ fontSize: 17, fontWeight: 700 }}>홈 화면에 추가</span>
             </div>
-            <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, marginBottom: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>1</span>
-                하단 <strong style={{ color: 'var(--text)' }}>공유 버튼 <span style={{ fontSize: 16 }}>⎙</span></strong> 을 탭하세요
+            {isIOS ? (
+              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>1</span>
+                  Safari 하단 중앙의 <strong style={{ color: 'var(--text)' }}>⬆ 공유 아이콘</strong>을 탭하세요
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>2</span>
+                  <strong style={{ color: 'var(--text)' }}>홈 화면에 추가</strong>를 선택하세요
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>2</span>
-                <strong style={{ color: 'var(--text)' }}>홈 화면에 추가</strong> 를 선택하세요
+            ) : (
+              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>1</span>
+                  Chrome 우측 상단의 <strong style={{ color: 'var(--text)' }}>⋮ 메뉴</strong>를 탭하세요
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>2</span>
+                  <strong style={{ color: 'var(--text)' }}>홈 화면에 추가</strong>를 선택하세요
+                </div>
               </div>
-            </div>
+            )}
             <button onClick={() => setShowIOSGuide(false)} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
               확인
             </button>

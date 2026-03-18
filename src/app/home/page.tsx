@@ -88,7 +88,7 @@ export default function HomePage() {
   useEffect(() => {
     fetchStocks()
 
-    const stored = sessionStorage.getItem('user')
+    const stored = localStorage.getItem('user')
     if (!stored) return
     const user = JSON.parse(stored)
     const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)

@@ -49,7 +49,7 @@ export default function MypagePage() {
   const [pushLoading, setPushLoading] = useState(false)
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('user')
+    const stored = localStorage.getItem('user')
     if (!stored) return
     const user = JSON.parse(stored)
     setUserName(user.이름 || '')
@@ -113,7 +113,7 @@ export default function MypagePage() {
   }, [])
 
   async function togglePushSubscription() {
-    const stored = sessionStorage.getItem('user')
+    const stored = localStorage.getItem('user')
     if (!stored) return
     const user = JSON.parse(stored)
     setPushLoading(true)
@@ -198,7 +198,7 @@ export default function MypagePage() {
   }
 
   function logout() {
-    sessionStorage.removeItem('user'); router.push('/')
+    localStorage.removeItem('user'); router.push('/')
   }
 
   const isUp = (sign: string) => sign === '1' || sign === '2'

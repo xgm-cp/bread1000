@@ -181,7 +181,7 @@ export default function ResultPage() {
   }
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('user')
+    const stored = localStorage.getItem('user')
     if (!stored) return
     const user = JSON.parse(stored)
     setDisplayName(user.이름 || user.아이디 || '')

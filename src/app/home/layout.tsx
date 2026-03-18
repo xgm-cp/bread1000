@@ -60,7 +60,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   }
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('user')
+    const stored = localStorage.getItem('user')
     if (!stored) {
       router.replace('/')
       return
@@ -81,7 +81,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   }, [])
 
   function logout() {
-    sessionStorage.removeItem('user')
+    localStorage.removeItem('user')
     document.cookie = 'auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
     router.push('/')
   }

@@ -26,7 +26,7 @@ export default function PredictPage() {
 
   const handleSubmit = async () => {
     if (!price) return
-    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
     const delta = sign === '-' ? -Number(price) : Number(price)
     const prevClose = kospi?.prdy_clpr ? Number(kospi.prdy_clpr) : 0
     const final = prevClose + delta
@@ -107,7 +107,7 @@ export default function PredictPage() {
 
   useEffect(() => {
     fetchKospi()
-    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
     if (!user.아이디) return
     const today = new Date().toISOString().slice(0, 10)
     getSupabase()

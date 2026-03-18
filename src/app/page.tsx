@@ -62,7 +62,7 @@ export default function LoginPage() {
           return
         }
 
-        sessionStorage.setItem('user', JSON.stringify({ 아이디: row.아이디, 이름: row.이름, role: row.role }))
+        localStorage.setItem('user', JSON.stringify({ 아이디: row.아이디, 이름: row.이름, role: row.role }))
         document.cookie = `auth_session=1; path=/; SameSite=Strict; Max-Age=${60 * 60 * 24 * 30}`
         router.push('/home')
       }

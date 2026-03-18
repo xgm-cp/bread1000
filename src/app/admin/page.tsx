@@ -42,7 +42,7 @@ export default function AdminPage() {
   const [requestFilter, setRequestFilter] = useState<'all' | 'P' | 'Y' | 'N'>('all')
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('user')
+    const stored = localStorage.getItem('user')
     if (!stored || JSON.parse(stored).role !== 1) {
       router.push('/home')
       return

@@ -84,6 +84,7 @@ export async function GET() {
     ])
 
     if (!priceRes.ok || !dailyRes.ok) {
+      cachedToken = null // 토큰 초기화 후 재발급 유도
       throw new Error(`KIS API error: ${priceRes.status} / ${dailyRes.status}`)
     }
 
@@ -110,6 +111,15 @@ export async function GET() {
       mock: false,
     })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[kospi] KIS API 실패, 목업 반환:', e)
+    return NextResponse.json({
+      bstp_nmix_prpr: '2650.50',
+      bstp_nmix_prdy_vrss: '12.30',
+      prdy_vrss_sign: '2',
+      bstp_nmix_prdy_ctrt: '0.47',
+      prdy_clpr: '2638.20',
+      daily: MOCK_DAILY,
+      mock: true,
+    })
   }
 }

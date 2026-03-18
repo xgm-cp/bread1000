@@ -38,7 +38,26 @@ export default function HomePage() {
   const [hasPrediction, setHasPrediction] = useState<boolean | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
 
+  const STOCK_CACHE_TTL = 2 * 60 * 1000 // 2분
+
   const fetchStocks = useCallback(async (retryCount = 0) => {
+    // 수동 새로고침(retryCount===0 && 이미 데이터 있음)이 아닌 초기 로드 시에만 캐시 사용
+    if (retryCount === 0) {
+      try {
+        const cached = sessionStorage.getItem('stocksCache')
+        if (cached) {
+          const { stocks: cachedStocks, at } = JSON.parse(cached)
+          if (Date.now() - at < STOCK_CACHE_TTL && Array.isArray(cachedStocks) && cachedStocks.length > 0) {
+            setStocks(cachedStocks)
+            setLoading(false)
+            return
+          }
+        }
+      } catch {
+        // sessionStorage 파싱 실패 시 무시하고 API 호출
+      }
+    }
+
     setLoading(true)
     setError(false)
     try {
@@ -47,6 +66,7 @@ export default function HomePage() {
       const data = await res.json()
       if (!Array.isArray(data.stocks) || data.stocks.length === 0) throw new Error('no data')
       setStocks(data.stocks)
+      sessionStorage.setItem('stocksCache', JSON.stringify({ stocks: data.stocks, at: Date.now() }))
       // 코스피 현재가 및 방향 저장 (종목코드 '0001')
       const kospi = data.stocks.find((s: StockData) => s.ticker === '0001')
       if (kospi) {
@@ -177,7 +197,7 @@ export default function HomePage() {
           <div>
             <div className="section-header">
               <div className="section-title">오늘의 종목</div>
-              <button className="section-sub" onClick={fetchStocks} disabled={loading}>
+              <button className="section-sub" onClick={() => { sessionStorage.removeItem('stocksCache'); fetchStocks() }} disabled={loading}>
                 {loading ? '🔄 새로고침 중...' : '🔄 새로고침'}
               </button>
             </div>

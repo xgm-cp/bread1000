@@ -125,6 +125,22 @@ export default function MypagePage() {
   // 오늘 배팅한 경우에만 KOSPI API 호출
   useEffect(() => {
     if (!todayPred || todayPred === 'none') return
+    const KOSPI_CACHE_TTL = 2 * 60 * 1000 // 2분
+    try {
+      const cached = sessionStorage.getItem('kospiCache')
+      if (cached) {
+        const { data, at } = JSON.parse(cached)
+        if (Date.now() - at < KOSPI_CACHE_TTL) {
+          setKospi({
+            price: Number(data.bstp_nmix_prpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 }),
+            change: data.bstp_nmix_prdy_vrss,
+            changeSign: data.prdy_vrss_sign,
+            changePct: data.bstp_nmix_prdy_ctrt,
+          })
+          return
+        }
+      }
+    } catch { /* 파싱 실패 시 무시 */ }
     fetch('/api/kospi').then(r => r.json()).then(k => {
       setKospi({
         price: Number(k.bstp_nmix_prpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 }),
@@ -132,6 +148,7 @@ export default function MypagePage() {
         changeSign: k.prdy_vrss_sign,
         changePct: k.bstp_nmix_prdy_ctrt,
       })
+      sessionStorage.setItem('kospiCache', JSON.stringify({ data: k, at: Date.now() }))
     })
   }, [todayPred])
 

@@ -56,11 +56,28 @@ export default function PredictPage() {
     router.push('/home/result')
   }
 
-  const fetchKospi = () => {
+  const KOSPI_CACHE_TTL = 2 * 60 * 1000 // 2분
+
+  const fetchKospi = (forceRefresh = false) => {
+    if (!forceRefresh) {
+      try {
+        const cached = sessionStorage.getItem('kospiCache')
+        if (cached) {
+          const { data, at } = JSON.parse(cached)
+          if (Date.now() - at < KOSPI_CACHE_TTL) {
+            setKospi(data)
+            return
+          }
+        }
+      } catch { /* 파싱 실패 시 무시 */ }
+    }
     setRefreshing(true)
     fetch('/api/kospi')
       .then(res => res.json())
-      .then(data => setKospi(data))
+      .then(data => {
+        setKospi(data)
+        sessionStorage.setItem('kospiCache', JSON.stringify({ data, at: Date.now() }))
+      })
       .catch(() => {})
       .finally(() => setRefreshing(false))
   }
@@ -100,7 +117,7 @@ export default function PredictPage() {
             <div className="psi-current-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               현재 지수{kospi?.mock ? ' (목업)' : ''}
               <button
-                onClick={fetchKospi}
+                onClick={() => { sessionStorage.removeItem('kospiCache'); fetchKospi(true) }}
                 disabled={refreshing}
                 style={{ background: 'none', border: 'none', cursor: refreshing ? 'default' : 'pointer', padding: 0, lineHeight: 1, opacity: refreshing ? 0.4 : 1 }}
                 title="새로고침"

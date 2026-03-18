@@ -9,6 +9,10 @@ function toDateStr(d: Date) {
 let cachedToken: string | null = null
 let tokenExpireAt = 0
 
+type SamsungCache = { data: Record<string, unknown>; at: number }
+let samsungCache: SamsungCache | null = null
+const SAMSUNG_CACHE_TTL = 3 * 60 * 1000 // 3분
+
 async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
   if (cachedToken && Date.now() < tokenExpireAt) return cachedToken
   const res = await fetch(`${BASE_URL}/oauth2/tokenP`, {
@@ -34,6 +38,10 @@ const MOCK_DAILY = [
 export async function GET() {
   const appKey = process.env.KIS_APP_KEY
   const appSecret = process.env.KIS_APP_SECRET
+
+  if (samsungCache && Date.now() - samsungCache.at < SAMSUNG_CACHE_TTL) {
+    return NextResponse.json({ ...samsungCache.data, cached: true })
+  }
 
   if (!appKey || !appSecret) {
     return NextResponse.json({
@@ -78,7 +86,7 @@ export async function GET() {
       .reverse()
       .map(d => ({ date: d.stck_bsop_date, close: d.stck_clpr }))
 
-    return NextResponse.json({
+    const responseData = {
       stck_prpr: output.stck_prpr,
       prdy_vrss: output.prdy_vrss,
       prdy_vrss_sign: output.prdy_vrss_sign,
@@ -86,7 +94,9 @@ export async function GET() {
       prdy_clpr: output.prdy_clpr,
       daily,
       mock: false,
-    })
+    }
+    samsungCache = { data: responseData, at: Date.now() }
+    return NextResponse.json(responseData)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

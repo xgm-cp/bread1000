@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { getAvatar } from '@/lib/avatar'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Croissant } from 'lucide-react'
 
 type StockData = {
   ticker: string
@@ -199,11 +199,20 @@ export default function HomePage() {
       <div className="home-body">
 
         <div className="home-hero">
-          <div className="eyebrow">천원으로 시작하는 투자 감각</div>
-          <h1>오늘의 <em>종가</em>,<br />당신이 맞춰보세요</h1>
-          <p>실시간 주식 데이터를 바탕으로 종가를 예측하고<br />내부 투자자들과 실력을 겨뤄보세요.</p>
+          <div className="hero-floaters">
+            <Croissant className="hero-float" size={28} />
+            <Croissant className="hero-float" size={20} />
+          </div>
+          <div className="eyebrow">하루 1빵 · 오늘의 배팅</div>
+          <h1>종가를 맞히면<br /><em>빵이 쌓인다</em></h1>
+          <p>
+            가장 근접한 한 명이<br />
+            오늘 모인 <strong style={{ color: 'var(--gold)' }}>빵을 전부</strong> 획득
+          </p>
           <div className="home-cta">
-            <button className="btn-gold" onClick={() => router.push('/home/predict')}>지금 예측하기</button>
+            <button className="btn-gold" onClick={() => router.push('/home/predict')}>
+              <span className="btn-gold-inner"><Croissant size={16} /> 지금 예측하기</span>
+            </button>
             <button className="btn-ghost" onClick={() => router.push('/home/result')}>오늘의 결과 보기</button>
           </div>
         </div>

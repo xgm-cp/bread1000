@@ -62,11 +62,11 @@ export default function ResultPage() {
       supabase.from('종가예측내역').select('아이디, 기준일자').eq('종목코드', '0001').gte('기준일자', startDate).lte('기준일자', endDate),
     ]).then(([{ data: rank1Data }, { data: allData }]) => {
       if (!rank1Data || rank1Data.length === 0) { setter([]); return }
-      const rank1Rows = rank1Data as { 아이디: string; 기준일자: string }[]
+      const rank1Rows = rank1Data as unknown as { 아이디: string; 기준일자: string }[]
 
       // 날짜별 전체 참여자 수
       const dateCountMap: Record<string, number> = {}
-      if (allData) (allData as { 기준일자: string }[]).forEach(r => {
+      if (allData) (allData as unknown as { 기준일자: string }[]).forEach(r => {
         dateCountMap[r.기준일자] = (dateCountMap[r.기준일자] ?? 0) + 1
       })
 
@@ -90,7 +90,7 @@ export default function ResultPage() {
       const ids = top5.map(r => r.아이디)
       supabase.from('회원기본').select('아이디, 이름').in('아이디', ids).then(({ data: members }) => {
         const nameMap: Record<string, string> = {}
-        if (members) (members as { 아이디: string; 이름: string }[]).forEach(m => { nameMap[m.아이디] = m.이름 })
+        if (members) (members as unknown as { 아이디: string; 이름: string }[]).forEach(m => { nameMap[m.아이디] = m.이름 })
         setter(top5.map(r => ({ ...r, 이름: nameMap[r.아이디] || r.아이디 })))
       })
     })
@@ -126,7 +126,7 @@ export default function ResultPage() {
       const val = Number(kospi.bstp_nmix_prpr)
       const currentKospi = isNaN(val) ? 0 : val
       if (!isNaN(val) && val > 0) setCurrentKospi(val)
-      const all = rows as PredictionRow[]
+      const all = rows as unknown as PredictionRow[]
       setTotalCount(all.length)
 
       // 전영업일 종가 대비 시장 방향 (API의 prdy_clpr 사용)
@@ -165,7 +165,7 @@ export default function ResultPage() {
           .in('아이디', top4Ids)
           .then(({ data }) => {
             const nameMap: Record<string, string> = {}
-            if (data) (data as { 아이디: string; 이름: string }[]).forEach(m => { nameMap[m.아이디] = m.이름 })
+            if (data) (data as unknown as { 아이디: string; 이름: string }[]).forEach(m => { nameMap[m.아이디] = m.이름 })
             setTop3(top4Rows.map((r, i) => ({
               rank: i + 1,
               이름: nameMap[r.아이디] || r.아이디,
@@ -199,7 +199,7 @@ export default function ResultPage() {
       .single()
       .then(({ data }) => {
         if (data) {
-          const d = data as { 종가증감구분: string; 종가증감값: number; 예측종가: number }
+          const d = data as unknown as { 종가증감구분: string; 종가증감값: number; 예측종가: number }
           const isUp = d.종가증감구분 === 'U'
           setPredictionText(`${isUp ? '+' : '-'}${Number(d.종가증감값).toLocaleString()}`)
           set예측종가Num(Number(d.예측종가))

@@ -287,8 +287,8 @@ export default function HomePage() {
                 const rankStyle = RANK_STYLES[idx] ?? { bg: 'var(--surface2)', color: 'var(--text)' }
                 const rankClass = idx < 3 ? `rank-${idx + 1}` : ''
                 return (
-                  <div key={entry.아이디} className="lb-row">
-                    <div className={`lb-rank ${rankClass}`}>{idx + 1}</div>
+                  <div key={entry.아이디} className={`lb-row${idx === 0 ? ' lb-row-first' : ''}`}>
+                    <div className={`lb-rank ${rankClass}`}>{idx === 0 ? '👑' : idx + 1}</div>
                     <div className="lb-avatar" style={{ background: rankStyle.bg, color: rankStyle.color }}>
                       {entry.회원기본?.이름?.slice(0, 1) ?? entry.아이디.slice(0, 1).toUpperCase()}
                     </div>

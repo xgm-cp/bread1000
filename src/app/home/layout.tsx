@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Home, TrendingUp, Trophy, User, Settings, LogOut } from 'lucide-react'
+import { Home, TrendingUp, Trophy, User, Settings, LogOut, Smartphone } from 'lucide-react'
 
 const tabs = [
   { href: '/home',         icon: Home,        label: '홈' },
@@ -18,6 +18,42 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   const [isAdmin, setIsAdmin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null)
+  const [showIOSGuide, setShowIOSGuide] = useState(false)
+
+  useEffect(() => {
+    const ua = navigator.userAgent
+    const mobile = /Android|iPhone|iPad|iPod/i.test(ua)
+    const ios = /iPhone|iPad|iPod/i.test(ua)
+    setIsMobile(mobile)
+    setIsIOS(ios)
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true)
+    }
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  async function handleInstall() {
+    if (isIOS) {
+      setShowIOSGuide(true)
+      return
+    }
+    if (deferredPrompt) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const prompt = deferredPrompt as any
+      prompt.prompt()
+      const { outcome } = await prompt.userChoice
+      if (outcome === 'accepted') setDeferredPrompt(null)
+    }
+  }
 
   useEffect(() => {
     let stored = sessionStorage.getItem('user')
@@ -55,7 +91,19 @@ setIsAdmin(user.role === 1)
   return (
     <>
       <nav>
-        <div onClick={() => router.push('/home')} style={{ cursor: 'pointer', width: 60, height: 36, background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)', WebkitMaskImage: 'url(/company_logo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: 'url(/company_logo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div onClick={() => router.push('/home')} style={{ cursor: 'pointer', width: 60, height: 36, background: 'linear-gradient(135deg, #FF3D78, #9B2FC9)', WebkitMaskImage: 'url(/company_logo.png)', WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: 'url(/company_logo.png)', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }} />
+          {isMobile && !isInstalled && (isIOS || deferredPrompt) && (
+            <button
+              onClick={handleInstall}
+              title="홈 화면에 추가"
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(255,61,120,0.4)', background: 'rgba(255,61,120,0.1)', color: '#FF3D78', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.05em' }}
+            >
+              <Smartphone size={13} />
+              APP
+            </button>
+          )}
+        </div>
         <div ref={menuRef} style={{ position: 'relative' }}>
           <div className="avatar" onClick={() => setMenuOpen(v => !v)}><User size={16} /></div>
           {menuOpen && (
@@ -84,6 +132,30 @@ setIsAdmin(user.role === 1)
           )}
         </div>
       </nav>
+
+      {showIOSGuide && (
+        <div onClick={() => setShowIOSGuide(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '28px 24px 40px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <Smartphone size={22} color="#FF3D78" />
+              <span style={{ fontSize: 17, fontWeight: 700 }}>홈 화면에 추가</span>
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>1</span>
+                하단 <strong style={{ color: 'var(--text)' }}>공유 버튼 <span style={{ fontSize: 16 }}>⎙</span></strong> 을 탭하세요
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ background: 'var(--bg)', borderRadius: 8, padding: '4px 10px', fontWeight: 600, color: 'var(--text)' }}>2</span>
+                <strong style={{ color: 'var(--text)' }}>홈 화면에 추가</strong> 를 선택하세요
+              </div>
+            </div>
+            <button onClick={() => setShowIOSGuide(false)} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
+              확인
+            </button>
+          </div>
+        </div>
+      )}
 
       {children}
 

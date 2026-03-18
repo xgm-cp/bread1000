@@ -17,6 +17,7 @@ const dmSerifDisplay = DM_Serif_Display({
 export const metadata: Metadata = {
   title: "bread1000",
   description: "종가 예측 게임",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

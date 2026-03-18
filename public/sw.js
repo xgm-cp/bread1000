@@ -1,3 +1,6 @@
+// PWA 설치 조건 충족을 위한 fetch 핸들러
+self.addEventListener('fetch', () => {})
+
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {}
   event.waitUntil(

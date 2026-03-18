@@ -222,7 +222,7 @@ export default function HomePage() {
                 ? (
                     <div className="stock-card" style={{ gridColumn: '1 / -1', justifyContent: 'center', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
                       <div className="stock-name" style={{ color: '#ff6b6b' }}>데이터를 불러오지 못했습니다</div>
-                      <button className="btn-ghost" onClick={fetchStocks} style={{ fontSize: '0.85em' }}>다시 시도</button>
+                      <button className="btn-ghost" onClick={() => fetchStocks()} style={{ fontSize: '0.85em' }}>다시 시도</button>
                     </div>
                   )
                 : stocks.map(stock => {

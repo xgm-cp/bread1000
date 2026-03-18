@@ -95,17 +95,16 @@ export default function PredictPage() {
       .order('기준일자', { ascending: false })
       .limit(6)
     if (data) {
-      setRows(data as 종가Row[])
+      setRows(data as unknown as 종가Row[])
       sessionStorage.setItem('kospiCache', JSON.stringify({ data, at: Date.now() }))
     }
     setRefreshing(false)
   }
 
   useEffect(() => {
-    fetchKospi()
-    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+    fetchRows()
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
     if (!user.아이디) return
-    const today = new Date().toISOString().slice(0, 10)
     getSupabase()
       .from('종가예측내역')
       .select('종가증감구분, 종가증감값')

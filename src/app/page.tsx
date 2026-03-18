@@ -63,6 +63,7 @@ export default function LoginPage() {
         }
 
         sessionStorage.setItem('user', JSON.stringify({ 아이디: row.아이디, 이름: row.이름, role: row.role }))
+        document.cookie = `auth_session=1; path=/; SameSite=Strict`
         router.push('/home')
       }
     } finally {

@@ -60,11 +60,10 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   }
 
   useEffect(() => {
-    let stored = sessionStorage.getItem('user')
+    const stored = sessionStorage.getItem('user')
     if (!stored) {
-      const devUser = JSON.stringify({ 아이디: 'dev', 이름: '개발자' })
-      sessionStorage.setItem('user', devUser)
-      stored = devUser
+      router.replace('/')
+      return
     }
     const user = JSON.parse(stored)
     setIsAdmin(user.role === 1)
@@ -83,6 +82,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
 
   function logout() {
     sessionStorage.removeItem('user')
+    document.cookie = 'auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
     router.push('/')
   }
 

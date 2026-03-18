@@ -1,10 +1,10 @@
 'use client'
 
-export async function subscribePush(아이디: string) {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+export async function subscribePush(아이디: string): Promise<boolean> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
 
   const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return
+  if (permission !== 'granted') return false
 
   const reg = await navigator.serviceWorker.register('/sw.js')
   await navigator.serviceWorker.ready
@@ -20,6 +20,8 @@ export async function subscribePush(아이디: string) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ 아이디, subscription }),
   })
+
+  return true
 }
 
 function urlBase64ToUint8Array(base64String: string) {

@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { getSupabase } from '@/lib/supabase'
 
-webpush.setVapidDetails(
-  'mailto:admin@bread1000.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
-
 const CRON_SECRET = process.env.CRON_SECRET
 
 export async function POST(req: NextRequest) {
+  webpush.setVapidDetails(
+    'mailto:admin@bread1000.com',
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  )
   // Cron 요청 인증
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${CRON_SECRET}`) {

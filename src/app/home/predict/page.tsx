@@ -4,22 +4,18 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 
-
-type KospiData = {
-  bstp_nmix_prpr: string
-  bstp_nmix_prdy_vrss: string
-  prdy_vrss_sign: string
-  bstp_nmix_prdy_ctrt: string
-  prdy_clpr: string
-  daily?: { date: string; close: string }[]
-  mock?: boolean
+type 종가Row = {
+  기준일자: string
+  종가: number
 }
+
+const CACHE_TTL = 2 * 60 * 1000
 
 export default function PredictPage() {
   const router = useRouter()
   const [price, setPrice] = useState('')
   const [sign, setSign] = useState<'+' | '-'>('+')
-  const [kospi, setKospi] = useState<KospiData | null>(null)
+  const [rows, setRows] = useState<종가Row[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [alreadyPredicted, setAlreadyPredicted] = useState(false)
@@ -28,7 +24,7 @@ export default function PredictPage() {
     if (!price) return
     const user = JSON.parse(localStorage.getItem('user') || '{}')
     const delta = sign === '-' ? -Number(price) : Number(price)
-    const prevClose = kospi?.prdy_clpr ? Number(kospi.prdy_clpr) : 0
+    const prevClose = rows[0]?.종가 ?? 0
     const final = prevClose + delta
     const now = new Date()
     const kstISO = now.toISOString()
@@ -37,7 +33,6 @@ export default function PredictPage() {
     setSubmitting(true)
     const supabase = getSupabase()
 
-    // 빵 잔액 확인
     const { data: bal } = await supabase
       .from('빵보유기본')
       .select('빵갯수')
@@ -50,7 +45,6 @@ export default function PredictPage() {
       return
     }
 
-    // 예측 저장
     const { error } = await supabase
       .from('종가예측내역')
       .insert({
@@ -70,7 +64,6 @@ export default function PredictPage() {
       return
     }
 
-    // 1빵 차감
     await supabase
       .from('빵보유기본')
       .upsert({ 아이디: user.아이디, 빵갯수: current - 1 })
@@ -79,35 +72,36 @@ export default function PredictPage() {
     router.push('/home/result')
   }
 
-  const KOSPI_CACHE_TTL = 2 * 60 * 1000 // 2분
-
-  const fetchKospi = (forceRefresh = false) => {
+  const fetchRows = async (forceRefresh = false) => {
     if (!forceRefresh) {
       try {
         const cached = sessionStorage.getItem('kospiCache')
         if (cached) {
           const { data, at } = JSON.parse(cached)
-          if (Date.now() - at < KOSPI_CACHE_TTL) {
-            setKospi(data)
+          if (Date.now() - at < CACHE_TTL) {
+            setRows(data)
             return
           }
         }
       } catch { /* 파싱 실패 시 무시 */ }
     }
     setRefreshing(true)
-    fetch('/api/kospi')
-      .then(res => res.json())
-      .then(data => {
-        setKospi(data)
-        sessionStorage.setItem('kospiCache', JSON.stringify({ data, at: Date.now() }))
-      })
-      .catch(() => {})
-      .finally(() => setRefreshing(false))
+    const { data } = await getSupabase()
+      .from('종가관리내역')
+      .select('기준일자, 종가')
+      .eq('종목코드', '0001')
+      .order('기준일자', { ascending: false })
+      .limit(6)
+    if (data) {
+      setRows(data as 종가Row[])
+      sessionStorage.setItem('kospiCache', JSON.stringify({ data, at: Date.now() }))
+    }
+    setRefreshing(false)
   }
 
   useEffect(() => {
     fetchKospi()
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
     if (!user.아이디) return
     const today = new Date().toISOString().slice(0, 10)
     getSupabase()
@@ -126,6 +120,17 @@ export default function PredictPage() {
       })
   }, [])
 
+  const latest = rows[0]
+  const prev = rows[1]
+  const change = latest && prev ? latest.종가 - prev.종가 : null
+  const changeRate = change !== null && prev ? ((change / prev.종가) * 100).toFixed(2) : null
+  const isUp = change !== null && change > 0
+  const isDown = change !== null && change < 0
+  const changeSign = isUp ? '+' : isDown ? '-' : ''
+  const changeCls = isUp ? 'change-up' : isDown ? 'change-down' : ''
+
+  const daily = rows.length >= 2 ? [...rows].slice(0, 5).reverse() : []
+
   return (
     <div className="page-predict">
       <div className="predict-body">
@@ -138,9 +143,9 @@ export default function PredictPage() {
           </div>
           <div className="psi-right">
             <div className="psi-current-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              현재 지수{kospi?.mock ? ' (목업)' : ''}
+              현재 지수
               <button
-                onClick={() => { if (!refreshing) { sessionStorage.removeItem('kospiCache'); fetchKospi(true) } }}
+                onClick={() => { if (!refreshing) { sessionStorage.removeItem('kospiCache'); fetchRows(true) } }}
                 style={{ background: 'none', border: 'none', cursor: refreshing ? 'default' : 'pointer', padding: 0, lineHeight: 1, opacity: refreshing ? 0.4 : 1, pointerEvents: refreshing ? 'none' : 'auto' }}
                 title="새로고침"
               >
@@ -152,33 +157,23 @@ export default function PredictPage() {
               </button>
             </div>
             <div className="psi-price">
-              {kospi ? Number(kospi.bstp_nmix_prpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 }) : '—'}
+              {latest ? Number(latest.종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 }) : '—'}
             </div>
             <div className="psi-prev">
-              {kospi
-                ? (() => {
-                    const up = kospi.prdy_vrss_sign === '2' || kospi.prdy_vrss_sign === '1'
-                    const down = kospi.prdy_vrss_sign === '4' || kospi.prdy_vrss_sign === '5'
-                    const s = up ? '+' : down ? '-' : ''
-                    const cls = up ? 'change-up' : down ? 'change-down' : ''
-                    return (
-                      <>
-                        전일 대비{' '}
-                        <span className={cls}>
-                          {s}{Number(kospi.bstp_nmix_prdy_vrss).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
-                          {' '}({s}{kospi.bstp_nmix_prdy_ctrt}%)
-                        </span>
-                      </>
-                    )
-                  })()
+              {change !== null
+                ? <>
+                    전일 대비{' '}
+                    <span className={changeCls}>
+                      {changeSign}{Math.abs(change).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
+                      {changeRate !== null && <> ({changeSign}{Math.abs(Number(changeRate)).toFixed(2)}%)</>}
+                    </span>
+                  </>
                 : '데이터 로딩 중...'}
             </div>
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border, rgba(255,255,255,0.08))', fontSize: 12, color: 'var(--text2)' }}>
               전일 종가{' '}
               <span style={{ fontWeight: 600, color: 'var(--text1)' }}>
-                {kospi?.prdy_clpr
-                  ? Number(kospi.prdy_clpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 })
-                  : '—'}
+                {prev ? Number(prev.종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 }) : '—'}
               </span>
             </div>
           </div>
@@ -186,11 +181,10 @@ export default function PredictPage() {
 
         <div className="chart-area">
           {(() => {
-            const daily = kospi?.daily
-            if (!daily || daily.length < 2) {
+            if (daily.length < 2) {
               return <div className="chart-label"><span>5일 종가 흐름</span><span>로딩 중...</span></div>
             }
-            const closes = daily.map(d => Number(d.close))
+            const closes = daily.map(d => d.종가)
             const minV = Math.min(...closes)
             const maxV = Math.max(...closes)
             const W = 680, H = 130, PAD = 20, LABEL_H = 40, SIDE = 30
@@ -200,7 +194,11 @@ export default function PredictPage() {
             const pts = closes.map((v, i) => `${x(i)},${y(v)}`).join(' L')
             const areaPath = `M${pts} L${x(closes.length - 1)},${chartH} L${x(0)},${chartH} Z`
             const linePath = `M${pts}`
-            const dateLabel = `${daily[0].date.slice(4, 6)}.${daily[0].date.slice(6, 8)} — ${daily[daily.length - 1].date.slice(4, 6)}.${daily[daily.length - 1].date.slice(6, 8)}`
+            const fmt = (d: string) => {
+              const s = d.replace(/-/g, '')
+              return `${s.slice(4, 6)}.${s.slice(6, 8)}`
+            }
+            const dateLabel = `${fmt(daily[0].기준일자)} — ${fmt(daily[daily.length - 1].기준일자)}`
             return (
               <>
                 <div className="chart-label"><span>5일 종가 흐름</span><span>{dateLabel}</span></div>
@@ -216,13 +214,11 @@ export default function PredictPage() {
                   {closes.map((v, i) => {
                     const cx = x(i), cy = y(v)
                     const isLast = i === closes.length - 1
-                    const mm = daily[i].date.slice(4, 6)
-                    const dd = daily[i].date.slice(6, 8)
                     return (
                       <g key={i}>
-                        <circle cx={cx} cy={cy} r={isLast ? 4 : 3} fill={isLast ? '#FF3D78' : '#FF3D78'} opacity={isLast ? 1 : 0.7} />
+                        <circle cx={cx} cy={cy} r={isLast ? 4 : 3} fill="#FF3D78" opacity={isLast ? 1 : 0.7} />
                         <text x={cx} y={cy - 8} textAnchor="middle" fontSize="10" fill="#FF3D78" fontFamily="inherit">{v.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</text>
-                        <text x={cx} y={chartH + 14} textAnchor="middle" fontSize="11" fill="#8892A0" fontFamily="inherit">{mm}.{dd}</text>
+                        <text x={cx} y={chartH + 14} textAnchor="middle" fontSize="11" fill="#8892A0" fontFamily="inherit">{fmt(daily[i].기준일자)}</text>
                       </g>
                     )
                   })}
@@ -240,7 +236,7 @@ export default function PredictPage() {
               예측 증감값
               {price && (() => {
                 const delta = sign === '-' ? -Number(price) : Number(price)
-                const prevClose = kospi?.prdy_clpr ? Number(kospi.prdy_clpr) : null
+                const prevClose = latest?.종가 ?? null
                 const final = prevClose !== null ? prevClose + delta : null
                 return (
                   <>

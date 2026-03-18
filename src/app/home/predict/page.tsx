@@ -20,11 +20,13 @@ export default function PredictPage() {
   const [submitting, setSubmitting] = useState(false)
   const [alreadyPredicted, setAlreadyPredicted] = useState(false)
 
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
   const handleSubmit = async () => {
     if (!price) return
     const user = JSON.parse(localStorage.getItem('user') || '{}')
     const delta = sign === '-' ? -Number(price) : Number(price)
-    const prevClose = rows[0]?.종가 ?? 0
+    const prevClose = rows.find(r => r.기준일자 < today)?.종가 ?? 0
     const final = prevClose + delta
     const now = new Date()
     const kstISO = now.toISOString()
@@ -120,8 +122,8 @@ export default function PredictPage() {
       })
   }, [])
 
-  const latest = rows[0]
-  const prev = rows[1]
+  const latest = rows.find(r => r.기준일자 === today)
+  const prev = rows.find(r => r.기준일자 < today)
   const change = latest && prev ? latest.종가 - prev.종가 : null
   const changeRate = change !== null && prev ? ((change / prev.종가) * 100).toFixed(2) : null
   const isUp = change !== null && change > 0
@@ -236,7 +238,7 @@ export default function PredictPage() {
               예측 증감값
               {price && (() => {
                 const delta = sign === '-' ? -Number(price) : Number(price)
-                const prevClose = latest?.종가 ?? null
+                const prevClose = rows.find(r => r.기준일자 < today)?.종가 ?? null
                 const final = prevClose !== null ? prevClose + delta : null
                 return (
                   <>

@@ -181,7 +181,7 @@ export default function PredictPage() {
             </div>
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border, rgba(255,255,255,0.08))', fontSize: 12, color: 'var(--text2)' }}>
               전일 종가{' '}
-              <span style={{ fontWeight: 600, color: 'var(--text1)' }}>
+              <span style={{ fontWeight: 600, color: '#22c55e' }}>
                 {prev ? Number(prev.종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 }) : '—'}
               </span>
             </div>

@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { isBusinessDay } from '@/lib/holidays'
 import { getAvatar } from '@/lib/avatar'
 import { RefreshCw, Croissant } from 'lucide-react'
 
@@ -211,8 +212,10 @@ export default function HomePage() {
   }, [fetchStocks, pathname])
 
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const todayStr = kstNow.toISOString().slice(0, 10)
   const isAfter930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)
   const isAfter16 = kstNow.getUTCHours() >= 16
+  const isTradingDay = isBusinessDay(todayStr)
 
   return (
     <div className="page-home">
@@ -230,14 +233,20 @@ export default function HomePage() {
             오늘 모인 <strong style={{ color: 'var(--gold)' }}>빵을 전부</strong> 획득
           </p>
           <div className="home-cta">
-            <button className="btn-gold" onClick={() => router.push('/home/predict')}>
-              <span className="btn-gold-inner"><Croissant size={16} /> 지금 예측하기</span>
-            </button>
+            {isTradingDay ? (
+              <button className="btn-gold" onClick={() => router.push('/home/predict')}>
+                <span className="btn-gold-inner"><Croissant size={16} /> 지금 예측하기</span>
+              </button>
+            ) : (
+              <div style={{ fontSize: '13px', color: 'var(--text2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 20px' }}>
+                🏖️ 오늘은 휴장일입니다
+              </div>
+            )}
             <button className="btn-ghost" onClick={() => router.push('/home/result')}>오늘의 결과 보기</button>
           </div>
         </div>
 
-        <div className="home-grid">
+        {isTradingDay && <div className="home-grid">
           <div>
             <div className="section-header">
               <div className="section-title">오늘의 종목</div>
@@ -385,7 +394,7 @@ export default function HomePage() {
               </>
             )}
           </div>
-        </div>
+        </div>}
 
       </div>
     </div>

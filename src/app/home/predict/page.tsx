@@ -92,7 +92,7 @@ export default function PredictPage() {
         const cached = sessionStorage.getItem('kospiCache')
         if (cached) {
           const { data, at } = JSON.parse(cached)
-          if (Date.now() - at < CACHE_TTL) {
+          if (Date.now() - at < CACHE_TTL && Array.isArray(data)) {
             setRows(data)
             return
           }

@@ -21,11 +21,14 @@ export default function PredictPage() {
   const [submitting, setSubmitting] = useState(false)
   const [alreadyPredicted, setAlreadyPredicted] = useState(false)
   const [timeExpired, setTimeExpired] = useState(false)
+  const [isWeekend, setIsWeekend] = useState(false)
 
   const checkTimeExpired = () => {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const h = kstNow.getUTCHours()
     const m = kstNow.getUTCMinutes()
+    const day = kstNow.getUTCDay()
+    setIsWeekend(day === 0 || day === 6)
     setTimeExpired(h > 14 || (h === 14 && m >= 30))
   }
 
@@ -273,30 +276,33 @@ export default function PredictPage() {
             <div className="quick-buttons">
               <button
                 className={`quick-btn${sign === '+' ? ' quick-btn-active' : ''}`}
-                onClick={() => { if (!alreadyPredicted && !timeExpired) setSign('+') }}
-                disabled={alreadyPredicted || timeExpired}
+                onClick={() => { if (!alreadyPredicted && !timeExpired && !isWeekend) setSign('+') }}
+                disabled={alreadyPredicted || timeExpired || isWeekend}
               >+</button>
               <button
                 className={`quick-btn${sign === '-' ? ' quick-btn-active' : ''}`}
-                onClick={() => { if (!alreadyPredicted && !timeExpired) setSign('-') }}
-                disabled={alreadyPredicted || timeExpired}
+                onClick={() => { if (!alreadyPredicted && !timeExpired && !isWeekend) setSign('-') }}
+                disabled={alreadyPredicted || timeExpired || isWeekend}
               >−</button>
             </div>
             <div className="price-input-wrapper">
-              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted && !timeExpired) setPrice(e.target.value) }} readOnly={alreadyPredicted || timeExpired} style={alreadyPredicted || timeExpired ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
+              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted && !timeExpired && !isWeekend) setPrice(e.target.value) }} readOnly={alreadyPredicted || timeExpired || isWeekend} style={alreadyPredicted || timeExpired || isWeekend ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
             </div>
           </div>
 
           {alreadyPredicted && (
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측은 이미 제출되었습니다.</p>
           )}
-          {timeExpired && !alreadyPredicted && (
+          {isWeekend && !alreadyPredicted && (
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>마감입니다</p>
+          )}
+          {timeExpired && !alreadyPredicted && !isWeekend && (
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측시간종료 (14:30 마감)</p>
           )}
           <div className="submit-row">
-            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired}>취소</button>
-            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired}>
-              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : timeExpired ? '오늘 예측시간종료' : '예측 제출하기 →'}
+            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired || isWeekend}>취소</button>
+            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired || isWeekend}>
+              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : isWeekend ? '마감입니다' : timeExpired ? '오늘 예측시간종료' : '예측 제출하기 →'}
             </button>
           </div>
         </div>

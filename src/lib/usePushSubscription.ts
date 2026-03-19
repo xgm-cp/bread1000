@@ -9,10 +9,13 @@ export async function subscribePush(아이디: string): Promise<boolean> {
   await navigator.serviceWorker.register('/sw.js')
   const reg = await navigator.serviceWorker.ready
 
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  if (!vapidKey) throw new Error('VAPID 공개키가 설정되지 않았습니다.')
+
   const existing = await reg.pushManager.getSubscription()
   const subscription = existing ?? await reg.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
+    applicationServerKey: urlBase64ToUint8Array(vapidKey),
   })
 
   await fetch('/api/push/subscribe', {

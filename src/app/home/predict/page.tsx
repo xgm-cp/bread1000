@@ -254,7 +254,7 @@ export default function PredictPage() {
 
         <div className="prediction-panel">
           <h3>오늘의 종가를 예측하세요</h3>
-          <p>14시 30분까지 종가를 입력하세요.</p>
+          <p>예측 마감시간은 14시 30분 입니다. 예측 제출시 빵 1개가 차감됩니다.</p>
           <div className="input-group">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 10 }}>
               예측 증감값

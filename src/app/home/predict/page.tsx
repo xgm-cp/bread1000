@@ -21,12 +21,20 @@ export default function PredictPage() {
   const [submitting, setSubmitting] = useState(false)
   const [alreadyPredicted, setAlreadyPredicted] = useState(false)
   const [timeExpired, setTimeExpired] = useState(false)
+  const [isWeekend, setIsWeekend] = useState(false)
 
   const checkTimeExpired = () => {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const h = kstNow.getUTCHours()
     const m = kstNow.getUTCMinutes()
     setTimeExpired(h > 14 || (h === 14 && m >= 30))
+  }
+
+  const checkTradingDay = async () => {
+    const dateStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
+    const res = await fetch(`/api/trading-day?date=${dateStr}`)
+    const { isTradingDay } = await res.json()
+    setIsWeekend(!isTradingDay)
   }
 
   const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -96,7 +104,7 @@ export default function PredictPage() {
         const cached = sessionStorage.getItem('kospiCache')
         if (cached) {
           const { data, at } = JSON.parse(cached)
-          if (Date.now() - at < CACHE_TTL) {
+          if (Date.now() - at < CACHE_TTL && Array.isArray(data)) {
             setRows(data)
             return
           }
@@ -119,6 +127,7 @@ export default function PredictPage() {
 
   useEffect(() => {
     checkTimeExpired()
+    checkTradingDay()
     const timer = setInterval(checkTimeExpired, 60 * 1000)
     fetchRows()
     const user = JSON.parse(localStorage.getItem('user') || '{}')
@@ -160,8 +169,8 @@ export default function PredictPage() {
             <div className="psi-ticker">
               KOSPI 지수
               {latest?.변경일시 && (
-                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>
-                  {new Date(latest.변경일시).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text2)', marginLeft: 6, whiteSpace: 'nowrap' }}>
+                  {new Date(latest.변경일시).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} 기준
                 </span>
               )}
             </div>
@@ -169,19 +178,8 @@ export default function PredictPage() {
             <div className="psi-market">Korea Composite Stock Price Index</div>
           </div>
           <div className="psi-right">
-            <div className="psi-current-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="psi-current-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
               현재 지수
-              <button
-                onClick={() => { if (!refreshing) { sessionStorage.removeItem('kospiCache'); fetchRows(true) } }}
-                style={{ background: 'none', border: 'none', cursor: refreshing ? 'default' : 'pointer', padding: 0, lineHeight: 1, opacity: refreshing ? 0.4 : 1, pointerEvents: refreshing ? 'none' : 'auto' }}
-                title="새로고침"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }} className={refreshing ? 'icon-spin' : ''}>
-                  <path d="M23 4v6h-6" />
-                  <path d="M1 20v-6h6" />
-                  <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15" />
-                </svg>
-              </button>
             </div>
             <div className="psi-price">
               {latest ? Number(latest.종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 }) : '—'}
@@ -256,8 +254,8 @@ export default function PredictPage() {
         </div>
 
         <div className="prediction-panel">
-          <h3>오늘의 종가를 예측하세요</h3>
-          <p>14시 30분까지 종가를 입력하세요.</p>
+          <h3 style={{ whiteSpace: 'nowrap' }}>전일 종가 기준으로 오늘 종가 예측하세요</h3>
+          <p>예측 마감시간은 14시 30분 입니다. 예측 제출시 빵 1개가 차감됩니다.</p>
           <div className="input-group">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 10 }}>
               예측 증감값
@@ -280,30 +278,33 @@ export default function PredictPage() {
             <div className="quick-buttons">
               <button
                 className={`quick-btn${sign === '+' ? ' quick-btn-active' : ''}`}
-                onClick={() => { if (!alreadyPredicted && !timeExpired) setSign('+') }}
-                disabled={alreadyPredicted || timeExpired}
+                onClick={() => { if (!alreadyPredicted && !timeExpired && !isWeekend) setSign('+') }}
+                disabled={alreadyPredicted || timeExpired || isWeekend}
               >+</button>
               <button
                 className={`quick-btn${sign === '-' ? ' quick-btn-active' : ''}`}
-                onClick={() => { if (!alreadyPredicted && !timeExpired) setSign('-') }}
-                disabled={alreadyPredicted || timeExpired}
+                onClick={() => { if (!alreadyPredicted && !timeExpired && !isWeekend) setSign('-') }}
+                disabled={alreadyPredicted || timeExpired || isWeekend}
               >−</button>
             </div>
             <div className="price-input-wrapper">
-              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted && !timeExpired) setPrice(e.target.value) }} readOnly={alreadyPredicted || timeExpired} style={alreadyPredicted || timeExpired ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
+              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted && !timeExpired && !isWeekend) setPrice(e.target.value) }} readOnly={alreadyPredicted || timeExpired || isWeekend} style={alreadyPredicted || timeExpired || isWeekend ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
             </div>
           </div>
 
           {alreadyPredicted && (
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측은 이미 제출되었습니다.</p>
           )}
-          {timeExpired && !alreadyPredicted && (
+          {isWeekend && !alreadyPredicted && (
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>마감입니다</p>
+          )}
+          {timeExpired && !alreadyPredicted && !isWeekend && (
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측시간종료 (14:30 마감)</p>
           )}
           <div className="submit-row">
-            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired}>취소</button>
-            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired}>
-              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : timeExpired ? '오늘 예측시간종료' : '예측 제출하기 →'}
+            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired || isWeekend}>취소</button>
+            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired || isWeekend}>
+              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : isWeekend ? '마감입니다' : timeExpired ? '제출 마감' : '예측 제출하기 →'}
             </button>
           </div>
         </div>

@@ -75,6 +75,7 @@ export default function HomePage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [kospiPrice, setKospiPrice] = useState(0)
   const [myId, setMyId] = useState<string | null>(null)
+  const [isTradingDay, setIsTradingDay] = useState<boolean | null>(null)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const fetchStocks = useCallback(async (retryCount = 0) => {
@@ -126,6 +127,29 @@ export default function HomePage() {
       return
     }
     setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    // 거래일 여부 확인 (하루 1회 캐시)
+    const checkTradingDay = async () => {
+      const kst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+      const dateStr = kst.toISOString().slice(0, 10)
+      const dateKey = dateStr.replace(/-/g, '')
+      try {
+        const cached = sessionStorage.getItem('tradingDayCache')
+        if (cached) {
+          const { date, isTradingDay: cached_result } = JSON.parse(cached)
+          if (date === dateStr) { setIsTradingDay(cached_result); return }
+        }
+        const res = await fetch(`/api/trading-day?date=${dateKey}`)
+        const data = await res.json()
+        setIsTradingDay(data.isTradingDay)
+        sessionStorage.setItem('tradingDayCache', JSON.stringify({ date: dateStr, isTradingDay: data.isTradingDay }))
+      } catch {
+        setIsTradingDay(true) // API 실패 시 영업일로 간주
+      }
+    }
+    checkTradingDay()
   }, [])
 
   useEffect(() => {
@@ -230,14 +254,19 @@ export default function HomePage() {
             오늘 모인 <strong style={{ color: 'var(--gold)' }}>빵을 전부</strong> 획득
           </p>
           <div className="home-cta">
-            <button className="btn-gold" onClick={() => router.push('/home/predict')}>
-              <span className="btn-gold-inner"><Croissant size={16} /> 지금 예측하기</span>
-            </button>
-            <button className="btn-ghost" onClick={() => router.push('/home/result')}>오늘의 결과 보기</button>
+            {isTradingDay === true ? (
+              <button className="btn-gold" onClick={() => router.push('/home/predict')}>
+                <span className="btn-gold-inner"><Croissant size={16} /> 지금 예측하기</span>
+              </button>
+            ) : isTradingDay === false ? (
+              <div style={{ fontSize: '13px', color: 'var(--text2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 20px' }}>
+                🏖️ 오늘은 휴장일입니다
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="home-grid">
+        {isTradingDay && <div className="home-grid">
           <div>
             <div className="section-header">
               <div className="section-title">오늘의 종목</div>
@@ -314,7 +343,6 @@ export default function HomePage() {
           <div className="leaderboard-card">
             <div className="lb-header">
               <span className="lb-title">실시간 리더보드</span>
-              <span className="lb-see-all" onClick={() => router.push('/home/result')}>전체 보기 →</span>
             </div>
             {hasPrediction === false && !isAfter930 ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 0' }}>
@@ -351,7 +379,7 @@ export default function HomePage() {
                   )
                 })()}
               {leaderboard.map((entry, idx) => {
-                const rankClass = idx < 3 ? `rank-${idx + 1}` : ''
+                const rankClass = idx === 0 ? 'rank-1' : ''
                 const isMe = myId === entry.아이디
                 return (
                   <div key={entry.아이디} className={`lb-row${idx === 0 ? ' lb-row-first' : ''}`} style={isMe ? { borderLeft: '2px solid var(--gold)' } : undefined}>
@@ -385,7 +413,7 @@ export default function HomePage() {
               </>
             )}
           </div>
-        </div>
+        </div>}
 
       </div>
     </div>

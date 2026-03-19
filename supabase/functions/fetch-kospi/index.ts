@@ -18,7 +18,10 @@ async function getAccessToken(appKey: string, appSecret: string): Promise<string
     }),
   })
 
-  if (!res.ok) throw new Error(`토큰 발급 실패: ${res.status}`)
+  if (!res.ok) {
+    const errBody = await res.text()
+    throw new Error(`토큰 발급 실패: ${res.status} - ${errBody}`)
+  }
 
   const data = await res.json()
   cachedToken = data.access_token

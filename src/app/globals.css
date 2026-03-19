@@ -137,8 +137,6 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
 .lb-winner-score { font-size: 12px; font-weight: 600; margin-top: 2px; }
 .lb-rank { font-family: var(--font-serif), serif; font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 .rank-1 { color: #FFD700; }
-.rank-2 { color: #C0C0C0; }
-.rank-3 { color: #CD7F32; }
 .rank-other { color: var(--text3); font-family: var(--font-sans), sans-serif; font-size: 13px; }
 .lb-avatar { width: 32px; height: 32px; border-radius: 50%; background: #1e2128; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
 .lb-user-info { flex: 1; }

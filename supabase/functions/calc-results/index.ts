@@ -91,6 +91,13 @@ Deno.serve(async (req: Request) => {
     const winCurrent = (winBal as { 빵갯수: number } | null)?.빵갯수 ?? 0
     await supabase.from('빵보유기본')
       .upsert({ 아이디: winner.아이디, 빵갯수: winCurrent + totalPool })
+
+    const logNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const ts = `${logNow.getFullYear()}${String(logNow.getMonth()+1).padStart(2,'0')}${String(logNow.getDate()).padStart(2,'0')}${String(logNow.getHours()).padStart(2,'0')}${String(logNow.getMinutes()).padStart(2,'0')}${String(logNow.getSeconds()).padStart(2,'0')}`
+    await supabase.from('계좌거래내역').insert({
+      아이디: winner.아이디, 거래일시: ts,
+      입출금구분: 'W', 빵갯수: totalPool, 상태: 'Y',
+    })
   }
 
   return new Response(JSON.stringify({

@@ -230,7 +230,7 @@ export default function MypagePage() {
           <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>내 빵 잔액</div>
-              <button onClick={() => router.push('/home/mypage/transactions')} style={{ fontSize: 12, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, padding: 0 }}>전체 내역 →</button>
+              <button onClick={() => router.push('/home/mypage/transactions')} style={{ fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, padding: 0, textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: 'var(--border2)' }}>전체 내역</button>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
               <span style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: 'var(--text)' }}>{bread ?? '-'}</span>

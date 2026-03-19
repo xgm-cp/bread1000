@@ -379,7 +379,7 @@ export default function HomePage() {
                   )
                 })()}
               {leaderboard.map((entry, idx) => {
-                const rankClass = idx < 3 ? `rank-${idx + 1}` : ''
+                const rankClass = idx === 0 ? 'rank-1' : ''
                 const isMe = myId === entry.아이디
                 return (
                   <div key={entry.아이디} className={`lb-row${idx === 0 ? ' lb-row-first' : ''}`} style={isMe ? { borderLeft: '2px solid var(--gold)' } : undefined}>

@@ -13,6 +13,8 @@ interface TodayPrediction {
   예측종가: number
   종가증감구분: string
   종가증감값: number | null
+  순위: number | null
+  종가?: number | null
 }
 
 interface HistoryItem {
@@ -24,13 +26,6 @@ interface HistoryItem {
   종가?: number | null
 }
 
-interface KospiData {
-  price: string
-  change: string
-  changeSign: string
-  changePct: string
-}
-
 export default function MypagePage() {
   const router = useRouter()
   const [userName, setUserName] = useState('')
@@ -38,7 +33,6 @@ export default function MypagePage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [bread, setBread] = useState<number | null>(null)
   const [todayPred, setTodayPred] = useState<TodayPrediction | null | 'none'>('none')
-  const [kospi, setKospi] = useState<KospiData | null>(null)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [modal, setModal] = useState<ModalType>(null)
   const [amount, setAmount] = useState('')
@@ -66,15 +60,23 @@ export default function MypagePage() {
         if (data) setBread((data as unknown as { 빵갯수: number }).빵갯수)
       })
 
-    // 오늘 예측
+    // 오늘 예측 + 실제 종가
     supabase.from('종가예측내역')
-      .select('예측종가, 종가증감구분, 종가증감값')
+      .select('예측종가, 종가증감구분, 종가증감값, 순위')
       .eq('아이디', user.아이디)
       .eq('기준일자', today)
       .single()
-      .then(({ data }) => {
-        if (data) setTodayPred(data as unknown as TodayPrediction)
-        else setTodayPred(null)
+      .then(async ({ data }) => {
+        if (!data) { setTodayPred(null); return }
+        const pred = data as unknown as TodayPrediction
+        const { data: closeData } = await supabase
+          .from('종가관리내역')
+          .select('종가')
+          .eq('기준일자', today)
+          .eq('종목코드', '0001')
+          .maybeSingle()
+        pred.종가 = (closeData as unknown as { 종가: number } | null)?.종가 ?? null
+        setTodayPred(pred)
       })
 
     // 히스토리 (오늘 제외 최근 10개) + 종가 합치기
@@ -144,37 +146,6 @@ export default function MypagePage() {
     }
   }
 
-  // 오늘 배팅한 경우에만 KOSPI API 호출
-  useEffect(() => {
-    if (!todayPred || todayPred === 'none') return
-    const KOSPI_CACHE_TTL = 2 * 60 * 1000 // 2분
-    try {
-      const cached = sessionStorage.getItem('kospiCache')
-      if (cached) {
-        const { data, at } = JSON.parse(cached)
-        if (Date.now() - at < KOSPI_CACHE_TTL) {
-          setKospi({
-            price: Number(data.bstp_nmix_prpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 }),
-            change: data.bstp_nmix_prdy_vrss,
-            changeSign: data.prdy_vrss_sign,
-            changePct: data.bstp_nmix_prdy_ctrt,
-          })
-          return
-        }
-      }
-    } catch { /* 파싱 실패 시 무시 */ }
-    fetch('/api/kospi').then(r => r.json()).then(k => {
-      const price = Number(k.bstp_nmix_prpr)
-      if (isNaN(price) || price === 0) return
-      setKospi({
-        price: price.toLocaleString('ko-KR', { minimumFractionDigits: 2 }),
-        change: k.bstp_nmix_prdy_vrss,
-        changeSign: k.prdy_vrss_sign,
-        changePct: k.bstp_nmix_prdy_ctrt,
-      })
-      sessionStorage.setItem('kospiCache', JSON.stringify({ data: k, at: Date.now() }))
-    })
-  }, [todayPred])
 
   function openModal(type: ModalType) {
     setModal(type); setAmount(''); setModalError('')
@@ -204,7 +175,6 @@ export default function MypagePage() {
     localStorage.removeItem('user'); router.push('/')
   }
 
-  const isUp = (sign: string) => sign === '1' || sign === '2'
   const DirIcon = ({ code }: { code: string }) => code === 'U'
     ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--up)', justifyContent: 'center' }}><TrendingUp size={18} /> 상승</span>
     : code === 'D'
@@ -293,41 +263,46 @@ export default function MypagePage() {
               </button>
             </div>
           ) : (
-            <div style={{ padding: '14px 18px', borderBottom: history.length > 0 ? '1px solid var(--border)' : 'none', background: 'rgba(255,61,120,0.03)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+            <div style={{ padding: '13px 18px', borderBottom: history.length > 0 ? '1px solid var(--border)' : 'none', background: 'rgba(255,61,120,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'rgba(255,61,120,0.12)', color: '#FF3D78' }}>오늘</span>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)}</span>
                 </div>
                 <DirIcon code={todayPred.종가증감구분} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: kospi ? 10 : 0 }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>예측 지수</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <div style={{ fontWeight: 700, fontSize: 18 }}>{Number(todayPred.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
-                  {todayPred.종가증감값 != null && (
-                    <div style={{ fontSize: 12, color: todayPred.종가증감구분 === 'U' ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
-                      {todayPred.종가증감구분 === 'U' ? '+' : '-'}{todayPred.종가증감값}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>내 예측</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{Number(todayPred.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                      {todayPred.종가증감값 != null && (
+                        <div style={{ fontSize: 11, color: todayPred.종가증감구분 === 'U' ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
+                          {todayPred.종가증감구분 === 'U' ? '+' : '-'}{todayPred.종가증감값}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {todayPred.종가 != null && (
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>실제 종가</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{Number(todayPred.종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
                     </div>
                   )}
                 </div>
-              </div>
-              {kospi && (
-                <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>현재 코스피</div>
-                    <div style={{ fontWeight: 700, fontSize: 18 }}>{kospi.price}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: isUp(kospi.changeSign) ? 'var(--up)' : 'var(--down)' }}>
-                      {isUp(kospi.changeSign) ? '▲' : '▼'} {Math.abs(Number(kospi.change)).toFixed(2)}
-                    </div>
-                  </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  {todayPred.순위 === 1 ? (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 4 }}><Trophy size={13} /> 우승</div>
+                  ) : todayPred.순위 ? (
+                    <div style={{ fontSize: 13, color: 'var(--text2)' }}>{todayPred.순위}위</div>
+                  ) : todayPred.종가 != null ? (
+                    <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
+                  )}
                 </div>
-              )}
-              {!kospi && (
-                <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center' }}>실시간 지수 불러오는 중...</div>
-              )}
+              </div>
             </div>
           )}
 

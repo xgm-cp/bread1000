@@ -297,7 +297,7 @@ export default function HomePage() {
                           <div className="stock-name">{stock.name}</div>
                         </div>
                         <div className="stock-card-right">
-                          <div className="stock-price">{formatPrice(stock.price)}</div>
+                          <div className="stock-price" style={isKospi ? { fontSize: '26px' } : undefined}>{formatPrice(stock.price)}</div>
                           <div className={`stock-change change-${direction}`}>
                             {formatChange(stock.change, stock.sign)}
                           </div>

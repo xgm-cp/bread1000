@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { isBusinessDay } from '@/lib/holidays'
 
 type 종가Row = {
   기준일자: string
@@ -27,8 +28,8 @@ export default function PredictPage() {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const h = kstNow.getUTCHours()
     const m = kstNow.getUTCMinutes()
-    const day = kstNow.getUTCDay()
-    setIsWeekend(day === 0 || day === 6)
+    const todayStr = kstNow.toISOString().slice(0, 10)
+    setIsWeekend(!isBusinessDay(todayStr))
     setTimeExpired(h > 14 || (h === 14 && m >= 30))
   }
 

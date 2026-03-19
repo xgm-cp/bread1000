@@ -68,17 +68,20 @@ Deno.serve(async (req: Request) => {
   const wrong = (preds as Pred[]).filter(p => p.종가증감구분 !== direction)
 
   // ⑤ 순위 업데이트
+  const updateErrors: string[] = []
   for (const [i, p] of correct.entries()) {
-    await supabase.from('종가예측내역')
+    const { error } = await supabase.from('종가예측내역')
       .update({ 순위: i + 1, 종가증감값: parseFloat(Math.abs(p.예측종가 - actualClose).toFixed(2)) })
       .eq('아이디', p.아이디)
       .eq('기준일자', todayIso)
+    if (error) updateErrors.push(`[correct] ${p.아이디}: ${error.message}`)
   }
   for (const p of wrong) {
-    await supabase.from('종가예측내역')
+    const { error } = await supabase.from('종가예측내역')
       .update({ 순위: null, 종가증감값: parseFloat(Math.abs(p.예측종가 - actualClose).toFixed(2)) })
       .eq('아이디', p.아이디)
       .eq('기준일자', todayIso)
+    if (error) updateErrors.push(`[wrong] ${p.아이디}: ${error.message}`)
   }
 
   // ⑥ 종가관리내역 저장 (처리 완료 마커 — 순위 업데이트 후에 저장)
@@ -107,5 +110,7 @@ Deno.serve(async (req: Request) => {
     winner: winner?.아이디 ?? null,
     ranked: correct.length,
     unranked: wrong.length,
+    correct: correct.map(p => p.아이디),
+    updateErrors,
   }), { status: 200, headers: { 'content-type': 'application/json' } })
 })

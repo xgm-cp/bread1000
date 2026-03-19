@@ -27,9 +27,14 @@ export default function PredictPage() {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const h = kstNow.getUTCHours()
     const m = kstNow.getUTCMinutes()
-    const day = kstNow.getUTCDay()
-    setIsWeekend(day === 0 || day === 6)
     setTimeExpired(h > 14 || (h === 14 && m >= 30))
+  }
+
+  const checkTradingDay = async () => {
+    const dateStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
+    const res = await fetch(`/api/trading-day?date=${dateStr}`)
+    const { isTradingDay } = await res.json()
+    setIsWeekend(!isTradingDay)
   }
 
   const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -115,6 +120,7 @@ export default function PredictPage() {
 
   useEffect(() => {
     checkTimeExpired()
+    checkTradingDay()
     const timer = setInterval(checkTimeExpired, 60 * 1000)
     fetchRows()
     const user = JSON.parse(localStorage.getItem('user') || '{}')

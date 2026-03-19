@@ -25,6 +25,43 @@ type LeaderboardEntry = {
   회원기본: { 이름: string } | null
 }
 
+const STOCK_CACHE_TTL = 2 * 60 * 1000 // 2분
+
+function getSign(sign: string) {
+  if (sign === '2' || sign === '1') return 'up'
+  if (sign === '5' || sign === '4') return 'down'
+  return 'neutral'
+}
+
+function formatPrice(price: string) {
+  return Number(price).toLocaleString('ko-KR')
+}
+
+function formatChange(change: string, sign: string) {
+  const direction = getSign(sign)
+  if (direction === 'up') return `▲ ${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
+  if (direction === 'down') return `▼ ${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
+  return `${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
+}
+
+function formatRate(rate: string, sign: string) {
+  const direction = getSign(sign)
+  const prefix = direction === 'up' ? '+' : direction === 'down' ? '-' : ''
+  return `${prefix}${Math.abs(Number(rate)).toFixed(2)}%`
+}
+
+function formatPrediction(entry: LeaderboardEntry, kospiPrice: number) {
+  const dir = entry.종가증감구분 === 'U' ? '▲' : '▼'
+  const diff = kospiPrice > 0 ? Math.abs(entry.예측종가 - kospiPrice).toFixed(2) : null
+  return (
+    <span>
+      {entry.예측종가.toFixed(2)} {dir}{entry.종가증감값}
+      {diff !== null && (
+        <span> (현재차이 : <span style={{ color: '#ffffff' }}>{diff}</span>)</span>
+      )}
+    </span>
+  )
+}
 
 export default function HomePage() {
   const router = useRouter()
@@ -35,8 +72,7 @@ export default function HomePage() {
   const [refreshing, setRefreshing] = useState(false)
   const [hasPrediction, setHasPrediction] = useState<boolean | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
-
-  const STOCK_CACHE_TTL = 2 * 60 * 1000 // 2분
+  const [kospiPrice, setKospiPrice] = useState(0)
 
   const fetchStocks = useCallback(async (retryCount = 0) => {
     // 수동 새로고침(retryCount===0 && 이미 데이터 있음)이 아닌 초기 로드 시에만 캐시 사용
@@ -48,6 +84,8 @@ export default function HomePage() {
           if (Date.now() - at < STOCK_CACHE_TTL && Array.isArray(cachedStocks) && cachedStocks.length > 0) {
             setStocks(cachedStocks)
             setLoading(false)
+            const cachedKospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
+            if (cachedKospiPrice > 0) setKospiPrice(cachedKospiPrice)
             return
           }
         }
@@ -68,6 +106,8 @@ export default function HomePage() {
       // 코스피 현재가 및 방향 저장 (종목코드 '0001')
       const kospi = data.stocks.find((s: StockData) => s.ticker === '0001')
       if (kospi) {
+        const price = Number(kospi.price)
+        setKospiPrice(price)
         sessionStorage.setItem('kospiPrice', kospi.price)
         // sign '2'=상승, '1'=상한 → U / '5'=하락, '4'=하한 → D
         const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
@@ -133,6 +173,8 @@ export default function HomePage() {
           const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
           const kospiDir = sessionStorage.getItem('kospiDir') ?? ''
 
+          // 3순위 비교용 timestamp 미리 계산
+          const tsMap = new Map(entries.map(e => [e.아이디, new Date(e.등록일시).getTime()]))
           entries.sort((a, b) => {
             // 1순위: 방향 일치 여부 (일치 = 0, 불일치 = 1)
             const aDir = kospiDir ? (a.종가증감구분 === kospiDir ? 0 : 1) : 0
@@ -147,7 +189,7 @@ export default function HomePage() {
             }
 
             // 3순위: 등록일시 오름차순 (빠를수록 우선)
-            return new Date(a.등록일시).getTime() - new Date(b.등록일시).getTime()
+            return (tsMap.get(a.아이디) ?? 0) - (tsMap.get(b.아이디) ?? 0)
           })
 
           setLeaderboard(entries.slice(0, 10))
@@ -160,42 +202,9 @@ export default function HomePage() {
     run()
   }, [fetchStocks, pathname])
 
-  function getSign(sign: string) {
-    if (sign === '2' || sign === '1') return 'up'
-    if (sign === '5' || sign === '4') return 'down'
-    return 'neutral'
-  }
-
-  function formatPrice(price: string) {
-    return Number(price).toLocaleString('ko-KR')
-  }
-
-  function formatChange(change: string, sign: string) {
-    const direction = getSign(sign)
-    if (direction === 'up') return `▲ ${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
-    if (direction === 'down') return `▼ ${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
-    return `${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
-  }
-
-  function formatRate(rate: string, sign: string) {
-    const direction = getSign(sign)
-    const prefix = direction === 'up' ? '+' : direction === 'down' ? '-' : ''
-    return `${prefix}${Math.abs(Number(rate)).toFixed(2)}%`
-  }
-
-  function formatPrediction(entry: LeaderboardEntry) {
-    const dir = entry.종가증감구분 === 'U' ? '▲' : '▼'
-    const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
-    const diff = kospiPrice > 0 ? Math.abs(entry.예측종가 - kospiPrice).toFixed(2) : null
-    return (
-      <span>
-        {entry.예측종가.toFixed(2)} {dir}{entry.종가증감값}
-        {diff !== null && (
-          <span> (현재차이 : <span style={{ color: '#ffffff' }}>{diff}</span>)</span>
-        )}
-      </span>
-    )
-  }
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const isAfter930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)
+  const isAfter16 = kstNow.getUTCHours() >= 16
 
   return (
     <div className="page-home">
@@ -295,11 +304,7 @@ export default function HomePage() {
               <span className="lb-title">실시간 리더보드</span>
               <span className="lb-see-all" onClick={() => router.push('/home/result')}>전체 보기 →</span>
             </div>
-            {(() => {
-              const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-              const isAfter930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)
-              return hasPrediction === false && !isAfter930
-            })() ? (
+            {hasPrediction === false && !isAfter930 ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 0' }}>
                 <div style={{ fontSize: '2em' }}>🎯</div>
                 <div style={{ color: 'var(--text2)', fontSize: '14px', textAlign: 'center' }}>오늘 아직 예측하지 않으셨어요!</div>
@@ -314,8 +319,6 @@ export default function HomePage() {
             ) : (
               <>
                 {(() => {
-                  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-                  const isAfter16 = kstNow.getUTCHours() >= 16
                   if (!isAfter16 || leaderboard.length === 0) return null
                   const winner = leaderboard[0]
                   return (
@@ -329,7 +332,7 @@ export default function HomePage() {
                           {winner.회원기본?.이름 ? `${winner.회원기본.이름}(${winner.아이디})` : winner.아이디}
                         </div>
                         <div className="lb-winner-score" style={{ color: winner.종가증감구분 === 'U' ? '#FF5C5C' : '#4A90E2' }}>
-                          {formatPrediction(winner)}
+                          {formatPrediction(winner, kospiPrice)}
                         </div>
                       </div>
                       <div style={{ fontSize: '1.5em' }}>🏆</div>
@@ -352,7 +355,7 @@ export default function HomePage() {
                         </span>
                       </div>
                       <div className="lb-user-score" style={{ color: entry.종가증감구분 === 'U' ? '#FF5C5C' : '#4A90E2', fontWeight: 700 }}>
-                        {formatPrediction(entry)}
+                        {formatPrediction(entry, kospiPrice)}
                       </div>
                     </div>
                     <div className="lb-accuracy">

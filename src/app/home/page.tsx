@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { getAvatar } from '@/lib/avatar'
 import { RefreshCw, Croissant } from 'lucide-react'
@@ -72,10 +72,12 @@ export default function HomePage() {
   const [error, setError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [hasPrediction, setHasPrediction] = useState<boolean | null>(null)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [rawLeaderboard, setRawLeaderboard] = useState<LeaderboardEntry[]>([])
   const [kospiPrice, setKospiPrice] = useState(0)
+  const [kospiDir, setKospiDir] = useState('')
   const [myId, setMyId] = useState<string | null>(null)
   const [isTradingDay, setIsTradingDay] = useState<boolean | null>(null)
+  const isMounted = useRef(true)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const fetchStocks = useCallback(async (retryCount = 0) => {
@@ -90,6 +92,8 @@ export default function HomePage() {
             setLoading(false)
             const cachedKospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
             if (cachedKospiPrice > 0) setKospiPrice(cachedKospiPrice)
+            const cachedKospiDir = sessionStorage.getItem('kospiDir') ?? ''
+            if (cachedKospiDir) setKospiDir(cachedKospiDir)
             return
           }
         }
@@ -105,6 +109,7 @@ export default function HomePage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       if (!Array.isArray(data.stocks) || data.stocks.length === 0) throw new Error('no data')
+      if (!isMounted.current) return
       setStocks(data.stocks)
       sessionStorage.setItem('stocksCache', JSON.stringify({ stocks: data.stocks, at: Date.now() }))
       // 코스피 현재가 및 방향 저장 (종목코드 '0001')
@@ -115,18 +120,19 @@ export default function HomePage() {
         sessionStorage.setItem('kospiPrice', kospi.price)
         // sign '2'=상승, '1'=상한 → U / '5'=하락, '4'=하한 → D
         const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
+        setKospiDir(dir)
         sessionStorage.setItem('kospiDir', dir)
       }
     } catch {
-      if (retryCount < 3) {
+      if (retryCount < 3 && isMounted.current) {
         timers.current.push(setTimeout(() => fetchStocks(retryCount + 1), 2000))
-      } else {
+      } else if (isMounted.current) {
         setError(true)
         setLoading(false)
       }
       return
     }
-    setLoading(false)
+    if (isMounted.current) setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -153,6 +159,7 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
+    isMounted.current = true
     const run = async () => {
       await fetchStocks()
 
@@ -170,11 +177,12 @@ export default function HomePage() {
         .eq('기준일자', today)
         .eq('아이디', user.아이디)
       if (error) {
-        if (retryCount < 3) {
+        if (retryCount < 3 && isMounted.current) {
           timers.current.push(setTimeout(() => fetchPrediction(retryCount + 1), 2000))
         }
         return
       }
+      if (!isMounted.current) return
       const predicted = (count ?? 0) > 0
       setHasPrediction(predicted)
 
@@ -191,39 +199,17 @@ export default function HomePage() {
             .eq('종목코드', '0001')
             .limit(50)
           if (error) {
-            if (retryCount < 3) {
+            if (retryCount < 3 && isMounted.current) {
               timers.current.push(setTimeout(() => fetchLeaderboard(retryCount + 1), 2000))
             }
             return
           }
-          if (!data) return
-          const entries = data as unknown as LeaderboardEntry[]
-          const kospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
-          const kospiDir = sessionStorage.getItem('kospiDir') ?? ''
-
-          // 3순위 비교용 timestamp 미리 계산
-          const tsMap = new Map(entries.map(e => [e.아이디, new Date(e.등록일시).getTime()]))
-          entries.sort((a, b) => {
-            // 1순위: 방향 일치 여부 (일치 = 0, 불일치 = 1)
-            const aDir = kospiDir ? (a.종가증감구분 === kospiDir ? 0 : 1) : 0
-            const bDir = kospiDir ? (b.종가증감구분 === kospiDir ? 0 : 1) : 0
-            if (aDir !== bDir) return aDir - bDir
-
-            // 2순위: 현재 코스피와의 오차 오름차순
-            if (kospiPrice > 0) {
-              const aDiff = Math.abs(a.예측종가 - kospiPrice)
-              const bDiff = Math.abs(b.예측종가 - kospiPrice)
-              if (aDiff !== bDiff) return aDiff - bDiff
-            }
-
-            // 3순위: 등록일시 오름차순 (빠를수록 우선)
-            return (tsMap.get(a.아이디) ?? 0) - (tsMap.get(b.아이디) ?? 0)
-          })
-
-          setLeaderboard(entries.slice(0, 10).map(e => ({
+          if (!data || !isMounted.current) return
+          const entries = (data as unknown as LeaderboardEntry[]).map(e => ({
             ...e,
             displayTime: new Date(e.등록일시).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-          })))
+          }))
+          setRawLeaderboard(entries)
         }
         fetchLeaderboard()
       }
@@ -231,8 +217,28 @@ export default function HomePage() {
       fetchPrediction()
     }
     run()
-    return () => { timers.current.forEach(clearTimeout); timers.current = [] }
+    return () => { isMounted.current = false; timers.current.forEach(clearTimeout); timers.current = [] }
   }, [fetchStocks, pathname])
+
+  const leaderboard = useMemo(() => {
+    const tsMap = new Map(rawLeaderboard.map(e => [e.아이디, new Date(e.등록일시).getTime()]))
+    return [...rawLeaderboard].sort((a, b) => {
+      // 1순위: 방향 일치 여부
+      const aDir = kospiDir ? (a.종가증감구분 === kospiDir ? 0 : 1) : 0
+      const bDir = kospiDir ? (b.종가증감구분 === kospiDir ? 0 : 1) : 0
+      if (aDir !== bDir) return aDir - bDir
+
+      // 2순위: 현재 코스피와의 오차 오름차순
+      if (kospiPrice > 0) {
+        const aDiff = Math.abs(a.예측종가 - kospiPrice)
+        const bDiff = Math.abs(b.예측종가 - kospiPrice)
+        if (aDiff !== bDiff) return aDiff - bDiff
+      }
+
+      // 3순위: 등록일시 오름차순
+      return (tsMap.get(a.아이디) ?? 0) - (tsMap.get(b.아이디) ?? 0)
+    }).slice(0, 10)
+  }, [rawLeaderboard, kospiPrice, kospiDir])
 
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
   const isAfter930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)

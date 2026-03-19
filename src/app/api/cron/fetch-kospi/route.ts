@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const KIS_BASE_URL = 'https://openapi.koreainvestment.com:9443'
+const KIS_BASE_URL = 'https://openapivts.koreainvestment.com:29443'
 
 let cachedToken: string | null = null
 let tokenExpireAt = 0

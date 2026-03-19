@@ -99,10 +99,10 @@ export default function ResultPage() {
         (txs as unknown as TxEntry[]).forEach(tx => {
           const id = tx.아이디
           const qty = Number(tx.빵갯수 ?? 0)
-          if (tx.입출금구분 === 'I') {
-            iMap[id] = (iMap[id] ?? 0) + qty
-          } else {
+          if (tx.입출금구분 === 'B') {
             dMap[id] = (dMap[id] ?? 0) + qty
+          } else if (tx.입출금구분 === 'W') {
+            iMap[id] = (iMap[id] ?? 0) + qty
           }
         })
       }

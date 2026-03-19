@@ -236,8 +236,8 @@ export default function ResultPage() {
               {/* 날짜 헤더 */}
               <tr>
                 <th style={thFixed}>성명</th>
-                <th style={thFixed}>ID</th>
-                <th style={thFixed}>빵개수</th>
+                <th style={thNotFixed}>ID</th>
+                <th style={thNotFixed}>빵개수</th>
                 {allDays.map(d => (
                   <th key={d} style={{
                     ...thDay,
@@ -250,7 +250,8 @@ export default function ResultPage() {
               </tr>
               {/* 날짜별 참여자 수 */}
               <tr>
-                <td style={{ ...thFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={3}></td>
+                <td style={{ ...thFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={1}></td>
+                <td style={{ ...thNotFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={2}></td>
                 {allDays.map(d => (
                   <td key={d} style={{
                     ...thDay,
@@ -274,8 +275,8 @@ export default function ResultPage() {
                     <td style={{ ...tdFixed, color: isMe ? '#7BF5A0' : 'var(--text)', fontWeight: isMe ? 700 : 400 }}>
                       {isMe ? `★${name}` : name}
                     </td>
-                    <td style={{ ...tdFixed, color: '#4A9EFF' }}>{id}</td>
-                    <td style={{ ...tdFixed, color: bread > 0 ? '#FFA500' : 'var(--text3)', textAlign: 'right' as const }}>{bread.toLocaleString()}</td>
+                    <td style={{ ...tdNotFixed, color: '#4A9EFF' }}>{id}</td>
+                    <td style={{ ...tdNotFixed, color: bread > 0 ? '#FFA500' : 'var(--text3)', textAlign: 'right' as const }}>{bread.toLocaleString()}</td>
                     {allDays.map(d => {
                       const isToday = d === getToday()
                       const beforeCutoff = isToday && new Date().getHours() < 16
@@ -309,6 +310,10 @@ const thFixed: React.CSSProperties = {
   background: 'var(--bg2, #111)', color: 'var(--text2)', fontWeight: 600,
   position: 'sticky', left: 0, zIndex: 2,
 }
+const thNotFixed: React.CSSProperties = {
+  padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
+  background: 'var(--bg2, #111)', color: 'var(--text2)', fontWeight: 600,
+}
 const thDay: React.CSSProperties = {
   padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid #333',
   minWidth: 28,
@@ -317,6 +322,9 @@ const tdFixed: React.CSSProperties = {
   padding: '5px 8px', borderBottom: '1px solid #222',
   position: 'sticky', left: 0, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
+}
+const tdNotFixed: React.CSSProperties = {
+  padding: '5px 8px', borderBottom: '1px solid #222',
 }
 const tdDay: React.CSSProperties = {
   padding: '4px 4px', textAlign: 'center', borderBottom: '1px solid #222',

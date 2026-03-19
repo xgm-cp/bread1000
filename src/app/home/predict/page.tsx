@@ -30,7 +30,7 @@ export default function PredictPage() {
     const prevClose = rows.find(r => r.기준일자 < today)?.종가 ?? 0
     const final = prevClose + delta
     const now = new Date()
-    const kstISO = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().replace('Z', '+09:00')
+    const kstISO = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 23)
     const 기준일자 = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
     setSubmitting(true)

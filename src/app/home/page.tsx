@@ -86,15 +86,16 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
-    fetchStocks()
+    const run = async () => {
+      await fetchStocks()
 
-    const stored = localStorage.getItem('user')
-    if (!stored) return
-    const user = JSON.parse(stored)
-    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const stored = localStorage.getItem('user')
+      if (!stored) return
+      const user = JSON.parse(stored)
+      const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-    // 로그인 유저 예측 여부 확인 (최대 3회 재시도)
-    const fetchPrediction = async (retryCount = 0) => {
+      // 로그인 유저 예측 여부 확인 (최대 3회 재시도)
+      const fetchPrediction = async (retryCount = 0) => {
       const { count, error } = await getSupabase()
         .from('종가예측내역')
         .select('아이디', { count: 'exact', head: true })
@@ -154,7 +155,9 @@ export default function HomePage() {
         fetchLeaderboard()
       }
     }
-    fetchPrediction()
+      fetchPrediction()
+    }
+    run()
   }, [fetchStocks, pathname])
 
   function getSign(sign: string) {
@@ -169,15 +172,15 @@ export default function HomePage() {
 
   function formatChange(change: string, sign: string) {
     const direction = getSign(sign)
-    if (direction === 'up') return `▲ ${Number(change).toLocaleString('ko-KR')}원`
-    if (direction === 'down') return `▼ ${Number(change).toLocaleString('ko-KR')}원`
-    return `${Number(change).toLocaleString('ko-KR')}원`
+    if (direction === 'up') return `▲ ${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
+    if (direction === 'down') return `▼ ${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
+    return `${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
   }
 
   function formatRate(rate: string, sign: string) {
     const direction = getSign(sign)
     const prefix = direction === 'up' ? '+' : direction === 'down' ? '-' : ''
-    return `${prefix}${Number(rate).toFixed(2)}%`
+    return `${prefix}${Math.abs(Number(rate)).toFixed(2)}%`
   }
 
   function formatPrediction(entry: LeaderboardEntry) {

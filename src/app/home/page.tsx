@@ -254,15 +254,15 @@ export default function HomePage() {
             오늘 모인 <strong style={{ color: 'var(--gold)' }}>빵을 전부</strong> 획득
           </p>
           <div className="home-cta">
-            {isTradingDay ? (
+            {isTradingDay === true ? (
               <button className="btn-gold" onClick={() => router.push('/home/predict')}>
                 <span className="btn-gold-inner"><Croissant size={16} /> 지금 예측하기</span>
               </button>
-            ) : (
+            ) : isTradingDay === false ? (
               <div style={{ fontSize: '13px', color: 'var(--text2)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 20px' }}>
                 🏖️ 오늘은 휴장일입니다
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 

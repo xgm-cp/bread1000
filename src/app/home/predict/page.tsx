@@ -291,7 +291,7 @@ export default function PredictPage() {
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측은 이미 제출되었습니다.</p>
           )}
           {timeExpired && !alreadyPredicted && (
-            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측 시간이 종료되었습니다. (14:30 마감)</p>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측시간종료 (14:30 마감)</p>
           )}
           <div className="submit-row">
             <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired}>취소</button>

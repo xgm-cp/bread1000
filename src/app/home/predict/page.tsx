@@ -26,7 +26,7 @@ export default function PredictPage() {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const h = kstNow.getUTCHours()
     const m = kstNow.getUTCMinutes()
-    setTimeExpired(h > 17 || (h === 17 && m >= 30))
+    setTimeExpired(h > 14 || (h === 14 && m >= 30))
   }
 
   const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -250,7 +250,7 @@ export default function PredictPage() {
 
         <div className="prediction-panel">
           <h3>오늘의 종가를 예측하세요</h3>
-          <p>17시 30분까지 종가를 입력하세요.</p>
+          <p>14시 30분까지 종가를 입력하세요.</p>
           <div className="input-group">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 10 }}>
               예측 증감값
@@ -291,7 +291,7 @@ export default function PredictPage() {
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측은 이미 제출되었습니다.</p>
           )}
           {timeExpired && !alreadyPredicted && (
-            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측 시간이 종료되었습니다. (17:30 마감)</p>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측 시간이 종료되었습니다. (14:30 마감)</p>
           )}
           <div className="submit-row">
             <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired}>취소</button>

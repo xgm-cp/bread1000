@@ -22,12 +22,16 @@ export default function PredictPage() {
   const [alreadyPredicted, setAlreadyPredicted] = useState(false)
   const [timeExpired, setTimeExpired] = useState(false)
   const [isWeekend, setIsWeekend] = useState(false)
+  const [marketClosed, setMarketClosed] = useState(false)
+  const [marketPreparing, setMarketPreparing] = useState(false)
 
   const checkTimeExpired = () => {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const h = kstNow.getUTCHours()
     const m = kstNow.getUTCMinutes()
-    setTimeExpired(h > 14 || (h === 14 && m >= 30))
+    setMarketClosed(h >= 16)
+    setMarketPreparing(h < 8)
+    setTimeExpired((h > 14 || (h === 14 && m >= 30)) && h < 16)
   }
 
   const checkTradingDay = async () => {
@@ -291,17 +295,17 @@ export default function PredictPage() {
             <div className="quick-buttons">
               <button
                 className={`quick-btn${sign === '+' ? ' quick-btn-active' : ''}`}
-                onClick={() => { if (!alreadyPredicted && !timeExpired && !isWeekend) setSign('+') }}
-                disabled={alreadyPredicted || timeExpired || isWeekend}
+                onClick={() => { if (!alreadyPredicted && !timeExpired && !isWeekend && !marketClosed && !marketPreparing) setSign('+') }}
+                disabled={alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing}
               >+</button>
               <button
                 className={`quick-btn${sign === '-' ? ' quick-btn-active' : ''}`}
-                onClick={() => { if (!alreadyPredicted && !timeExpired && !isWeekend) setSign('-') }}
-                disabled={alreadyPredicted || timeExpired || isWeekend}
+                onClick={() => { if (!alreadyPredicted && !timeExpired && !isWeekend && !marketClosed && !marketPreparing) setSign('-') }}
+                disabled={alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing}
               >−</button>
             </div>
             <div className="price-input-wrapper">
-              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted && !timeExpired && !isWeekend) setPrice(e.target.value) }} readOnly={alreadyPredicted || timeExpired || isWeekend} style={alreadyPredicted || timeExpired || isWeekend ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
+              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted && !timeExpired && !isWeekend && !marketClosed && !marketPreparing) setPrice(e.target.value) }} readOnly={alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing} style={alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
             </div>
           </div>
 
@@ -314,10 +318,16 @@ export default function PredictPage() {
           {timeExpired && !alreadyPredicted && !isWeekend && (
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측시간종료 (14:30 마감)</p>
           )}
+          {marketClosed && !alreadyPredicted && !isWeekend && (
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 장 마감</p>
+          )}
+          {marketPreparing && !alreadyPredicted && !isWeekend && (
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측 준비중 (08:00 오픈)</p>
+          )}
           <div className="submit-row">
-            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired || isWeekend}>취소</button>
-            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired || isWeekend}>
-              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : isWeekend ? '마감입니다' : timeExpired ? '제출 마감' : '예측 제출하기 →'}
+            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing}>취소</button>
+            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing}>
+              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : isWeekend ? '마감입니다' : marketClosed ? '오늘 장 마감' : marketPreparing ? '예측 준비중' : timeExpired ? '제출 마감' : '예측 제출하기 →'}
             </button>
           </div>
         </div>

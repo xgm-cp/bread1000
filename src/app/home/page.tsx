@@ -281,11 +281,15 @@ export default function HomePage() {
                   )
                 : stocks.map(stock => {
                     const direction = getSign(stock.sign)
+                    const isKospi = stock.ticker === '0001'
                     return (
-                      <div key={stock.ticker} className="stock-card" onClick={() => router.push('/home/predict')}>
+                      <div key={stock.ticker} className={`stock-card${isKospi ? ' stock-card-main' : ''}`} onClick={() => router.push('/home/predict')}>
                         <div className="stock-card-left">
                           <div className="stock-card-top">
                             <div className="stock-ticker">{stock.ticker}</div>
+                            {isKospi && (
+                              <span className="stock-card-main-badge">예측 대상</span>
+                            )}
                             <div className={`stock-badge badge-${direction}`}>
                               {formatRate(stock.changeRate, stock.sign)}
                             </div>

@@ -22,6 +22,7 @@ function getToday(): string {
 
 type MemberRow = Record<string, unknown>
 type PredEntry = { 아이디: string; 기준일자: string; 순위: number }
+type TxEntry = { 아이디: string; 입출금구분: string; 빵갯수: number; 상태: string }
 
 export default function ResultPage() {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10))
@@ -33,6 +34,8 @@ export default function ResultPage() {
   const [gridPredMap, setGridPredMap] = useState<Record<string, Record<string, number>>>({})
   const [gridDayCounts, setGridDayCounts] = useState<Record<string, number>>({})
   const [breadMap, setBreadMap] = useState<Record<string, number>>({})
+  const [deductMap, setDeductMap] = useState<Record<string, number>>({})
+  const [increaseMap, setIncreaseMap] = useState<Record<string, number>>({})
 
   useEffect(() => {
     const stored = localStorage.getItem('user')
@@ -59,7 +62,7 @@ export default function ResultPage() {
       .neq('기준일자', todayStr)
       .then(({ count }) => setMyRank1Count(count ?? 0))
 
-    // 전체 회원 + 해당월 예측 데이터 + 빵보유기본
+    // 전체 회원 + 해당월 예측 데이터 + 빵보유기본 + 계좌거래내역
     Promise.all([
       getSupabase().from('회원기본').select('*'),
       getSupabase()
@@ -69,7 +72,13 @@ export default function ResultPage() {
         .gte('기준일자', firstDay)
         .lte('기준일자', lastDay),
       getSupabase().from('빵보유기본').select('*'),
-    ]).then(([{ data: members }, { data: preds }, { data: breads }]) => {
+      getSupabase()
+        .from('계좌거래내역')
+        .select('아이디, 입출금구분, 빵갯수, 상태')
+        .eq('상태', 'Y')
+        .gte('거래일시', `${sy}${sm}01000000`)
+        .lte('거래일시', `${sy}${sm}${String(lastDayNum).padStart(2,'0')}235959`),
+    ]).then(([{ data: members }, { data: preds }, { data: breads }, { data: txs }]) => {
       setGridMembers((members ?? []) as MemberRow[])
 
       // 아이디 -> 빵갯수
@@ -82,6 +91,23 @@ export default function ResultPage() {
         })
       }
       setBreadMap(bMap)
+
+      // 아이디 -> 차감/증가 합계
+      const dMap: Record<string, number> = {}
+      const iMap: Record<string, number> = {}
+      if (txs) {
+        (txs as unknown as TxEntry[]).forEach(tx => {
+          const id = tx.아이디
+          const qty = Number(tx.빵갯수 ?? 0)
+          if (tx.입출금구분 === 'I') {
+            iMap[id] = (iMap[id] ?? 0) + qty
+          } else {
+            dMap[id] = (dMap[id] ?? 0) + qty
+          }
+        })
+      }
+      setDeductMap(dMap)
+      setIncreaseMap(iMap)
 
       const predRows = (preds ?? []) as unknown as PredEntry[]
 
@@ -124,16 +150,18 @@ export default function ResultPage() {
 
   const handleDownload = () => {
     const todayStr = getToday()
-    const fixedCols = 3
+    const fixedCols = 5
 
     // 헤더 행
-    const header = ['성명', 'ID', '빵개수', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
+    const header = ['성명', 'ID', '빵잔액', '차감', '증가', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
 
     // 데이터 행
     const rows = gridMembers.map(member => {
       const id = String(member['아이디'] ?? '')
       const name = String(member['이름'] ?? '')
       const bread = breadMap[id] ?? 0
+      const deduct = deductMap[id] ?? 0
+      const increase = increaseMap[id] ?? 0
       const dayCells = allDays.map(d => {
         const isToday = d === todayStr
         const beforeCutoff = isToday && new Date().getHours() < 16
@@ -142,7 +170,7 @@ export default function ResultPage() {
         if (rank !== undefined) return 'X'
         return '-'
       })
-      return [name, id, bread, ...dayCells]
+      return [name, id, bread, deduct, increase, ...dayCells]
     })
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...rows])
@@ -237,7 +265,9 @@ export default function ResultPage() {
               <tr>
                 <th style={thFixed}>성명</th>
                 <th style={thNotFixed}>ID</th>
-                <th style={thNotFixed}>빵개수</th>
+                <th style={thNotFixed}>빵잔액</th>
+                <th style={{ ...thNotFixed, textAlign: 'right' }}>차감</th>
+                <th style={{ ...thNotFixed, textAlign: 'right' }}>증가</th>
                 {allDays.map(d => (
                   <th key={d} style={{
                     ...thDay,
@@ -251,7 +281,7 @@ export default function ResultPage() {
               {/* 날짜별 참여자 수 */}
               <tr>
                 <td style={{ ...thFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={1}></td>
-                <td style={{ ...thNotFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={2}></td>
+                <td style={{ ...thNotFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={4}></td>
                 {allDays.map(d => (
                   <td key={d} style={{
                     ...thDay,
@@ -277,6 +307,8 @@ export default function ResultPage() {
                     </td>
                     <td style={{ ...tdNotFixed, color: '#4A9EFF' }}>{id}</td>
                     <td style={{ ...tdNotFixed, color: bread > 0 ? '#FFA500' : 'var(--text3)', textAlign: 'right' as const }}>{bread.toLocaleString()}</td>
+                    <td style={{ ...tdNotFixed, color: deductMap[id] ? '#FF5C5C' : 'var(--text3)', textAlign: 'right' as const }}>{deductMap[id] ? `-${(deductMap[id]).toLocaleString()}` : '-'}</td>
+                    <td style={{ ...tdNotFixed, color: increaseMap[id] ? '#2ECC8A' : 'var(--text3)', textAlign: 'right' as const }}>{increaseMap[id] ? `+${(increaseMap[id]).toLocaleString()}` : '-'}</td>
                     {allDays.map(d => {
                       const isToday = d === getToday()
                       const beforeCutoff = isToday && new Date().getHours() < 16

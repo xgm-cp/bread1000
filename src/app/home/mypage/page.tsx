@@ -218,7 +218,7 @@ export default function MypagePage() {
 
         {/* 프로필 + 빵 잔액 */}
         <div className="profile-card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
             <div className="profile-avatar-big" style={{ margin: 0, flexShrink: 0, fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {userId ? getAvatar(userId, 48) : <User size={28} />}
             </div>
@@ -233,7 +233,7 @@ export default function MypagePage() {
               <button onClick={() => router.push('/home/mypage/transactions')} style={{ fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, padding: 0, textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: 'var(--border2)' }}>전체 내역</button>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: 'var(--text)' }}>{bread ?? '-'}</span>
+              <span style={{ fontWeight: 700, fontSize: 30, color: 'var(--text)' }}>{bread ?? '-'}</span>
               <span style={{ fontSize: 16, color: 'var(--text2)', fontWeight: 600 }}>빵</span>
               {bread !== null && <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 4 }}>= {(bread * 1000).toLocaleString()}원</span>}
             </div>
@@ -304,7 +304,7 @@ export default function MypagePage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: kospi ? 10 : 0 }}>
                 <div style={{ fontSize: 11, color: 'var(--text3)' }}>예측 지수</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>{Number(todayPred.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                  <div style={{ fontWeight: 700, fontSize: 18 }}>{Number(todayPred.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
                   {todayPred.종가증감값 != null && (
                     <div style={{ fontSize: 12, color: todayPred.종가증감구분 === 'U' ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
                       {todayPred.종가증감구분 === 'U' ? '+' : '-'}{todayPred.종가증감값}
@@ -316,7 +316,7 @@ export default function MypagePage() {
                 <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>현재 코스피</div>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>{kospi.price}</div>
+                    <div style={{ fontWeight: 700, fontSize: 18 }}>{kospi.price}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: isUp(kospi.changeSign) ? 'var(--up)' : 'var(--down)' }}>
@@ -343,7 +343,7 @@ export default function MypagePage() {
                   <div>
                     <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>내 예측</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>{Number(item.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{Number(item.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
                       {item.종가증감값 != null && (
                         <div style={{ fontSize: 11, color: item.종가증감구분 === 'U' ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
                           {item.종가증감구분 === 'U' ? '+' : '-'}{item.종가증감값}
@@ -354,7 +354,7 @@ export default function MypagePage() {
                   {item.종가 != null && (
                     <div>
                       <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>실제 종가</div>
-                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>{Number(item.종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{Number(item.종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
                     </div>
                   )}
                 </div>

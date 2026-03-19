@@ -1,20 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import * as XLSX from 'xlsx-js-style'
+import { BarChart2, Download, Trophy } from 'lucide-react'
 
-function getPrevBusinessDayOf(yyyymmdd: string): string {
-  const d = new Date(`${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`)
-  d.setDate(d.getDate() - 1)
-  if (d.getDay() === 0) d.setDate(d.getDate() - 2)
-  else if (d.getDay() === 6) d.setDate(d.getDate() - 1)
-  return d.toISOString().slice(0, 10).replace(/-/g, '')
-}
-
-function toYYYYMMDD(isoDate: string): string {
-  return isoDate.replace(/-/g, '')
-}
 
 function getToday(): string {
   return new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -36,6 +26,18 @@ export default function ResultPage() {
   const [breadMap, setBreadMap] = useState<Record<string, number>>({})
   const [deductMap, setDeductMap] = useState<Record<string, number>>({})
   const [increaseMap, setIncreaseMap] = useState<Record<string, number>>({})
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const todayThRef = useRef<HTMLTableCellElement>(null)
+
+  useEffect(() => {
+    if (!scrollContainerRef.current || !todayThRef.current) return
+    const container = scrollContainerRef.current
+    const cell = todayThRef.current
+    const stickyWidth = 52 + 72 + 52 // 성명 + ID + 잔여빵
+    const visibleWidth = container.offsetWidth - stickyWidth
+    container.scrollLeft = cell.offsetLeft - stickyWidth - visibleWidth / 2 + cell.offsetWidth / 2
+  }, [selectedDate, gridDayCounts])
 
   useEffect(() => {
     const stored = localStorage.getItem('user')
@@ -214,74 +216,96 @@ export default function ResultPage() {
 
   return (
     <div className="page-result">
-      <div className="result-body">
-        {/* 날짜 선택 */}
-        <div className="result-hero">
-          <div className="result-badge" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <span>🎉 결과 조회</span>
-            <select value={y} onChange={e => {
-              const lastDay = new Date(Number(e.target.value), m, 0).getDate()
-              setSelectedDate(`${e.target.value}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`)
-            }} style={selectStyle}>
-              {Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i).map(yr => (
-                <option key={yr} value={yr}>{yr}년</option>
-              ))}
-            </select>
-            <select value={m} onChange={e => {
-              const lastDay = new Date(y, Number(e.target.value), 0).getDate()
-              setSelectedDate(`${y}-${String(e.target.value).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`)
-            }} style={selectStyle}>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(mo => (
-                <option key={mo} value={mo}>{mo}월</option>
-              ))}
-            </select>
-            <button onClick={handleDownload} title="엑셀 다운로드" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4A9EFF', fontSize: 18, padding: '0 4px', lineHeight: 1 }}>
-              ⬇️
-            </button>
-          </div>
-        </div>
+      {/* 스티키 툴바 */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(13,13,13,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <BarChart2 size={15} color="var(--text3)" />
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginRight: 4 }}>결과 조회</span>
+        <select value={y} onChange={e => {
+          const lastDay = new Date(Number(e.target.value), m, 0).getDate()
+          setSelectedDate(`${e.target.value}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`)
+        }} style={selectStyle}>
+          {Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i).map(yr => (
+            <option key={yr} value={yr}>{yr}년</option>
+          ))}
+        </select>
+        <select value={m} onChange={e => {
+          const lastDay = new Date(y, Number(e.target.value), 0).getDate()
+          setSelectedDate(`${y}-${String(e.target.value).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`)
+        }} style={selectStyle}>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map(mo => (
+            <option key={mo} value={mo}>{mo}월</option>
+          ))}
+        </select>
+        <button onClick={handleDownload} title="엑셀 다운로드" style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+          <Download size={16} color="#22c55e" />
+        </button>
+      </div>
 
+      <div className="result-body">
         {/* 나의 결과 카드 */}
-        <div className="comparison-card">
-          <div className="comparison-row">
+        <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', marginBottom: 14, background: 'linear-gradient(135deg, rgba(255,61,120,0.08) 0%, rgba(155,47,201,0.06) 100%)', border: '1px solid rgba(255,61,120,0.2)', padding: '18px 20px' }}>
+          {/* 배경 글로우 */}
+          <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,61,120,0.18) 0%, rgba(155,47,201,0.08) 60%, transparent 80%)', pointerEvents: 'none' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div className="comp-stock">나의 결과</div>
-              <div className="comp-ticker">{String(month).padStart(2,'0')}월 기준</div>
-            </div>
-            <div className="comp-values">
-              <div style={{ fontSize: 15, color: 'var(--text2)' }}>
-                해당월 1위 : {myRank1Count !== null ? `${myRank1Count}회` : '-'}
+              <div style={{ fontSize: 11, color: 'rgba(255,61,120,0.8)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                {String(month).padStart(2,'0')}월 기준
               </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>나의 결과</div>
             </div>
-            <div className="comp-diff-col"></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {myRank1Count !== null && myRank1Count > 0 ? (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,61,120,0.8)', fontWeight: 600, marginBottom: 2 }}>이달 1위 횟수</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1, background: 'linear-gradient(135deg, #FFD700, #FFA500)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                      {myRank1Count}회
+                    </div>
+                  </div>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg, rgba(255,193,7,0.25), rgba(255,140,0,0.15))', border: '1px solid rgba(255,193,7,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Trophy size={22} color="#FFD700" />
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+                  {myRank1Count === null ? '로딩 중...' : '아직 1위 없음'}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* 그리드 테이블 */}
-        <div style={{ overflowX: 'auto', marginTop: 12 }}>
+        <div ref={scrollContainerRef} style={{ overflowX: 'auto', marginTop: 12 }}>
           <table style={{ borderCollapse: 'collapse', fontSize: 11, whiteSpace: 'nowrap', width: '100%' }}>
             <thead>
               {/* 날짜 헤더 */}
               <tr>
                 <th style={thFixed}>성명</th>
-                <th style={thNotFixed}>ID</th>
-                <th style={thNotFixed}>잔여빵</th>
+                <th style={thFixed2}>ID</th>
+                <th style={thFixed3}>잔여빵</th>
                 <th style={{ ...thNotFixed, textAlign: 'right' }}>차감</th>
                 <th style={{ ...thNotFixed, textAlign: 'right' }}>증가</th>
-                {allDays.map(d => (
-                  <th key={d} style={{
-                    ...thDay,
-                    color: isWeekend(d) ? '#555' : 'var(--text2)',
-                    background: isWeekend(d) ? 'rgba(255,255,255,0.08)' : 'var(--bg2, #111)',
-                  }}>
-                    {Number(d.slice(6, 8))}
-                  </th>
-                ))}
+                {allDays.map(d => {
+                  const isToday = d === getToday()
+                  return (
+                    <th key={d} ref={isToday ? todayThRef : null} style={{
+                      ...thDay,
+                      color: isToday ? '#FF3D78' : isWeekend(d) ? '#555' : 'var(--text2)',
+                      background: isToday ? 'rgba(255,61,120,0.12)' : isWeekend(d) ? 'rgba(255,255,255,0.08)' : 'var(--bg2, #111)',
+                      fontWeight: isToday ? 700 : 400,
+                    }}>
+                      {Number(d.slice(6, 8))}
+                    </th>
+                  )
+                })}
               </tr>
               {/* 날짜별 참여자 수 */}
               <tr>
-                <td style={{ ...thFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={1}></td>
-                <td style={{ ...thNotFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={4}></td>
+                <td style={{ ...thFixed, color: 'var(--text3)', fontSize: 10 }}></td>
+                <td style={{ ...thFixed2, color: 'var(--text3)', fontSize: 10 }}></td>
+                <td style={{ ...thFixed3, color: 'var(--text3)', fontSize: 10 }}></td>
+                <td style={{ ...thNotFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={2}></td>
                 {allDays.map(d => (
                   <td key={d} style={{
                     ...thDay,
@@ -305,8 +329,8 @@ export default function ResultPage() {
                     <td style={{ ...tdFixed, color: isMe ? '#7BF5A0' : 'var(--text)', fontWeight: isMe ? 700 : 400 }}>
                       {isMe ? `★${name}` : name}
                     </td>
-                    <td style={{ ...tdNotFixed, color: '#4A9EFF' }}>{id}</td>
-                    <td style={{ ...tdNotFixed, color: bread > 0 ? '#FFA500' : 'var(--text3)', textAlign: 'right' as const }}>{bread.toLocaleString()}</td>
+                    <td style={{ ...tdFixed2, color: '#4A9EFF' }}>{id}</td>
+                    <td style={{ ...tdFixed3, color: bread > 0 ? '#FFA500' : 'var(--text3)', textAlign: 'right' as const }}>{bread.toLocaleString()}</td>
                     <td style={{ ...tdNotFixed, color: deductMap[id] ? '#FF5C5C' : 'var(--text3)', textAlign: 'right' as const }}>{deductMap[id] ? `-${(deductMap[id]).toLocaleString()}` : '-'}</td>
                     <td style={{ ...tdNotFixed, color: increaseMap[id] ? '#2ECC8A' : 'var(--text3)', textAlign: 'right' as const }}>{increaseMap[id] ? `+${(increaseMap[id]).toLocaleString()}` : '-'}</td>
                     {allDays.map(d => {
@@ -337,14 +361,29 @@ export default function ResultPage() {
   )
 }
 
+const stickyBase: React.CSSProperties = { position: 'sticky', zIndex: 2 }
+
 const thFixed: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
-  background: 'var(--bg2, #111)', color: 'var(--text2)', fontWeight: 600,
-  position: 'sticky', left: 0, zIndex: 2,
+  background: '#111', color: 'var(--text2)', fontWeight: 600,
+  width: 52, minWidth: 52, maxWidth: 52,
+  ...stickyBase, left: 0,
+}
+const thFixed2: React.CSSProperties = {
+  padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
+  background: '#111', color: 'var(--text2)', fontWeight: 600,
+  width: 72, minWidth: 72, maxWidth: 72,
+  ...stickyBase, left: 52,
+}
+const thFixed3: React.CSSProperties = {
+  padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #333',
+  background: '#111', color: 'var(--text2)', fontWeight: 600,
+  width: 52, minWidth: 52, maxWidth: 52,
+  ...stickyBase, left: 124,
 }
 const thNotFixed: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
-  background: 'var(--bg2, #111)', color: 'var(--text2)', fontWeight: 600,
+  background: '#111', color: 'var(--text2)', fontWeight: 600,
 }
 const thDay: React.CSSProperties = {
   padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid #333',
@@ -352,7 +391,20 @@ const thDay: React.CSSProperties = {
 }
 const tdFixed: React.CSSProperties = {
   padding: '5px 8px', borderBottom: '1px solid #222',
+  width: 52, minWidth: 52, maxWidth: 52,
   position: 'sticky', left: 0, zIndex: 1,
+  background: 'var(--bg, #0d0d0d)',
+}
+const tdFixed2: React.CSSProperties = {
+  padding: '5px 8px', borderBottom: '1px solid #222',
+  width: 72, minWidth: 72, maxWidth: 72,
+  position: 'sticky', left: 52, zIndex: 1,
+  background: 'var(--bg, #0d0d0d)',
+}
+const tdFixed3: React.CSSProperties = {
+  padding: '5px 8px', borderBottom: '1px solid #222',
+  width: 52, minWidth: 52, maxWidth: 52,
+  position: 'sticky', left: 124, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
 }
 const tdNotFixed: React.CSSProperties = {

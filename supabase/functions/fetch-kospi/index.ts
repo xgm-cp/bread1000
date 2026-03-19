@@ -44,8 +44,8 @@ Deno.serve(async () => {
     return new Response(JSON.stringify({ skipped: true, reason: '주말' }), { status: 200 })
   }
 
-  // 장 시간 외 스킵 (KST 09:00 ~ 15:35)
-  if (timeInMinutes < 9 * 60 || timeInMinutes > 15 * 60 + 35) {
+  // 장 시간 외 스킵 (KST 08:00 ~ 16:00)
+  if (timeInMinutes < 8 * 60 || timeInMinutes > 16 * 60) {
     return new Response(JSON.stringify({ skipped: true, reason: '장 시간 외' }), { status: 200 })
   }
 
@@ -100,6 +100,7 @@ Deno.serve(async () => {
         {
           기준일자,
           종목코드: '0001',
+          종목코드명: '코스피',
           종가,
           등록일시: kstISO,
           변경일시: kstISO,

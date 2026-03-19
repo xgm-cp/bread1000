@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
       throw new Error('종가 파싱 실패: ' + JSON.stringify(output))
     }
 
-    const 기준일자 = kstNow.toISOString().slice(0, 10)
+    const 기준일자 = kstNow.toISOString().slice(0, 10) // kstNow는 이미 +9h 적용된 값
     const kstISO = toKstISO(new Date())
 
     const supabase = createClient(
@@ -111,6 +111,7 @@ export async function GET(req: NextRequest) {
           기준일자,
           종목코드: '0001',
           종가,
+          등록일시: kstISO,
           변경일시: kstISO,
         },
         { onConflict: '기준일자,종목코드' }
@@ -118,7 +119,7 @@ export async function GET(req: NextRequest) {
 
     if (error) throw new Error('Supabase upsert 실패: ' + error.message)
 
-    return NextResponse.json({ ok: true, 기준일자, 종가, 변경일시: kstISO })
+    return NextResponse.json({ ok: true, 기준일자, 종가, 등록일시: kstISO, 변경일시: kstISO })
   } catch (e) {
     console.error('[cron/fetch-kospi]', e)
     return NextResponse.json({ error: String(e) }, { status: 500 })

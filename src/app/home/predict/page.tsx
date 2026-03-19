@@ -20,6 +20,14 @@ export default function PredictPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [alreadyPredicted, setAlreadyPredicted] = useState(false)
+  const [timeExpired, setTimeExpired] = useState(false)
+
+  const checkTimeExpired = () => {
+    const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const h = kstNow.getUTCHours()
+    const m = kstNow.getUTCMinutes()
+    setTimeExpired(h > 17 || (h === 17 && m >= 30))
+  }
 
   const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
@@ -103,6 +111,8 @@ export default function PredictPage() {
   }
 
   useEffect(() => {
+    checkTimeExpired()
+    const timer = setInterval(checkTimeExpired, 60 * 1000)
     fetchRows()
     const user = JSON.parse(localStorage.getItem('user') || '{}')
     if (!user.아이디) return
@@ -120,6 +130,7 @@ export default function PredictPage() {
           setPrice(String(row.종가증감값))
         }
       })
+    return () => clearInterval(timer)
   }, [])
 
   const latest = rows.find(r => r.기준일자 === today)
@@ -262,27 +273,30 @@ export default function PredictPage() {
             <div className="quick-buttons">
               <button
                 className={`quick-btn${sign === '+' ? ' quick-btn-active' : ''}`}
-                onClick={() => { if (!alreadyPredicted) setSign('+') }}
-                disabled={alreadyPredicted}
+                onClick={() => { if (!alreadyPredicted && !timeExpired) setSign('+') }}
+                disabled={alreadyPredicted || timeExpired}
               >+</button>
               <button
                 className={`quick-btn${sign === '-' ? ' quick-btn-active' : ''}`}
-                onClick={() => { if (!alreadyPredicted) setSign('-') }}
-                disabled={alreadyPredicted}
+                onClick={() => { if (!alreadyPredicted && !timeExpired) setSign('-') }}
+                disabled={alreadyPredicted || timeExpired}
               >−</button>
             </div>
             <div className="price-input-wrapper">
-              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted) setPrice(e.target.value) }} readOnly={alreadyPredicted} style={alreadyPredicted ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
+              <input className="price-input" type="number" placeholder="0" value={price} onChange={e => { if (!alreadyPredicted && !timeExpired) setPrice(e.target.value) }} readOnly={alreadyPredicted || timeExpired} style={alreadyPredicted || timeExpired ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
             </div>
           </div>
 
           {alreadyPredicted && (
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측은 이미 제출되었습니다.</p>
           )}
+          {timeExpired && !alreadyPredicted && (
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 예측 시간이 종료되었습니다. (17:30 마감)</p>
+          )}
           <div className="submit-row">
-            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted}>취소</button>
-            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted}>
-              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : '예측 제출하기 →'}
+            <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired}>취소</button>
+            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired}>
+              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : timeExpired ? '오늘 예측시간종료' : '예측 제출하기 →'}
             </button>
           </div>
         </div>

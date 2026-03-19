@@ -263,7 +263,6 @@ export default function HomePage() {
                 🏖️ 오늘은 휴장일입니다
               </div>
             )}
-            <button className="btn-ghost" onClick={() => router.push('/home/result')}>오늘의 결과 보기</button>
           </div>
         </div>
 
@@ -344,7 +343,6 @@ export default function HomePage() {
           <div className="leaderboard-card">
             <div className="lb-header">
               <span className="lb-title">실시간 리더보드</span>
-              <span className="lb-see-all" onClick={() => router.push('/home/result')}>전체 보기 →</span>
             </div>
             {hasPrediction === false && !isAfter930 ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 0' }}>

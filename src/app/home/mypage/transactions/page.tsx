@@ -113,7 +113,7 @@ export default function TransactionsPage() {
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 700, color: plus ? 'var(--up)' : 'var(--down)' }}>
-                      {plus ? '+' : '-'}{tx.빵갯수}빵
+                      {plus ? '+' : '-'}{tx.빵갯수} 빵
                     </div>
                     <div style={{ fontSize: 11, color: status.color, marginTop: 2, fontWeight: 600 }}>{status.text}</div>
                   </div>

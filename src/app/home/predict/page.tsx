@@ -169,7 +169,7 @@ export default function PredictPage() {
             <div className="psi-ticker">
               KOSPI 지수
               {latest?.변경일시 && (
-                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text2)', marginLeft: 6, whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
                   {new Date(latest.변경일시).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} 기준
                 </span>
               )}
@@ -254,10 +254,11 @@ export default function PredictPage() {
         </div>
 
         <div className="prediction-panel">
-          <h3 style={{ whiteSpace: 'nowrap' }}>전일 종가 기준으로 오늘 종가 예측하세요</h3>
-          <p>예측 마감시간은 14시 30분 입니다. 예측 제출시 빵 1개가 차감됩니다.</p>
+          <h3 style={{ whiteSpace: 'nowrap' }}>종가 예측</h3>
+          <p>예측 마감시간은 09시 30분 입니다. <br />
+            예측 제출시 빵 1개가 차감됩니다.</p>
           <div className="input-group">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>
               예측 증감값
               {price && (() => {
                 const delta = sign === '-' ? -Number(price) : Number(price)

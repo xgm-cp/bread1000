@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { isBusinessDay } from '@/lib/holidays'
 
 type 종가Row = {
   기준일자: string

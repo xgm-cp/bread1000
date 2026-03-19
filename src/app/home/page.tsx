@@ -23,6 +23,7 @@ type LeaderboardEntry = {
   순위: number
   등록일시: string
   회원기본: { 이름: string } | null
+  displayTime?: string
 }
 
 const STOCK_CACHE_TTL = 2 * 60 * 1000 // 2분
@@ -192,7 +193,10 @@ export default function HomePage() {
             return (tsMap.get(a.아이디) ?? 0) - (tsMap.get(b.아이디) ?? 0)
           })
 
-          setLeaderboard(entries.slice(0, 10))
+          setLeaderboard(entries.slice(0, 10).map(e => ({
+            ...e,
+            displayTime: new Date(e.등록일시).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+          })))
         }
         fetchLeaderboard()
       }
@@ -318,8 +322,7 @@ export default function HomePage() {
               </div>
             ) : (
               <>
-                {(() => {
-                  if (!isAfter16 || leaderboard.length === 0) return null
+                {isAfter16 && leaderboard.length > 0 && (() => {
                   const winner = leaderboard[0]
                   return (
                     <div className="lb-winner-banner">
@@ -351,7 +354,7 @@ export default function HomePage() {
                       <div className="lb-user-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {entry.회원기본?.이름 ? `${entry.회원기본.이름}(${entry.아이디})` : entry.아이디}
                         <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 400 }}>
-                          {new Date(entry.등록일시).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                          {entry.displayTime}
                         </span>
                       </div>
                       <div className="lb-user-score" style={{ color: entry.종가증감구분 === 'U' ? '#FF5C5C' : '#4A90E2', fontWeight: 700 }}>

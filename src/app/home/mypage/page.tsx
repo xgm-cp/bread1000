@@ -12,6 +12,7 @@ type ModalType = 'charge' | 'withdraw' | null
 interface TodayPrediction {
   예측종가: number
   종가증감구분: string
+  종가증감값: number | null
 }
 
 interface HistoryItem {
@@ -67,7 +68,7 @@ export default function MypagePage() {
 
     // 오늘 예측
     supabase.from('종가예측내역')
-      .select('예측종가, 종가증감구분')
+      .select('예측종가, 종가증감구분, 종가증감값')
       .eq('아이디', user.아이디)
       .eq('기준일자', today)
       .single()
@@ -163,8 +164,10 @@ export default function MypagePage() {
       }
     } catch { /* 파싱 실패 시 무시 */ }
     fetch('/api/kospi').then(r => r.json()).then(k => {
+      const price = Number(k.bstp_nmix_prpr)
+      if (isNaN(price) || price === 0) return
       setKospi({
-        price: Number(k.bstp_nmix_prpr).toLocaleString('ko-KR', { minimumFractionDigits: 2 }),
+        price: price.toLocaleString('ko-KR', { minimumFractionDigits: 2 }),
         change: k.bstp_nmix_prdy_vrss,
         changeSign: k.prdy_vrss_sign,
         changePct: k.bstp_nmix_prdy_ctrt,
@@ -297,7 +300,14 @@ export default function MypagePage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: kospi ? 10 : 0 }}>
                 <div style={{ fontSize: 11, color: 'var(--text3)' }}>예측 지수</div>
-                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>{Number(todayPred.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>{Number(todayPred.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                  {todayPred.종가증감값 != null && (
+                    <div style={{ fontSize: 12, color: todayPred.종가증감구분 === 'U' ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
+                      {todayPred.종가증감구분 === 'U' ? '+' : '-'}{todayPred.종가증감값}
+                    </div>
+                  )}
+                </div>
               </div>
               {kospi && (
                 <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -308,9 +318,6 @@ export default function MypagePage() {
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: isUp(kospi.changeSign) ? 'var(--up)' : 'var(--down)' }}>
                       {isUp(kospi.changeSign) ? '▲' : '▼'} {Math.abs(Number(kospi.change)).toFixed(2)}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      오차 ±{Math.abs(Number(kospi.price.replace(/,/g, '')) - todayPred.예측종가).toFixed(2)}p
                     </div>
                   </div>
                 </div>
@@ -323,16 +330,23 @@ export default function MypagePage() {
 
           {/* 지난 기록 */}
           {history.slice(0, visibleCount).map((item, i) => (
-            <div key={i} style={{ padding: '13px 18px', borderBottom: i < Math.min(visibleCount, history.length) - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.기준일자}</span>
-                  <DirIcon code={item.종가증감구분} />
-                </div>
+            <div key={i} style={{ padding: '13px 18px', borderBottom: i < Math.min(visibleCount, history.length) - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.기준일자}</span>
+                <DirIcon code={item.종가증감구분} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div style={{ display: 'flex', gap: 16 }}>
                   <div>
                     <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>내 예측</div>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>{Number(item.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>{Number(item.예측종가).toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</div>
+                      {item.종가증감값 != null && (
+                        <div style={{ fontSize: 11, color: item.종가증감구분 === 'U' ? 'var(--up)' : 'var(--down)', fontWeight: 600 }}>
+                          {item.종가증감구분 === 'U' ? '+' : '-'}{item.종가증감값}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {item.종가 != null && (
                     <div>
@@ -341,20 +355,17 @@ export default function MypagePage() {
                     </div>
                   )}
                 </div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                {item.순위 === 1 ? (
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}><Trophy size={13} /> 우승</div>
-                ) : item.순위 ? (
-                  <div style={{ fontSize: 13, color: 'var(--text2)' }}>{item.순위}위</div>
-                ) : item.종가증감값 !== null ? (
-                  <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
-                ) : (
-                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
-                )}
-                {item.종가증감값 !== null && (
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>±{Number(item.종가증감값).toFixed(2)}p</div>
-                )}
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  {item.순위 === 1 ? (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 4 }}><Trophy size={13} /> 우승</div>
+                  ) : item.순위 ? (
+                    <div style={{ fontSize: 13, color: 'var(--text2)' }}>{item.순위}위</div>
+                  ) : item.종가 !== null ? (
+                    <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
+                  )}
+                </div>
               </div>
             </div>
           ))}

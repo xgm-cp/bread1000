@@ -6,15 +6,12 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
-  // 요청 body 파싱
   let body: { date?: string; actualClose?: number; direction?: string; force?: boolean } = {}
   try { body = await req.json() } catch { /* no body */ }
 
-  // 날짜: body.date 우선, 없으면 KST 오늘
   const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
   const todayIso = body.date ?? nowKST.toISOString().slice(0, 10)
 
-  // ① 이미 처리된 날짜인지 먼저 확인 (force:true 면 스킵)
   if (!body.force) {
     const { data: already } = await supabase
       .from('종가관리내역')
@@ -27,7 +24,6 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ② 종가/방향 결정: body에 직접 넘긴 값 우선, 없으면 KOSPI API 호출
   let actualClose: number
   let direction: 'U' | 'D'
 
@@ -48,7 +44,6 @@ Deno.serve(async (req: Request) => {
     direction = ['1', '2'].includes(kospi.prdy_vrss_sign) ? 'U' : 'D'
   }
 
-  // ③ 해당 날짜 예측 목록 조회 (기준일자 기준)
   const { data: preds, error: predsErr } = await supabase
     .from('종가예측내역')
     .select('아이디, 예측종가, 종가증감구분')
@@ -60,38 +55,34 @@ Deno.serve(async (req: Request) => {
 
   type Pred = { 아이디: string; 예측종가: number; 종가증감구분: string }
 
-  // ④ 방향 맞춘 사람 → 오차 오름차순 → 순위 부여
   const correct = (preds as Pred[])
     .filter(p => p.종가증감구분 === direction)
     .sort((a, b) => Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose))
 
   const wrong = (preds as Pred[]).filter(p => p.종가증감구분 !== direction)
 
-  // ⑤ 순위 업데이트
   const updateErrors: string[] = []
   for (const [i, p] of correct.entries()) {
     const { error } = await supabase.from('종가예측내역')
-      .update({ 순위: i + 1, 종가증감값: parseFloat(Math.abs(p.예측종가 - actualClose).toFixed(2)) })
+      .update({ 순위: i + 1 })
       .eq('아이디', p.아이디)
       .eq('기준일자', todayIso)
     if (error) updateErrors.push(`[correct] ${p.아이디}: ${error.message}`)
   }
   for (const p of wrong) {
     const { error } = await supabase.from('종가예측내역')
-      .update({ 순위: null, 종가증감값: parseFloat(Math.abs(p.예측종가 - actualClose).toFixed(2)) })
+      .update({ 순위: null })
       .eq('아이디', p.아이디)
       .eq('기준일자', todayIso)
     if (error) updateErrors.push(`[wrong] ${p.아이디}: ${error.message}`)
   }
 
-  // ⑥ 종가관리내역 저장 (처리 완료 마커 — 순위 업데이트 후에 저장)
   await supabase.from('종가관리내역').upsert({
     기준일자: todayIso,
-    실제종가: actualClose,
+    종가: actualClose,
     종가증감구분: direction,
   })
 
-  // ⑦ 1등에게 풀 전체 지급
   const winner = correct[0]
   const totalPool = preds.length
   if (winner) {

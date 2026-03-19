@@ -3,7 +3,6 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
-import { isBusinessDay } from '@/lib/holidays'
 import { getAvatar } from '@/lib/avatar'
 import { RefreshCw, Croissant } from 'lucide-react'
 
@@ -76,6 +75,7 @@ export default function HomePage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [kospiPrice, setKospiPrice] = useState(0)
   const [myId, setMyId] = useState<string | null>(null)
+  const [isTradingDay, setIsTradingDay] = useState<boolean | null>(null)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const fetchStocks = useCallback(async (retryCount = 0) => {
@@ -127,6 +127,29 @@ export default function HomePage() {
       return
     }
     setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    // 거래일 여부 확인 (하루 1회 캐시)
+    const checkTradingDay = async () => {
+      const kst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+      const dateStr = kst.toISOString().slice(0, 10)
+      const dateKey = dateStr.replace(/-/g, '')
+      try {
+        const cached = sessionStorage.getItem('tradingDayCache')
+        if (cached) {
+          const { date, isTradingDay: cached_result } = JSON.parse(cached)
+          if (date === dateStr) { setIsTradingDay(cached_result); return }
+        }
+        const res = await fetch(`/api/trading-day?date=${dateKey}`)
+        const data = await res.json()
+        setIsTradingDay(data.isTradingDay)
+        sessionStorage.setItem('tradingDayCache', JSON.stringify({ date: dateStr, isTradingDay: data.isTradingDay }))
+      } catch {
+        setIsTradingDay(true) // API 실패 시 영업일로 간주
+      }
+    }
+    checkTradingDay()
   }, [])
 
   useEffect(() => {
@@ -212,10 +235,8 @@ export default function HomePage() {
   }, [fetchStocks, pathname])
 
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-  const todayStr = kstNow.toISOString().slice(0, 10)
   const isAfter930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)
   const isAfter16 = kstNow.getUTCHours() >= 16
-  const isTradingDay = isBusinessDay(todayStr)
 
   return (
     <div className="page-home">

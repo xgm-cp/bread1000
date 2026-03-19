@@ -220,7 +220,7 @@ export default function MypagePage() {
         <div className="profile-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
             <div className="profile-avatar-big" style={{ margin: 0, flexShrink: 0, fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {userId ? getAvatar(userId) : <User size={28} />}
+              {userId ? getAvatar(userId, 48) : <User size={28} />}
             </div>
             <div style={{ flex: 1 }}>
               <div className="profile-name" style={{ textAlign: 'left', marginBottom: 2 }}>{userName || '-'}</div>

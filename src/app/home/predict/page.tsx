@@ -239,7 +239,7 @@ export default function PredictPage() {
 
         <div className="prediction-panel">
           <h3>오늘의 종가를 예측하세요</h3>
-          <p>장 마감 시의 최종 지수를 입력하세요.</p>
+          <p>17시 30분까지 종가를 입력하세요.</p>
           <div className="input-group">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 10 }}>
               예측 증감값

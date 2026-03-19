@@ -303,7 +303,7 @@ export default function PredictPage() {
           <div className="submit-row">
             <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired || isWeekend}>취소</button>
             <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired || isWeekend}>
-              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : isWeekend ? '마감입니다' : timeExpired ? '오늘 예측시간종료' : '예측 제출하기 →'}
+              {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : isWeekend ? '마감입니다' : timeExpired ? '제출 마감' : '예측 제출하기 →'}
             </button>
           </div>
         </div>

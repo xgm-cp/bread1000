@@ -74,6 +74,7 @@ export default function HomePage() {
   const [hasPrediction, setHasPrediction] = useState<boolean | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [kospiPrice, setKospiPrice] = useState(0)
+  const [myId, setMyId] = useState<string | null>(null)
 
   const fetchStocks = useCallback(async (retryCount = 0) => {
     // 수동 새로고침(retryCount===0 && 이미 데이터 있음)이 아닌 초기 로드 시에만 캐시 사용
@@ -133,6 +134,7 @@ export default function HomePage() {
       const stored = localStorage.getItem('user')
       if (!stored) return
       const user = JSON.parse(stored)
+      setMyId(user.아이디)
       const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
       // 로그인 유저 예측 여부 확인 (최대 3회 재시도)
@@ -344,8 +346,9 @@ export default function HomePage() {
                 })()}
               {leaderboard.map((entry, idx) => {
                 const rankClass = idx < 3 ? `rank-${idx + 1}` : ''
+                const isMe = myId === entry.아이디
                 return (
-                  <div key={entry.아이디} className={`lb-row${idx === 0 ? ' lb-row-first' : ''}`}>
+                  <div key={entry.아이디} className={`lb-row${idx === 0 ? ' lb-row-first' : ''}`} style={isMe ? { borderLeft: '2px solid var(--gold)' } : undefined}>
                     <div className={`lb-rank ${rankClass}`}>{idx === 0 ? '👑' : idx + 1}</div>
                     <div className="lb-avatar">
                       {getAvatar(entry.아이디)}
@@ -353,6 +356,9 @@ export default function HomePage() {
                     <div className="lb-user-info">
                       <div className="lb-user-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {entry.회원기본?.이름 ? `${entry.회원기본.이름}(${entry.아이디})` : entry.아이디}
+                        {isMe && (
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--gold)', background: 'rgba(255, 200, 0, 0.15)', padding: '1px 5px', borderRadius: '4px' }}>나</span>
+                        )}
                         <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 400 }}>
                           {entry.displayTime}
                         </span>

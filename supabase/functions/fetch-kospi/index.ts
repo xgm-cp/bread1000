@@ -2,12 +2,31 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const KIS_BASE_URL = 'https://openapivts.koreainvestment.com:29443'
 
-let cachedToken: string | null = null
-let tokenExpireAt = 0
+function getKstNow() {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000)
+}
 
-async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
-  if (cachedToken && Date.now() < tokenExpireAt) return cachedToken
+function toKstISO(d: Date) {
+  return new Date(d.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 23)
+}
 
+async function getAccessToken(
+  supabase: ReturnType<typeof createClient>,
+  appKey: string,
+  appSecret: string
+): Promise<string> {
+  // DB에서 토큰 조회
+  const { data } = await supabase
+    .from('kis_token')
+    .select('access_token, expire_at')
+    .eq('id', 1)
+    .maybeSingle()
+
+  if (data && new Date(data.expire_at) > new Date()) {
+    return data.access_token
+  }
+
+  // 만료됐거나 없으면 신규 발급
   const res = await fetch(`${KIS_BASE_URL}/oauth2/tokenP`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -23,18 +42,15 @@ async function getAccessToken(appKey: string, appSecret: string): Promise<string
     throw new Error(`토큰 발급 실패: ${res.status} - ${errBody}`)
   }
 
-  const data = await res.json()
-  cachedToken = data.access_token
-  tokenExpireAt = Date.now() + (data.expires_in - 60) * 1000
-  return cachedToken!
-}
+  const tokenData = await res.json()
+  const expireAt = new Date(Date.now() + (tokenData.expires_in - 60) * 1000).toISOString()
 
-function getKstNow() {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000)
-}
+  // DB에 저장 (항상 id=1 단일 행 upsert)
+  await supabase
+    .from('kis_token')
+    .upsert({ id: 1, access_token: tokenData.access_token, expire_at: expireAt })
 
-function toKstISO(d: Date) {
-  return new Date(d.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 23)
+  return tokenData.access_token
 }
 
 Deno.serve(async () => {
@@ -59,8 +75,13 @@ Deno.serve(async () => {
     return new Response(JSON.stringify({ error: 'KIS API 키 미설정' }), { status: 500 })
   }
 
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
   try {
-    const accessToken = await getAccessToken(appKey, appSecret)
+    const accessToken = await getAccessToken(supabase, appKey, appSecret)
 
     const res = await fetch(
       `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-price` +
@@ -77,7 +98,6 @@ Deno.serve(async () => {
     )
 
     if (!res.ok) {
-      cachedToken = null
       throw new Error(`KIS API 오류: ${res.status}`)
     }
 
@@ -91,11 +111,6 @@ Deno.serve(async () => {
 
     const 기준일자 = kstNow.toISOString().slice(0, 10)
     const kstISO = toKstISO(new Date())
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
 
     const { error } = await supabase
       .from('종가관리내역')

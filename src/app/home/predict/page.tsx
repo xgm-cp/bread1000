@@ -31,10 +31,22 @@ export default function PredictPage() {
   }
 
   const checkTradingDay = async () => {
-    const dateStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
-    const res = await fetch(`/api/trading-day?date=${dateStr}`)
-    const { isTradingDay } = await res.json()
-    setIsWeekend(!isTradingDay)
+    const kst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const dateStr = kst.toISOString().slice(0, 10)
+    const dateKey = dateStr.replace(/-/g, '')
+    try {
+      const cached = sessionStorage.getItem('tradingDayCache')
+      if (cached) {
+        const { date, isTradingDay: cachedResult } = JSON.parse(cached)
+        if (date === dateStr) { setIsWeekend(!cachedResult); return }
+      }
+      const res = await fetch(`/api/trading-day?date=${dateKey}`)
+      const data = await res.json()
+      setIsWeekend(!data.isTradingDay)
+      sessionStorage.setItem('tradingDayCache', JSON.stringify({ date: dateStr, isTradingDay: data.isTradingDay }))
+    } catch {
+      setIsWeekend(false)
+    }
   }
 
   const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)

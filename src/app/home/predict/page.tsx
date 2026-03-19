@@ -162,7 +162,7 @@ export default function PredictPage() {
             <div className="psi-ticker">
               KOSPI 지수
               {latest?.변경일시 && (
-                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text2)', marginLeft: 6, whiteSpace: 'nowrap' }}>
                   {new Date(latest.변경일시).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} 기준
                 </span>
               )}

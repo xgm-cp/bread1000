@@ -153,7 +153,7 @@ export default function ResultPage() {
     const fixedCols = 5
 
     // 헤더 행
-    const header = ['성명', 'ID', '잔여빵', '예측', 'WIN', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
+    const header = ['성명', 'ID', '잔여빵', '차감', '증가', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
 
     // 데이터 행
     const rows = gridMembers.map(member => {
@@ -266,8 +266,8 @@ export default function ResultPage() {
                 <th style={thFixed}>성명</th>
                 <th style={thNotFixed}>ID</th>
                 <th style={thNotFixed}>잔여빵</th>
-                <th style={{ ...thNotFixed, textAlign: 'right' }}>예측</th>
-                <th style={{ ...thNotFixed, textAlign: 'right' }}>WIN</th>
+                <th style={{ ...thNotFixed, textAlign: 'right' }}>차감</th>
+                <th style={{ ...thNotFixed, textAlign: 'right' }}>증가</th>
                 {allDays.map(d => (
                   <th key={d} style={{
                     ...thDay,

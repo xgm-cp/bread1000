@@ -27,8 +27,8 @@ export default function PredictPage() {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const h = kstNow.getUTCHours()
     const m = kstNow.getUTCMinutes()
-    const todayStr = kstNow.toISOString().slice(0, 10)
-    setIsWeekend(!isBusinessDay(todayStr))
+    const day = kstNow.getUTCDay()
+    setIsWeekend(day === 0 || day === 6)
     setTimeExpired(h > 14 || (h === 14 && m >= 30))
   }
 

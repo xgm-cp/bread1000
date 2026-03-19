@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { getAvatar } from '@/lib/avatar'
 import { RefreshCw, Croissant } from 'lucide-react'
@@ -75,6 +75,7 @@ export default function HomePage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [kospiPrice, setKospiPrice] = useState(0)
   const [myId, setMyId] = useState<string | null>(null)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const fetchStocks = useCallback(async (retryCount = 0) => {
     // 수동 새로고침(retryCount===0 && 이미 데이터 있음)이 아닌 초기 로드 시에만 캐시 사용
@@ -117,7 +118,7 @@ export default function HomePage() {
       }
     } catch {
       if (retryCount < 3) {
-        setTimeout(() => fetchStocks(retryCount + 1), 2000)
+        timers.current.push(setTimeout(() => fetchStocks(retryCount + 1), 2000))
       } else {
         setError(true)
         setLoading(false)
@@ -146,7 +147,7 @@ export default function HomePage() {
         .eq('아이디', user.아이디)
       if (error) {
         if (retryCount < 3) {
-          setTimeout(() => fetchPrediction(retryCount + 1), 2000)
+          timers.current.push(setTimeout(() => fetchPrediction(retryCount + 1), 2000))
         }
         return
       }
@@ -167,7 +168,7 @@ export default function HomePage() {
             .limit(50)
           if (error) {
             if (retryCount < 3) {
-              setTimeout(() => fetchLeaderboard(retryCount + 1), 2000)
+              timers.current.push(setTimeout(() => fetchLeaderboard(retryCount + 1), 2000))
             }
             return
           }
@@ -206,6 +207,7 @@ export default function HomePage() {
       fetchPrediction()
     }
     run()
+    return () => { timers.current.forEach(clearTimeout); timers.current = [] }
   }, [fetchStocks, pathname])
 
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)

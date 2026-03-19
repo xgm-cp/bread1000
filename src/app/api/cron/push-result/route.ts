@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
       'content-type': 'application/json',
       authorization: `Bearer ${process.env.CRON_SECRET}`,
     },
-    body: JSON.stringify({ title: '빵천', body: '오늘의 빵 주인이 결정됐습니다 🍞' }),
+    body: JSON.stringify({ title: 'bread1000', body: '오늘의 빵 주인이 결정됐습니다 🍞' }),
   })
   const data = await res.json()
   return NextResponse.json(data)

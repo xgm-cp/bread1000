@@ -358,6 +358,10 @@ export default function HomePage() {
                   지금 예측해주세요
                 </button>
               </div>
+            ) : loading || (leaderboard.length > 0 && kospiPrice === 0) ? (
+              <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text2)', fontSize: '14px' }}>
+                데이터를 불러오는 중...
+              </div>
             ) : leaderboard.length === 0 ? (
               <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text2)', fontSize: '14px' }}>
                 데이터를 불러오는 중...

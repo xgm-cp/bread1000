@@ -9,11 +9,10 @@ let cachedToken: string | null = null
 let tokenExpireAt = 0
 
 type StockItem = { ticker: string; name: string; price: string; change: string; changeRate: string; sign: string }
-let stockCache: { stocks: StockItem[]; at: number } | null = null
-const STOCK_CACHE_TTL = 3 * 60 * 1000 // 3분
+let stockCache: StockItem[] | null = null // KIS API 실패 시 서버 메모리 폴백용
 let inflight: Promise<StockItem[]> | null = null // KIS API 중복 호출 방지
 let lastWrittenAt = 0 // 파일 쓰기 마지막 시각
-const FILE_WRITE_TTL = 5 * 60 * 1000 // 5분
+const FILE_WRITE_TTL = 1 * 60 * 1000 // 1분
 
 async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
   if (cachedToken && Date.now() < tokenExpireAt) return cachedToken
@@ -71,15 +70,14 @@ export async function GET() {
     return NextResponse.json({ stocks: MOCK_DATA, mock: true })
   }
 
-  if (stockCache && Date.now() - stockCache.at < STOCK_CACHE_TTL) {
-    return NextResponse.json({ stocks: stockCache.stocks, cached: true })
-  }
-
   let accessToken: string
   try {
     accessToken = await getAccessToken(appKey, appSecret)
   } catch (e) {
-    // 토큰 발급 실패 → 파일 폴백
+    // 토큰 발급 실패 → 서버 메모리 캐시 → 파일 폴백 순서
+    if (stockCache && stockCache.length > 0) {
+      return NextResponse.json({ stocks: stockCache, cached: true })
+    }
     const fallback = readFallback()
     if (fallback.length > 0) {
       return NextResponse.json({ stocks: fallback, fallback: true })
@@ -169,7 +167,7 @@ export async function GET() {
         writeFallback(succeeded)
         lastWrittenAt = Date.now()
       }
-      if (stocks.length > 0) stockCache = { stocks, at: Date.now() }
+      if (stocks.length > 0) stockCache = stocks // 성공 시 서버 메모리에 저장
 
       return stocks
     }).finally(() => {
@@ -180,6 +178,10 @@ export async function GET() {
   const stocks = await inflight
 
   if (stocks.length === 0) {
+    // KIS API 전부 실패 → 서버 메모리 캐시 폴백
+    if (stockCache && stockCache.length > 0) {
+      return NextResponse.json({ stocks: stockCache, cached: true })
+    }
     return NextResponse.json({ error: '모든 종목 조회 실패' }, { status: 500 })
   }
 

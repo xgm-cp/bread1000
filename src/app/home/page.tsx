@@ -26,7 +26,6 @@ type LeaderboardEntry = {
   displayTime?: string
 }
 
-const STOCK_CACHE_TTL = 2 * 60 * 1000 // 2분
 
 function getSign(sign: string) {
   if (sign === '2' || sign === '1') return 'up'
@@ -81,27 +80,6 @@ export default function HomePage() {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const fetchStocks = useCallback(async (retryCount = 0) => {
-    // 수동 새로고침(retryCount===0 && 이미 데이터 있음)이 아닌 초기 로드 시에만 캐시 사용
-    if (retryCount === 0) {
-      try {
-        const cached = sessionStorage.getItem('stocksCache')
-        if (cached) {
-          const { stocks: cachedStocks, at } = JSON.parse(cached)
-          if (Date.now() - at < STOCK_CACHE_TTL && Array.isArray(cachedStocks) && cachedStocks.length > 0) {
-            setStocks(cachedStocks)
-            setLoading(false)
-            const cachedKospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
-            if (cachedKospiPrice > 0) setKospiPrice(cachedKospiPrice)
-            const cachedKospiDir = sessionStorage.getItem('kospiDir') ?? ''
-            if (cachedKospiDir) setKospiDir(cachedKospiDir)
-            return
-          }
-        }
-      } catch {
-        // sessionStorage 파싱 실패 시 무시하고 API 호출
-      }
-    }
-
     setLoading(true)
     setError(false)
     try {
@@ -117,7 +95,6 @@ export default function HomePage() {
         if (retryCount < 3 && isMounted.current) {
           timers.current.push(setTimeout(() => fetchStocks(retryCount + 1), 2000))
         } else if (isMounted.current) {
-          // 재시도 소진 시 있는 데이터라도 표시
           setStocks(data.stocks)
           setLoading(false)
         }
@@ -125,19 +102,39 @@ export default function HomePage() {
       }
 
       setStocks(data.stocks)
-      sessionStorage.setItem('stocksCache', JSON.stringify({ stocks: data.stocks, at: Date.now() }))
-      // 코스피 현재가 및 방향 저장 (종목코드 '0001')
+      // 성공 시 클라이언트 캐시 갱신 (API 실패 시 최후 폴백용)
+      try {
+        sessionStorage.setItem('stocksCache', JSON.stringify({ stocks: data.stocks }))
+        sessionStorage.setItem('kospiPrice', kospi.price)
+        const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
+        sessionStorage.setItem('kospiDir', dir)
+      } catch { }
       const price = Number(kospi.price)
       setKospiPrice(price)
-      sessionStorage.setItem('kospiPrice', kospi.price)
-      // sign '2'=상승, '1'=상한 → U / '5'=하락, '4'=하한 → D
       const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
       setKospiDir(dir)
-      sessionStorage.setItem('kospiDir', dir)
     } catch {
       if (retryCount < 3 && isMounted.current) {
         timers.current.push(setTimeout(() => fetchStocks(retryCount + 1), 2000))
-      } else if (isMounted.current) {
+        return
+      }
+      // 모든 재시도 소진 → 클라이언트 캐시 폴백
+      if (isMounted.current) {
+        try {
+          const cached = sessionStorage.getItem('stocksCache')
+          if (cached) {
+            const { stocks: cachedStocks } = JSON.parse(cached)
+            if (Array.isArray(cachedStocks) && cachedStocks.length > 0) {
+              setStocks(cachedStocks)
+              const cachedKospiPrice = Number(sessionStorage.getItem('kospiPrice') ?? '0')
+              if (cachedKospiPrice > 0) setKospiPrice(cachedKospiPrice)
+              const cachedKospiDir = sessionStorage.getItem('kospiDir') ?? ''
+              if (cachedKospiDir) setKospiDir(cachedKospiDir)
+              setLoading(false)
+              return
+            }
+          }
+        } catch { }
         setError(true)
         setLoading(false)
       }
@@ -297,7 +294,6 @@ export default function HomePage() {
                 onClick={async () => {
                   if (refreshing) return
                   setRefreshing(true)
-                  sessionStorage.removeItem('stocksCache')
                   await Promise.all([
                     fetchStocks(),
                     new Promise<void>(r => setTimeout(r, 700)),

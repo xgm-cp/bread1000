@@ -40,9 +40,9 @@ function formatPrice(price: string) {
 
 function formatChange(change: string, sign: string) {
   const direction = getSign(sign)
-  if (direction === 'up') return `▲ ${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
-  if (direction === 'down') return `▼ ${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
-  return `${Math.abs(Number(change)).toLocaleString('ko-KR')}원`
+  if (direction === 'up') return `▲ ${Math.abs(Number(change)).toLocaleString('ko-KR')}`
+  if (direction === 'down') return `▼ ${Math.abs(Number(change)).toLocaleString('ko-KR')}`
+  return Math.abs(Number(change)).toLocaleString('ko-KR')
 }
 
 function formatRate(rate: string, sign: string) {

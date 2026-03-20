@@ -336,7 +336,7 @@ export default function HomePage() {
                     const direction = getSign(stock.sign)
                     const isKospi = stock.ticker === '0001'
                     return (
-                      <div key={stock.ticker} className={`stock-card${isKospi ? ' stock-card-main' : ''}`} onClick={() => router.push('/home/predict')}>
+                      <div key={stock.ticker} className={`stock-card${isKospi ? ' stock-card-main' : ''}`}>
                         <div className="stock-card-left">
                           <div className="stock-card-top">
                             <div className="stock-ticker">{stock.ticker}</div>

@@ -132,11 +132,18 @@ export async function GET() {
       }
     }
 
-    inflight = Promise.allSettled([
-      fetchIndex('0001', '코스피'),
-      fetchIndex('1001', '코스닥'),
-      fetchStock('069500', 'KODEX 200'),
-    ]).then(([kospiResult, kosdaqResult, kodexResult]) => {
+    // KOSPI 재시도 포함 조회 (실패 시 최대 2회 추가 시도)
+    async function fetchKospiWithRetry(retries = 2): Promise<PromiseSettledResult<StockItem>> {
+      const result = await Promise.allSettled([fetchIndex('0001', '코스피')])
+      if (result[0].status === 'fulfilled' || retries === 0) return result[0]
+      await new Promise(r => setTimeout(r, 1000))
+      return fetchKospiWithRetry(retries - 1)
+    }
+
+    inflight = Promise.all([
+      fetchKospiWithRetry(),
+      Promise.allSettled([fetchIndex('1001', '코스닥'), fetchStock('069500', 'KODEX 200')]),
+    ]).then(([kospiResult, [kosdaqResult, kodexResult]]) => {
       const fallback = readFallback()
       const fallbackMap = new Map(fallback.map(s => [s.ticker, s]))
 

@@ -110,19 +110,30 @@ export default function HomePage() {
       const data = await res.json()
       if (!Array.isArray(data.stocks) || data.stocks.length === 0) throw new Error('no data')
       if (!isMounted.current) return
+
+      // 코스피 없으면 재시도 (코스피는 종목 표시 + 리더보드 순위 산정의 기준)
+      const kospi = data.stocks.find((s: StockData) => s.ticker === '0001')
+      if (!kospi) {
+        if (retryCount < 3 && isMounted.current) {
+          timers.current.push(setTimeout(() => fetchStocks(retryCount + 1), 2000))
+        } else if (isMounted.current) {
+          // 재시도 소진 시 있는 데이터라도 표시
+          setStocks(data.stocks)
+          setLoading(false)
+        }
+        return
+      }
+
       setStocks(data.stocks)
       sessionStorage.setItem('stocksCache', JSON.stringify({ stocks: data.stocks, at: Date.now() }))
       // 코스피 현재가 및 방향 저장 (종목코드 '0001')
-      const kospi = data.stocks.find((s: StockData) => s.ticker === '0001')
-      if (kospi) {
-        const price = Number(kospi.price)
-        setKospiPrice(price)
-        sessionStorage.setItem('kospiPrice', kospi.price)
-        // sign '2'=상승, '1'=상한 → U / '5'=하락, '4'=하한 → D
-        const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
-        setKospiDir(dir)
-        sessionStorage.setItem('kospiDir', dir)
-      }
+      const price = Number(kospi.price)
+      setKospiPrice(price)
+      sessionStorage.setItem('kospiPrice', kospi.price)
+      // sign '2'=상승, '1'=상한 → U / '5'=하락, '4'=하한 → D
+      const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
+      setKospiDir(dir)
+      sessionStorage.setItem('kospiDir', dir)
     } catch {
       if (retryCount < 3 && isMounted.current) {
         timers.current.push(setTimeout(() => fetchStocks(retryCount + 1), 2000))
@@ -165,55 +176,60 @@ export default function HomePage() {
 
       const stored = localStorage.getItem('user')
       if (!stored) return
-      const user = JSON.parse(stored)
+      let user: { 아이디: string }
+      try {
+        user = JSON.parse(stored)
+      } catch {
+        return
+      }
       setMyId(user.아이디)
       const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
       // 로그인 유저 예측 여부 확인 (최대 3회 재시도)
       const fetchPrediction = async (retryCount = 0) => {
-      const { count, error } = await getSupabase()
-        .from('종가예측내역')
-        .select('아이디', { count: 'exact', head: true })
-        .eq('기준일자', today)
-        .eq('아이디', user.아이디)
-      if (error) {
-        if (retryCount < 3 && isMounted.current) {
-          timers.current.push(setTimeout(() => fetchPrediction(retryCount + 1), 2000))
-        }
-        return
-      }
-      if (!isMounted.current) return
-      const predicted = (count ?? 0) > 0
-      setHasPrediction(predicted)
-
-      const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-      const isAfter930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)
-
-      // 예측한 경우 또는 09:30 이후면 리더보드 조회 (최대 3회 재시도)
-      if (predicted || isAfter930) {
-        const fetchLeaderboard = async (retryCount = 0) => {
-          const { data, error } = await getSupabase()
-            .from('종가예측내역')
-            .select('아이디, 예측종가, 종가증감구분, 종가증감값, 순위, 등록일시, 회원기본(이름)')
-            .eq('기준일자', today)
-            .eq('종목코드', '0001')
-            .limit(50)
-          if (error) {
-            if (retryCount < 3 && isMounted.current) {
-              timers.current.push(setTimeout(() => fetchLeaderboard(retryCount + 1), 2000))
-            }
-            return
+        const { count, error } = await getSupabase()
+          .from('종가예측내역')
+          .select('아이디', { count: 'exact', head: true })
+          .eq('기준일자', today)
+          .eq('아이디', user.아이디)
+        if (error) {
+          if (retryCount < 3 && isMounted.current) {
+            timers.current.push(setTimeout(() => fetchPrediction(retryCount + 1), 2000))
           }
-          if (!data || !isMounted.current) return
-          const entries = (data as unknown as LeaderboardEntry[]).map(e => ({
-            ...e,
-            displayTime: new Date(e.등록일시).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-          }))
-          setRawLeaderboard(entries)
+          return
         }
-        fetchLeaderboard()
+        if (!isMounted.current) return
+        const predicted = (count ?? 0) > 0
+        setHasPrediction(predicted)
+
+        const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+        const after930 = kstNow.getUTCHours() > 9 || (kstNow.getUTCHours() === 9 && kstNow.getUTCMinutes() >= 30)
+
+        // 예측한 경우 또는 09:30 이후면 리더보드 조회 (최대 3회 재시도)
+        if (predicted || after930) {
+          const fetchLeaderboard = async (retryCount = 0) => {
+            const { data, error } = await getSupabase()
+              .from('종가예측내역')
+              .select('아이디, 예측종가, 종가증감구분, 종가증감값, 순위, 등록일시, 회원기본(이름)')
+              .eq('기준일자', today)
+              .eq('종목코드', '0001')
+              .limit(50)
+            if (error) {
+              if (retryCount < 3 && isMounted.current) {
+                timers.current.push(setTimeout(() => fetchLeaderboard(retryCount + 1), 2000))
+              }
+              return
+            }
+            if (!data || !isMounted.current) return
+            const entries = (data as unknown as LeaderboardEntry[]).map(e => ({
+              ...e,
+              displayTime: new Date(e.등록일시).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+            }))
+            setRawLeaderboard(entries)
+          }
+          fetchLeaderboard()
+        }
       }
-    }
       fetchPrediction()
     }
     run()
@@ -358,11 +374,7 @@ export default function HomePage() {
                   지금 예측해주세요
                 </button>
               </div>
-            ) : loading || (leaderboard.length > 0 && kospiPrice === 0) ? (
-              <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text2)', fontSize: '14px' }}>
-                데이터를 불러오는 중...
-              </div>
-            ) : leaderboard.length === 0 ? (
+            ) : loading || leaderboard.length === 0 || kospiPrice === 0 ? (
               <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text2)', fontSize: '14px' }}>
                 데이터를 불러오는 중...
               </div>
@@ -389,11 +401,10 @@ export default function HomePage() {
                   )
                 })()}
               {leaderboard.map((entry, idx) => {
-                const rankClass = idx === 0 ? 'rank-1' : ''
                 const isMe = myId === entry.아이디
                 return (
                   <div key={entry.아이디} className={`lb-row${idx === 0 ? ' lb-row-first' : ''}`} style={isMe ? { borderLeft: '2px solid var(--gold)' } : undefined}>
-                    <div className={`lb-rank ${rankClass}`}>{idx === 0 ? '👑' : idx + 1}</div>
+                    <div className={`lb-rank${idx === 0 ? ' rank-1' : ''}`}>{idx === 0 ? '👑' : idx + 1}</div>
                     <div className="lb-avatar">
                       {getAvatar(entry.아이디)}
                     </div>

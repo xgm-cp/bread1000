@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getSupabase } from '@/lib/supabase'
 
 type Mode = 'login' | 'signup'
 
@@ -22,47 +21,28 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
-    const supabase = getSupabase()
-
     try {
       if (mode === 'signup') {
-        const { error } = await supabase
-          .from('회원기본')
-          .insert({ 아이디, 이름, 패스워드, 사용여부: 'P' })
-
-        if (error) {
-          if (error.code === '23505') setError('이미 사용 중인 아이디입니다.')
-          else setError(error.message)
-          return
-        }
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ 아이디, 이름, 패스워드 }),
+        })
+        const data = await res.json()
+        if (!res.ok) { setError(data.error); return }
         alert('회원가입 완료! 로그인해주세요.')
         setMode('login')
         set이름('')
         set패스워드('')
       } else {
-        const { data, error } = await supabase
-          .from('회원기본')
-          .select('*')
-          .eq('아이디', 아이디)
-          .eq('패스워드', 패스워드)
-          .single()
-
-        const row = data as { 아이디: string; 이름: string; 사용여부: string; role: number } | null
-
-        if (error || !row) {
-          setError('아이디 또는 패스워드가 올바르지 않습니다.')
-          return
-        }
-        if (row.사용여부 === 'P') {
-          setError('가입 승인 대기 중입니다. 관리자 승인 후 로그인할 수 있어요.')
-          return
-        }
-        if (row.사용여부 === 'N') {
-          setError('사용이 중지된 계정입니다. 관리자에게 문의하세요.')
-          return
-        }
-
-        localStorage.setItem('user', JSON.stringify({ 아이디: row.아이디, 이름: row.이름, role: row.role }))
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ 아이디, 패스워드 }),
+        })
+        const data = await res.json()
+        if (!res.ok) { setError(data.error); return }
+        localStorage.setItem('user', JSON.stringify({ 아이디: data.아이디, 이름: data.이름, role: data.role }))
         document.cookie = `auth_session=1; path=/; SameSite=Strict; Max-Age=${60 * 60 * 24 * 30}`
         router.push('/home')
       }

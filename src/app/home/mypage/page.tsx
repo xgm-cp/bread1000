@@ -360,7 +360,7 @@ export default function MypagePage() {
                     const actualDir = getActualDir(todayPred.예측종가, todayPred.종가증감구분, todayPred.종가증감값, todayPred.종가)
                     if (actualDir === null) return <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
                     return actualDir === todayPred.종가증감구분
-                      ? <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
+                      ? <div style={{ fontSize: 12, color: 'var(--text2)' }}>방향 맞음</div>
                       : <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
                   })()}
                 </div>

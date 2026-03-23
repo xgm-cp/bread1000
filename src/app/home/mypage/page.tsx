@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff } from 'lucide-react'
+import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff, Lock } from 'lucide-react'
 import { subscribePush } from '@/lib/usePushSubscription'
 import { getAvatar } from '@/lib/avatar'
 
@@ -42,6 +42,16 @@ export default function MypagePage() {
   const [isPushSupported, setIsPushSupported] = useState(false)
   const [isPushSubscribed, setIsPushSubscribed] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
+
+  // 비밀번호 변경
+  const [showPwModal, setShowPwModal] = useState(false)
+  const [pw0, setPw0] = useState('')
+  const [pw1, setPw1] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [pw0Valid, setPw0Valid] = useState(false)
+  const [pw0Checking, setPw0Checking] = useState(false)
+  const [pwSubmitting, setPwSubmitting] = useState(false)
+  const [pwError, setPwError] = useState('')
 
   useEffect(() => {
     const stored = localStorage.getItem('user')
@@ -147,6 +157,45 @@ export default function MypagePage() {
   }
 
 
+  async function verifyCurrentPassword() {
+    if (!pw0) return
+    setPw0Checking(true)
+    setPwError('')
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ 아이디: userId, 패스워드: pw0 }),
+    })
+    setPw0Checking(false)
+    if (res.ok) {
+      setPw0Valid(true)
+    } else {
+      setPwError('현재 비밀번호가 올바르지 않습니다.')
+      setPw0Valid(false)
+    }
+  }
+
+  async function changePassword() {
+    if (!pw1) { setPwError('새 비밀번호를 입력해주세요.'); return }
+    if (pw1 !== pw2) { setPwError('새 비밀번호가 일치하지 않습니다.'); return }
+    setPwSubmitting(true)
+    setPwError('')
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ 아이디: userId, 현재패스워드: pw0, 새패스워드: pw1 }),
+    })
+    setPwSubmitting(false)
+    if (res.ok) {
+      alert('비밀번호가 변경되었습니다.')
+      setShowPwModal(false)
+      setPw0(''); setPw1(''); setPw2(''); setPw0Valid(false); setPwError('')
+    } else {
+      const data = await res.json()
+      setPwError(data.error)
+    }
+  }
+
   function openModal(type: ModalType) {
     setModal(type); setAmount(''); setModalError('')
   }
@@ -237,6 +286,9 @@ export default function MypagePage() {
                 : <><Bell size={15} /> 알림 받기</>}
             </button>
           )}
+          <button className="btn-edit-profile" onClick={() => { setShowPwModal(true); setModal(null) }} style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+            <Lock size={15} /> 비밀번호 변경
+          </button>
           <button className="btn-edit-profile" onClick={logout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><LogOut size={15} /> 로그아웃</button>
         </div>
 
@@ -363,6 +415,66 @@ export default function MypagePage() {
 
       </div>
     </div>
+
+    {showPwModal && (
+      <div onClick={() => { setShowPwModal(false); setPw0(''); setPw1(''); setPw2(''); setPw0Valid(false); setPwError('') }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>
+        <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '28px 24px 40px' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Lock size={20} /> 비밀번호 변경
+          </div>
+
+          {/* 현재 비밀번호 */}
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 6, letterSpacing: '0.1em', textTransform: 'uppercase' }}>현재 비밀번호</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <input
+              type="password"
+              value={pw0}
+              onChange={e => { setPw0(e.target.value); setPw0Valid(false); setPwError('') }}
+              placeholder="현재 비밀번호 입력"
+              style={{ flex: 1, padding: '13px 16px', borderRadius: 12, border: `1.5px solid ${pw0Valid ? '#2ECC8A' : 'var(--border2)'}`, background: 'var(--bg)', color: 'var(--text)', fontSize: 15, outline: 'none', fontFamily: 'inherit' }}
+            />
+            <button
+              onClick={verifyCurrentPassword}
+              disabled={!pw0 || pw0Checking || pw0Valid}
+              style={{ padding: '0 18px', borderRadius: 12, border: 'none', background: pw0Valid ? 'rgba(46,204,138,0.15)' : 'var(--primary-gradient)', color: pw0Valid ? '#2ECC8A' : '#fff', fontWeight: 700, fontSize: 14, cursor: pw0Valid ? 'default' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+            >
+              {pw0Checking ? '...' : pw0Valid ? '확인됨' : '확인'}
+            </button>
+          </div>
+
+          {/* 새 비밀번호 */}
+          <div style={{ fontSize: 11, fontWeight: 600, color: pw0Valid ? 'var(--text3)' : 'var(--border2)', marginBottom: 6, letterSpacing: '0.1em', textTransform: 'uppercase' }}>새 비밀번호</div>
+          <input
+            type="password"
+            value={pw1}
+            onChange={e => { setPw1(e.target.value); setPwError('') }}
+            disabled={!pw0Valid}
+            placeholder="새 비밀번호 입력"
+            style={{ width: '100%', padding: '13px 16px', borderRadius: 12, border: '1.5px solid var(--border2)', background: pw0Valid ? 'var(--bg)' : 'var(--surface2)', color: 'var(--text)', fontSize: 15, outline: 'none', fontFamily: 'inherit', opacity: pw0Valid ? 1 : 0.4, marginBottom: 12, boxSizing: 'border-box' }}
+          />
+
+          {/* 새 비밀번호 확인 */}
+          <div style={{ fontSize: 11, fontWeight: 600, color: pw0Valid ? 'var(--text3)' : 'var(--border2)', marginBottom: 6, letterSpacing: '0.1em', textTransform: 'uppercase' }}>새 비밀번호 확인</div>
+          <input
+            type="password"
+            value={pw2}
+            onChange={e => { setPw2(e.target.value); setPwError('') }}
+            disabled={!pw0Valid}
+            placeholder="새 비밀번호 재입력"
+            style={{ width: '100%', padding: '13px 16px', borderRadius: 12, border: `1.5px solid ${pw0Valid && pw2 && pw1 === pw2 ? '#2ECC8A' : 'var(--border2)'}`, background: pw0Valid ? 'var(--bg)' : 'var(--surface2)', color: 'var(--text)', fontSize: 15, outline: 'none', fontFamily: 'inherit', opacity: pw0Valid ? 1 : 0.4, marginBottom: 16, boxSizing: 'border-box' }}
+          />
+
+          {pwError && <div style={{ fontSize: 13, color: 'var(--down)', marginBottom: 12 }}>{pwError}</div>}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <button onClick={() => { setShowPwModal(false); setPw0(''); setPw1(''); setPw2(''); setPw0Valid(false); setPwError('') }} style={{ padding: '14px', borderRadius: 12, border: '1px solid var(--border2)', background: 'var(--surface2)', color: 'var(--text2)', fontWeight: 600, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
+            <button onClick={changePassword} disabled={!pw0Valid || !pw1 || pw1 !== pw2 || pwSubmitting} style={{ padding: '14px', borderRadius: 12, border: 'none', background: (!pw0Valid || !pw1 || pw1 !== pw2) ? '#333' : 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: (!pw0Valid || !pw1 || pw1 !== pw2 || pwSubmitting) ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              {pwSubmitting ? '변경 중...' : '변경하기'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {modal && (
       <div onClick={() => setModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>

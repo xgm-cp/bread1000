@@ -196,6 +196,13 @@ export default function MypagePage() {
     }
   }
 
+  function getActualDir(예측종가: number, 종가증감구분: string, 종가증감값: number | null, 종가: number | null | undefined): 'U' | 'D' | null {
+    if (종가 == null || 종가증감값 == null) return null
+    const delta = 종가증감구분 === 'U' ? 종가증감값 : -종가증감값
+    const prevClose = 예측종가 - delta
+    return 종가 > prevClose ? 'U' : 'D'
+  }
+
   function openModal(type: ModalType) {
     setModal(type); setAmount(''); setModalError('')
   }
@@ -349,11 +356,13 @@ export default function MypagePage() {
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 4 }}><Trophy size={13} /> 우승</div>
                   ) : todayPred.순위 ? (
                     <div style={{ fontSize: 13, color: 'var(--text2)' }}>{todayPred.순위}위</div>
-                  ) : todayPred.종가 != null ? (
-                    <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
-                  ) : (
-                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
-                  )}
+                  ) : (() => {
+                    const actualDir = getActualDir(todayPred.예측종가, todayPred.종가증감구분, todayPred.종가증감값, todayPred.종가)
+                    if (actualDir === null) return <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
+                    return actualDir === todayPred.종가증감구분
+                      ? <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
+                      : <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
+                  })()}
                 </div>
               </div>
             </div>
@@ -391,11 +400,13 @@ export default function MypagePage() {
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 4 }}><Trophy size={13} /> 우승</div>
                   ) : item.순위 ? (
                     <div style={{ fontSize: 13, color: 'var(--text2)' }}>{item.순위}위</div>
-                  ) : item.종가 !== null ? (
-                    <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
-                  ) : (
-                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
-                  )}
+                  ) : (() => {
+                    const actualDir = getActualDir(item.예측종가, item.종가증감구분, item.종가증감값, item.종가)
+                    if (actualDir === null) return <div style={{ fontSize: 12, color: 'var(--text3)' }}>집계 중</div>
+                    return actualDir === item.종가증감구분
+                      ? <div style={{ fontSize: 12, color: 'var(--text2)' }}>방향 맞음</div>
+                      : <div style={{ fontSize: 12, color: 'var(--down)' }}>방향 틀림</div>
+                  })()}
                 </div>
               </div>
             </div>

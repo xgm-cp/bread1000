@@ -41,6 +41,11 @@ export default function AdminPage() {
   const [memberFilter, setMemberFilter] = useState<'all' | 'P' | 'Y' | 'N'>('all')
   const [requestFilter, setRequestFilter] = useState<'all' | 'P' | 'Y' | 'N'>('all')
 
+  // 비밀번호 초기화
+  const [resetTarget, setResetTarget] = useState<string | null>(null)
+  const [resetPw, setResetPw] = useState('')
+  const [resetProcessing, setResetProcessing] = useState(false)
+
   useEffect(() => {
     const stored = localStorage.getItem('user')
     if (!stored || JSON.parse(stored).role !== 1) {
@@ -90,6 +95,25 @@ export default function AdminPage() {
     await getSupabase().from('계좌거래내역').update({ 상태: 'N' }).eq('아이디', req.아이디).eq('거래일시', req.거래일시)
     setProcessing(null)
     fetchRequests()
+  }
+
+  async function resetPassword(아이디: string) {
+    if (!/^\d{4}$/.test(resetPw)) { alert('4자리 숫자를 입력해주세요.'); return }
+    setResetProcessing(true)
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ 아이디, 패스워드: resetPw }),
+    })
+    setResetProcessing(false)
+    if (res.ok) {
+      alert(`${아이디} 비밀번호가 초기화되었습니다.`)
+      setResetTarget(null)
+      setResetPw('')
+    } else {
+      const data = await res.json()
+      alert('초기화 실패: ' + data.error)
+    }
   }
 
   async function setMemberStatus(아이디: string, 사용여부: string) {
@@ -271,6 +295,32 @@ export default function AdminPage() {
                             {!isPending && !isActive && (
                               <button onClick={() => setMemberStatus(mem.아이디, 'Y')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'rgba(46,204,138,0.08)', color: '#2ECC8A', border: '1px solid rgba(46,204,138,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                                 {busy ? '...' : <><Check size={12} /> 활성화</>}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {mem.role !== 1 && (
+                          <div style={{ marginTop: 6 }}>
+                            {resetTarget === mem.아이디 ? (
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <input
+                                  type="number"
+                                  placeholder="4자리"
+                                  maxLength={4}
+                                  value={resetPw}
+                                  onChange={e => setResetPw(e.target.value.slice(0, 4))}
+                                  style={{ flex: 1, padding: '4px 8px', borderRadius: 6, background: '#0A0C0F', border: '1px solid #252D3A', color: '#EEF0F4', fontSize: 13, fontFamily: 'inherit', width: 0 }}
+                                />
+                                <button onClick={() => resetPassword(mem.아이디)} disabled={resetProcessing} style={{ ...btnBase, padding: '4px 8px', fontSize: 11, background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)', color: '#fff' }}>
+                                  {resetProcessing ? '...' : '확인'}
+                                </button>
+                                <button onClick={() => { setResetTarget(null); setResetPw('') }} style={{ ...btnBase, padding: '4px 8px', fontSize: 11, background: '#181C22', color: '#8892A0' }}>
+                                  취소
+                                </button>
+                              </div>
+                            ) : (
+                              <button onClick={() => { setResetTarget(mem.아이디); setResetPw('') }} style={{ ...btnBase, width: '100%', padding: '5px 0', fontSize: 12, background: 'rgba(155,47,201,0.08)', color: '#9B2FC9', border: '1px solid rgba(155,47,201,0.2)' }}>
+                                비밀번호 초기화
                               </button>
                             )}
                           </div>

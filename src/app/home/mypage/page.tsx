@@ -286,9 +286,10 @@ export default function MypagePage() {
                 : <><Bell size={15} /> 알림 받기</>}
             </button>
           )}
-          <button className="btn-edit-profile" onClick={() => { setShowPwModal(true); setModal(null) }} style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+          <button className="btn-edit-profile" onClick={() => { setShowPwModal(true); setModal(null) }} style={{ marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
             <Lock size={15} /> 비밀번호 변경
           </button>
+          <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center', marginBottom: 8 }}>초기화는 관리자에게 문의</div>
           <button className="btn-edit-profile" onClick={logout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><LogOut size={15} /> 로그아웃</button>
         </div>
 

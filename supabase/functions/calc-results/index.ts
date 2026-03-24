@@ -15,8 +15,9 @@ Deno.serve(async (req: Request) => {
   if (!body.force) {
     const { data: already } = await supabase
       .from('종가관리내역')
-      .select('기준일자')
+      .select('종가증감구분')
       .eq('기준일자', todayIso)
+      .not('종가증감구분', 'is', null)
       .limit(1)
 
     if (already && already.length > 0) {

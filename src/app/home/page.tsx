@@ -113,6 +113,24 @@ export default function HomePage() {
       setKospiPrice(price)
       const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
       setKospiDir(dir)
+
+      // 코스닥/KODEX 200이 빠진 경우 백그라운드에서 1회 재시도 (코스피 표시에 영향 없음)
+      if (data.partial) {
+        timers.current.push(setTimeout(async () => {
+          if (!isMounted.current) return
+          try {
+            const res2 = await fetch('/api/stocks')
+            if (!res2.ok) return
+            const data2 = await res2.json()
+            if (!Array.isArray(data2.stocks) || !isMounted.current) return
+            setStocks(prev => {
+              const map = new Map(prev.map((s: StockData) => [s.ticker, s]))
+              for (const s of data2.stocks) map.set(s.ticker, s)
+              return [...map.values()]
+            })
+          } catch { }
+        }, 3000))
+      }
     } catch {
       if (retryCount < 3 && isMounted.current) {
         timers.current.push(setTimeout(() => fetchStocks(retryCount + 1), 2000))

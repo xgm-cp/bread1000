@@ -181,17 +181,22 @@ export default function MypagePage() {
     if (!file) return
     setFileError('')
     setFileUploading(true)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('아이디', userId)
-    const res = await fetch('/api/files/upload', { method: 'POST', body: fd })
-    const data = await res.json()
-    setFileUploading(false)
-    e.target.value = ''
-    if (!res.ok) { setFileError(data.error); return }
-    const listRes = await fetch(`/api/files/list?아이디=${encodeURIComponent(userId)}`)
-    const listData = await listRes.json()
-    setMyFiles(listData.files ?? [])
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('아이디', userId)
+      const res = await fetch('/api/files/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      e.target.value = ''
+      if (!res.ok) { setFileError(data.error ?? '업로드 실패'); return }
+      const listRes = await fetch(`/api/files/list?아이디=${encodeURIComponent(userId)}`)
+      const listData = await listRes.json()
+      setMyFiles(listData.files ?? [])
+    } catch (err) {
+      setFileError('업로드 중 오류가 발생했습니다: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setFileUploading(false)
+    }
   }
 
   async function downloadFile(name: string) {

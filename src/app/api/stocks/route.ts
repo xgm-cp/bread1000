@@ -178,9 +178,13 @@ export async function GET() {
   const stocks = await inflight
 
   if (stocks.length === 0) {
-    // KIS API 전부 실패 → 서버 메모리 캐시 폴백
+    // KIS API 전부 실패 → 서버 메모리 캐시 → 파일 폴백 순서
     if (stockCache && stockCache.length > 0) {
       return NextResponse.json({ stocks: stockCache, cached: true })
+    }
+    const fallback = readFallback()
+    if (fallback.length > 0) {
+      return NextResponse.json({ stocks: fallback, fallback: true })
     }
     return NextResponse.json({ error: '모든 종목 조회 실패' }, { status: 500 })
   }

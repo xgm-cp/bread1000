@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff, Lock } from 'lucide-react'
+import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff, Lock, Upload, Trash2, FileText, Image as ImageIcon } from 'lucide-react'
 import { subscribePush } from '@/lib/usePushSubscription'
 import { getAvatar } from '@/lib/avatar'
 
@@ -43,6 +43,13 @@ export default function MypagePage() {
   const [isPushSubscribed, setIsPushSubscribed] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
 
+  // 정직원 파일 업로드
+  const [isRegular, setIsRegular] = useState(false)
+  const [myFiles, setMyFiles] = useState<{ name: string; id: string; created_at: string }[]>([])
+  const [fileUploading, setFileUploading] = useState(false)
+  const [fileError, setFileError] = useState('')
+  const [showFilesModal, setShowFilesModal] = useState(false)
+
   // 비밀번호 변경
   const [showPwModal, setShowPwModal] = useState(false)
   const [pw0, setPw0] = useState('')
@@ -63,6 +70,18 @@ export default function MypagePage() {
 
     const supabase = getSupabase()
     const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+    // 정직원 여부
+    supabase.from('회원기본').select('정직원여부').eq('아이디', user.아이디).single()
+      .then(({ data }) => {
+        const regular = (data as { 정직원여부: string } | null)?.정직원여부 === 'Y'
+        setIsRegular(regular)
+        if (regular) {
+          fetch(`/api/files/list?아이디=${encodeURIComponent(user.아이디)}`)
+            .then(r => r.json())
+            .then(d => setMyFiles(d.files ?? []))
+        }
+      })
 
     // 빵 잔액
     supabase.from('빵보유기본').select('빵갯수').eq('아이디', user.아이디).single()
@@ -156,6 +175,44 @@ export default function MypagePage() {
     }
   }
 
+
+  async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileError('')
+    setFileUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('아이디', userId)
+    const res = await fetch('/api/files/upload', { method: 'POST', body: fd })
+    const data = await res.json()
+    setFileUploading(false)
+    e.target.value = ''
+    if (!res.ok) { setFileError(data.error); return }
+    const listRes = await fetch(`/api/files/list?아이디=${encodeURIComponent(userId)}`)
+    const listData = await listRes.json()
+    setMyFiles(listData.files ?? [])
+  }
+
+  async function downloadFile(name: string) {
+    const path = `${userId}/${name}`
+    const res = await fetch(`/api/files/signed-url?path=${encodeURIComponent(path)}&아이디=${encodeURIComponent(userId)}`)
+    const data = await res.json()
+    if (data.url) window.open(data.url, '_blank')
+  }
+
+  async function deleteFile(name: string) {
+    if (!confirm(`"${name}" 파일을 삭제할까요?`)) return
+    const path = `${userId}/${name}`
+    await fetch('/api/files/delete', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path, 아이디: userId }) })
+    setMyFiles(prev => prev.filter(f => f.name !== name))
+  }
+
+  function fileIcon(name: string) {
+    const ext = name.split('.').pop()?.toLowerCase()
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext ?? '')) return <ImageIcon size={14} />
+    return <FileText size={14} />
+  }
 
   async function verifyCurrentPassword() {
     if (!pw0) return
@@ -256,7 +313,12 @@ export default function MypagePage() {
           <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>내 빵 잔액</div>
-              <button onClick={() => router.push('/home/mypage/transactions')} style={{ fontSize: 11, color: '#FF3D78', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, padding: 0, textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: '#FF3D78' }}>전체 내역</button>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                {isRegular && (
+                  <button onClick={() => setShowFilesModal(true)} style={{ fontSize: 11, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, padding: 0, textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: '#3B82F6' }}>내 파일 목록</button>
+                )}
+                <button onClick={() => router.push('/home/mypage/transactions')} style={{ fontSize: 11, color: '#FF3D78', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, padding: 0, textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: '#FF3D78' }}>전체 내역</button>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
               <span style={{ fontWeight: 700, fontSize: 30, color: 'var(--text)' }}>{bread ?? '-'}</span>
@@ -427,6 +489,61 @@ export default function MypagePage() {
 
       </div>
     </div>
+
+    {showFilesModal && (
+      <div onClick={() => { setShowFilesModal(false); setFileError('') }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>
+        <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flexShrink: 0, background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '24px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FileText size={20} /> 내 파일 목록
+            </div>
+            <label style={{ cursor: fileUploading ? 'not-allowed' : 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: fileUploading ? 'var(--text3)' : '#FF3D78', padding: '6px 14px', borderRadius: 9, border: `1.5px solid ${fileUploading ? 'var(--border2)' : '#FF3D78'}` }}>
+                <Upload size={13} /> {fileUploading ? '업로드 중...' : '파일 업로드'}
+              </div>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                style={{ display: 'none' }}
+                disabled={fileUploading}
+                onChange={uploadFile}
+              />
+            </label>
+          </div>
+          {fileError && <div style={{ flexShrink: 0, fontSize: 13, color: 'var(--down)', padding: '8px 24px' }}>{fileError}</div>}
+          <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', padding: '8px 20px', background: 'var(--surface2)' }}>
+            <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.05em' }}>파일명</span>
+            <span style={{ width: 110, fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.05em' }}>업로드일자</span>
+            <span style={{ width: 28 }}></span>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {myFiles.length === 0 ? (
+              <div style={{ padding: '28px', textAlign: 'center', fontSize: 13, color: 'var(--text3)' }}>업로드된 파일이 없습니다</div>
+            ) : (
+              myFiles.map((f, fi) => {
+                const uploadDate = new Date(f.created_at)
+                const dateStr = `${uploadDate.getFullYear()}-${String(uploadDate.getMonth()+1).padStart(2,'0')}-${String(uploadDate.getDate()).padStart(2,'0')}`
+                return (
+                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 20px', borderBottom: fi < myFiles.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ color: 'var(--text3)', flexShrink: 0, marginRight: 8 }}>{fileIcon(f.name)}</span>
+                    <span
+                      onClick={() => downloadFile(f.name)}
+                      style={{ flex: 1, fontSize: 13, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                    >
+                      {f.name.replace(/^\d+_/, '')}
+                    </span>
+                    <span style={{ width: 110, fontSize: 12, color: 'var(--text3)', flexShrink: 0 }}>{dateStr}</span>
+                    <button onClick={() => deleteFile(f.name)} style={{ width: 28, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    )}
 
     {showPwModal && (
       <div onClick={() => { setShowPwModal(false); setPw0(''); setPw1(''); setPw2(''); setPw0Valid(false); setPwError('') }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>

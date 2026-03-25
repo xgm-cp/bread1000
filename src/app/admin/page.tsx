@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { RefreshCw, Check, X, ArrowLeft, Users, CreditCard, User, List, Calendar } from 'lucide-react'
+import { RefreshCw, Check, X, ArrowLeft, Users, CreditCard, User, List, Calendar, FolderOpen, Trash2, FileText, Image as ImageIcon } from 'lucide-react'
 
 interface Request {
   아이디: string
@@ -26,6 +26,7 @@ interface Member {
   이름: string
   사용여부: string
   role: number
+  정직원여부: string
 }
 
 const btnBase: React.CSSProperties = {
@@ -35,7 +36,7 @@ const btnBase: React.CSSProperties = {
 
 export default function AdminPage() {
   const router = useRouter()
-  const [tab, setTab] = useState<'requests' | 'members' | 'txlog'>('requests')
+  const [tab, setTab] = useState<'requests' | 'members' | 'txlog' | 'files'>('requests')
 
   // 충전/출금
   const [requests, setRequests] = useState<Request[]>([])
@@ -56,6 +57,16 @@ export default function AdminPage() {
   const [txPeriodFilter, setTxPeriodFilter] = useState<'2' | 'all' | ''>('2')
   const [txIdFilter, setTxIdFilter] = useState('')
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'I' | 'O' | 'B' | 'W'>('all')
+
+  // 업로드 파일 목록
+  interface UploadedFile { name: string; id: string; created_at: string; memberId: string; memberName: string }
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
+  const [fileDeleteProcessing, setFileDeleteProcessing] = useState<string | null>(null)
+
+  // 정직원여부 선택 (대기 회원 승인 시)
+  const [regularMap, setRegularMap] = useState<Record<string, 'Y' | 'N'>>({})
+  const [editRegularMap, setEditRegularMap] = useState<Record<string, 'Y' | 'N'>>({})
 
   // 비밀번호 초기화
   const [resetTarget, setResetTarget] = useState<string | null>(null)
@@ -89,9 +100,32 @@ export default function AdminPage() {
 
   async function fetchMembers() {
     setLoadingMem(true)
-    const { data } = await getSupabase().from('회원기본').select('아이디, 이름, 사용여부, role').order('아이디')
+    const { data, error } = await getSupabase().from('회원기본').select('아이디, 이름, 사용여부, role, 정직원여부').order('아이디')
+    if (error) console.error('fetchMembers error:', error)
     setMembers((data as unknown as Member[]) || [])
     setLoadingMem(false)
+  }
+
+  async function fetchUploadedFiles() {
+    setLoadingFiles(true)
+    const res = await fetch('/api/files/admin/list')
+    const data = await res.json()
+    setUploadedFiles(data.files ?? [])
+    setLoadingFiles(false)
+  }
+
+  async function adminDeleteFile(path: string) {
+    if (!confirm(`"${path.split('/').pop()?.replace(/^\d+_/, '')}" 파일을 삭제할까요?`)) return
+    setFileDeleteProcessing(path)
+    const stored = localStorage.getItem('user')
+    const 아이디 = stored ? JSON.parse(stored).아이디 : ''
+    await fetch('/api/files/delete', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path, 아이디 }),
+    })
+    setFileDeleteProcessing(null)
+    fetchUploadedFiles()
   }
 
   async function approveRequest(req: Request) {
@@ -140,9 +174,18 @@ export default function AdminPage() {
     }
   }
 
-  async function setMemberStatus(아이디: string, 사용여부: string) {
+  async function setMemberStatus(아이디: string, 사용여부: string, 정직원여부?: string) {
     setProcessingMem(아이디)
-    await getSupabase().from('회원기본').update({ 사용여부 }).eq('아이디', 아이디)
+    const update: Record<string, string> = { 사용여부 }
+    if (정직원여부 !== undefined) update['정직원여부'] = 정직원여부
+    await getSupabase().from('회원기본').update(update).eq('아이디', 아이디)
+    setProcessingMem(null)
+    fetchMembers()
+  }
+
+  async function setRegularStatus(아이디: string, 정직원여부: 'Y' | 'N') {
+    setProcessingMem(아이디)
+    await getSupabase().from('회원기본').update({ 정직원여부 }).eq('아이디', 아이디)
     setProcessingMem(null)
     fetchMembers()
   }
@@ -179,6 +222,9 @@ export default function AdminPage() {
         </button>
         <button onClick={() => setTab('txlog')} style={{ flex: 1, padding: '14px', fontSize: 13, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: tab === 'txlog' ? '#FF3D78' : '#4A5568', borderBottom: tab === 'txlog' ? '2px solid #FF3D78' : '2px solid transparent' }}>
           <List size={15} /> 거래내역
+        </button>
+        <button onClick={() => { setTab('files'); fetchUploadedFiles() }} style={{ flex: 1, padding: '14px', fontSize: 13, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: tab === 'files' ? '#FF3D78' : '#4A5568', borderBottom: tab === 'files' ? '2px solid #FF3D78' : '2px solid transparent' }}>
+          <FolderOpen size={15} /> 업로드파일목록
         </button>
       </div>
 
@@ -303,27 +349,68 @@ export default function AdminPage() {
 
                         {/* 버튼 */}
                         {mem.role !== 1 && (
-                          <div style={{ display: 'grid', gridTemplateColumns: isPending ? '1fr 1fr' : '1fr', gap: 6 }}>
-                            {isPending && (
-                              <button onClick={() => setMemberStatus(mem.아이디, 'N')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'rgba(255,92,92,0.12)', color: '#FF5C5C', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                {busy ? '...' : <><X size={12} /> 거절</>}
-                              </button>
-                            )}
-                            {isPending && (
-                              <button onClick={() => setMemberStatus(mem.아이디, 'Y')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                {busy ? '...' : <><Check size={12} /> 승인</>}
-                              </button>
-                            )}
-                            {isActive && (
-                              <button onClick={() => setMemberStatus(mem.아이디, 'N')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'rgba(255,92,92,0.08)', color: '#FF5C5C', border: '1px solid rgba(255,92,92,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                {busy ? '...' : <><X size={12} /> 정지</>}
-                              </button>
-                            )}
-                            {!isPending && !isActive && (
-                              <button onClick={() => setMemberStatus(mem.아이디, 'Y')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'rgba(46,204,138,0.08)', color: '#2ECC8A', border: '1px solid rgba(46,204,138,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                {busy ? '...' : <><Check size={12} /> 활성화</>}
-                              </button>
-                            )}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {/* 정직원여부 선택 */}
+                            {(() => {
+                              const curVal = isPending
+                                ? (regularMap[mem.아이디] ?? 'N')
+                                : (editRegularMap[mem.아이디] ?? mem.정직원여부 ?? 'N')
+                              const isChanged = !isPending && editRegularMap[mem.아이디] !== undefined && editRegularMap[mem.아이디] !== mem.정직원여부
+                              return (
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button
+                                    onClick={() => isPending
+                                      ? setRegularMap(p => ({ ...p, [mem.아이디]: 'Y' }))
+                                      : setEditRegularMap(p => ({ ...p, [mem.아이디]: 'Y' }))
+                                    }
+                                    disabled={busy}
+                                    style={{ ...btnBase, flex: 1, padding: '4px 0', fontSize: 11, background: curVal === 'Y' ? 'rgba(46,204,138,0.2)' : '#181C22', color: curVal === 'Y' ? '#2ECC8A' : '#4A5568', border: `1px solid ${curVal === 'Y' ? 'rgba(46,204,138,0.4)' : '#252D3A'}` }}>
+                                    정규직
+                                  </button>
+                                  <button
+                                    onClick={() => isPending
+                                      ? setRegularMap(p => ({ ...p, [mem.아이디]: 'N' }))
+                                      : setEditRegularMap(p => ({ ...p, [mem.아이디]: 'N' }))
+                                    }
+                                    disabled={busy}
+                                    style={{ ...btnBase, flex: 1, padding: '4px 0', fontSize: 11, background: curVal === 'N' ? 'rgba(232,201,106,0.2)' : '#181C22', color: curVal === 'N' ? '#E8C96A' : '#4A5568', border: `1px solid ${curVal === 'N' ? 'rgba(232,201,106,0.4)' : '#252D3A'}` }}>
+                                    비정규직
+                                  </button>
+                                  {isChanged && (
+                                    <button
+                                      onClick={() => { setRegularStatus(mem.아이디, editRegularMap[mem.아이디]!); setEditRegularMap(p => { const n = { ...p }; delete n[mem.아이디]; return n }) }}
+                                      disabled={busy}
+                                      style={{ ...btnBase, padding: '4px 10px', fontSize: 11, background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)', color: '#fff' }}>
+                                      변경
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })()}
+
+                            {/* 승인/거절/정지/활성화 버튼 */}
+                            <div style={{ display: 'grid', gridTemplateColumns: isPending ? '1fr 1fr' : '1fr', gap: 6 }}>
+                              {isPending && (
+                                <button onClick={() => setMemberStatus(mem.아이디, 'N')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'rgba(255,92,92,0.12)', color: '#FF5C5C', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                  {busy ? '...' : <><X size={12} /> 거절</>}
+                                </button>
+                              )}
+                              {isPending && (
+                                <button onClick={() => setMemberStatus(mem.아이디, 'Y', regularMap[mem.아이디] ?? 'N')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                  {busy ? '...' : <><Check size={12} /> 승인</>}
+                                </button>
+                              )}
+                              {isActive && (
+                                <button onClick={() => setMemberStatus(mem.아이디, 'N')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'rgba(255,92,92,0.08)', color: '#FF5C5C', border: '1px solid rgba(255,92,92,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                  {busy ? '...' : <><X size={12} /> 정지</>}
+                                </button>
+                              )}
+                              {!isPending && !isActive && (
+                                <button onClick={() => setMemberStatus(mem.아이디, 'Y')} disabled={busy} style={{ ...btnBase, padding: '5px 0', fontSize: 12, background: 'rgba(46,204,138,0.08)', color: '#2ECC8A', border: '1px solid rgba(46,204,138,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                  {busy ? '...' : <><Check size={12} /> 활성화</>}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )}
                         {mem.role !== 1 && (
@@ -467,6 +554,65 @@ export default function AdminPage() {
             </>
           )
         })()}
+        {tab === 'files' && (
+          <>
+            <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg, #0F1117)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', marginBottom: 8, borderBottom: '1px solid #252D3A' }}>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>업로드 파일 목록</div>
+              <button onClick={fetchUploadedFiles} style={{ background: '#181C22', border: '1px solid #252D3A', color: '#8892A0', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><RefreshCw size={14} /></button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #252D3A' }}>
+                    <th style={thStyle}>아이디</th>
+                    <th style={thStyle}>성명</th>
+                    <th style={thStyle}>파일명</th>
+                    <th style={thStyle}>업로드일자</th>
+                    <th style={thStyle}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingFiles ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: '#8892A0', padding: 32 }}>불러오는 중...</td></tr>
+                  ) : uploadedFiles.length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: '#8892A0', padding: 32 }}>업로드된 파일이 없습니다</td></tr>
+                  ) : (
+                    uploadedFiles.map(f => {
+                      const displayName = f.name.replace(/^\d+_/, '')
+                      const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
+                      const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext)
+                      const uploadDate = new Date(f.created_at)
+                      const dateStr = `${uploadDate.getFullYear()}-${String(uploadDate.getMonth()+1).padStart(2,'0')}-${String(uploadDate.getDate()).padStart(2,'0')} ${String(uploadDate.getHours()).padStart(2,'0')}:${String(uploadDate.getMinutes()).padStart(2,'0')}`
+                      return (
+                        <tr key={f.id} style={{ borderBottom: '1px solid #1A1F2E' }}>
+                          <td style={{ ...tdStyle, color: '#8892A0' }}>{f.memberId}</td>
+                          <td style={tdStyle}>{f.memberName}</td>
+                          <td style={tdStyle}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {isImage ? <ImageIcon size={13} color="#8892A0" /> : <FileText size={13} color="#8892A0" />}
+                              {displayName}
+                            </span>
+                          </td>
+                          <td style={{ ...tdStyle, color: '#8892A0' }}>{dateStr}</td>
+                          <td style={tdStyle}>
+                            <button
+                              onClick={() => adminDeleteFile(`${f.memberId}/${f.name}`)}
+                              disabled={fileDeleteProcessing === `${f.memberId}/${f.name}`}
+                              style={{ ...btnBase, background: 'rgba(255,92,92,0.15)', color: '#FF5C5C', padding: '4px 10px', fontSize: 12 }}
+                            >
+                              <Trash2 size={12} style={{ display: 'inline', marginRight: 4 }} />삭제
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
       </div>
     </div>
   )

@@ -63,12 +63,13 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
     fetch('/api/auth/me')
       .then(res => res.ok ? res.json() : null)
       .then(user => {
-        if (!user) { router.replace('/'); return }
+        if (!user) return // 미들웨어가 처리
         localStorage.setItem('user', JSON.stringify(user))
         setIsAdmin(user.role === 1)
         setUserId(user.아이디 || '')
       })
-  }, [router])
+      .catch(() => {}) // 네트워크 오류 시 미들웨어에 위임
+  }, [])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

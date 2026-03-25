@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     .eq('아이디', 아이디)
     .single()
 
-  const isAdmin = (member as { role: number } | null)?.role === 1
+  const isAdmin = (member as unknown as { role: number } | null)?.role === 1
   const isOwner = path.startsWith(`${아이디}/`)
 
   if (!isAdmin && !isOwner) {

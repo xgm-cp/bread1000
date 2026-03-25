@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     .eq('아이디', 아이디)
     .single()
 
-  if (!member || (member as { 정직원여부: string }).정직원여부 !== 'Y') {
+  if (!member || (member as unknown as { 정직원여부: string }).정직원여부 !== 'Y') {
     return NextResponse.json({ error: '파일 업로드 권한이 없습니다.' }, { status: 403 })
   }
 

@@ -21,7 +21,7 @@ export async function DELETE(req: NextRequest) {
   const isOwner = path.startsWith(`${아이디}/`)
   if (!isOwner) {
     const { data: member } = await supabase.from('회원기본').select('role').eq('아이디', 아이디).single()
-    if ((member as { role: number } | null)?.role !== 1) {
+    if ((member as unknown as { role: number } | null)?.role !== 1) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
     }
   }

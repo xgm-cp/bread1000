@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { RefreshCw, Check, X, ArrowLeft, Users, CreditCard, User, List, Calendar, FolderOpen, Trash2, FileText, Image as ImageIcon } from 'lucide-react'
+import { RefreshCw, Check, X, ArrowLeft, Users, CreditCard, User, List, Calendar, FolderOpen, Trash2, FileText, Image as ImageIcon, Download } from 'lucide-react'
 
 interface Request {
   아이디: string

@@ -104,7 +104,7 @@ export default function PredictPage() {
       .upsert({ 아이디: user.아이디, 빵갯수: current - 1 })
 
     const logNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-    const ts = `${logNow.getFullYear()}${String(logNow.getMonth()+1).padStart(2,'0')}${String(logNow.getDate()).padStart(2,'0')}${String(logNow.getHours()).padStart(2,'0')}${String(logNow.getMinutes()).padStart(2,'0')}${String(logNow.getSeconds()).padStart(2,'0')}`
+    const ts = `${logNow.getUTCFullYear()}${String(logNow.getUTCMonth()+1).padStart(2,'0')}${String(logNow.getUTCDate()).padStart(2,'0')}${String(logNow.getUTCHours()).padStart(2,'0')}${String(logNow.getUTCMinutes()).padStart(2,'0')}${String(logNow.getUTCSeconds()).padStart(2,'0')}`
     await supabase.from('계좌거래내역').insert({
       아이디: user.아이디, 거래일시: ts,
       입출금구분: 'B', 빵갯수: 1, 상태: 'Y',

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { RefreshCw, Check, X, ArrowLeft, Users, CreditCard, User, List, Calendar, FolderOpen, Trash2, FileText, Image as ImageIcon, Download } from 'lucide-react'
+import { RefreshCw, Check, X, ArrowLeft, Users, CreditCard, User, List, Calendar, FolderOpen, Trash2, FileText, Image as ImageIcon, ArrowDownToLine as DownloadIcon } from 'lucide-react'
 
 interface Request {
   아이디: string
@@ -607,7 +607,7 @@ export default function AdminPage() {
                               onClick={() => adminDownloadFile(`${f.memberId}/${f.name}`)}
                               style={{ ...btnBase, background: 'rgba(59,130,246,0.15)', color: '#3B82F6', padding: '4px 10px', fontSize: 12 }}
                             >
-                              <Download size={12} style={{ display: 'inline', marginRight: 4 }} />다운로드
+                              <DownloadIcon size={12} style={{ display: 'inline', marginRight: 4 }} />다운로드
                             </button>
                             <button
                               onClick={() => adminDeleteFile(`${f.memberId}/${f.name}`)}

@@ -57,38 +57,30 @@ Deno.serve(async (req: Request) => {
 
   type Pred = { 아이디: string; 예측종가: number; 종가증감구분: string; 등록일시: string }
 
-  // 보합(F)이면 방향 무관하게 전원 참여, 종가 근접순 정렬
   const allPreds = preds as Pred[]
-  const correct = direction === 'F'
-    ? [...allPreds].sort((a, b) => {
-        const diff = Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose)
-        if (diff !== 0) return diff
-        return a.등록일시 < b.등록일시 ? -1 : a.등록일시 > b.등록일시 ? 1 : 0
-      })
-    : allPreds
-        .filter(p => p.종가증감구분 === direction)
-        .sort((a, b) => {
-          const diff = Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose)
-          if (diff !== 0) return diff
-          return a.등록일시 < b.등록일시 ? -1 : a.등록일시 > b.등록일시 ? 1 : 0
-        })
 
-  const wrong = direction === 'F' ? [] : allPreds.filter(p => p.종가증감구분 !== direction)
+  // 홈 리더보드와 동일한 정렬 로직
+  // 1순위: 방향 일치 여부 (보합이면 방향 무관)
+  // 2순위: 실제 종가와의 오차 오름차순
+  // 3순위: 등록일시 오름차순
+  const sorted = [...allPreds].sort((a, b) => {
+    if (direction !== 'F') {
+      const aDir = a.종가증감구분 === direction ? 0 : 1
+      const bDir = b.종가증감구분 === direction ? 0 : 1
+      if (aDir !== bDir) return aDir - bDir
+    }
+    const diff = Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose)
+    if (diff !== 0) return diff
+    return a.등록일시 < b.등록일시 ? -1 : a.등록일시 > b.등록일시 ? 1 : 0
+  })
 
   const updateErrors: string[] = []
-  for (const [i, p] of correct.entries()) {
+  for (const [i, p] of sorted.entries()) {
     const { error } = await supabase.from('종가예측내역')
       .update({ 순위: i + 1 })
       .eq('아이디', p.아이디)
       .eq('기준일자', todayIso)
-    if (error) updateErrors.push(`[correct] ${p.아이디}: ${error.message}`)
-  }
-  for (const p of wrong) {
-    const { error } = await supabase.from('종가예측내역')
-      .update({ 순위: null })
-      .eq('아이디', p.아이디)
-      .eq('기준일자', todayIso)
-    if (error) updateErrors.push(`[wrong] ${p.아이디}: ${error.message}`)
+    if (error) updateErrors.push(`${p.아이디}: ${error.message}`)
   }
 
   await supabase.from('종가관리내역').upsert({
@@ -96,7 +88,7 @@ Deno.serve(async (req: Request) => {
     종가: actualClose,
   })
 
-  const winner = correct[0]
+  const winner = sorted[0]
   const totalPool = preds.length
   if (winner) {
     // 1. 계좌거래내역 INSERT 먼저 시도 — unique index(아이디+날짜+W)로 중복 방지
@@ -126,9 +118,8 @@ Deno.serve(async (req: Request) => {
     direction,
     totalPool,
     winner: winner?.아이디 ?? null,
-    ranked: correct.length,
-    unranked: wrong.length,
-    correct: correct.map(p => p.아이디),
+    ranked: sorted.length,
+    sorted: sorted.map(p => p.아이디),
     updateErrors,
   }), { status: 200, headers: { 'content-type': 'application/json' } })
 })

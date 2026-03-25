@@ -581,8 +581,8 @@ export default function AdminPage() {
                       const displayName = f.name.replace(/^\d+_/, '')
                       const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
                       const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext)
-                      const uploadDate = new Date(f.created_at)
-                      const dateStr = `${uploadDate.getFullYear()}-${String(uploadDate.getMonth()+1).padStart(2,'0')}-${String(uploadDate.getDate()).padStart(2,'0')} ${String(uploadDate.getHours()).padStart(2,'0')}:${String(uploadDate.getMinutes()).padStart(2,'0')}`
+                      const uploadDate = new Date(new Date(f.created_at).getTime() + 9 * 60 * 60 * 1000)
+                      const dateStr = `${uploadDate.getUTCFullYear()}-${String(uploadDate.getUTCMonth()+1).padStart(2,'0')}-${String(uploadDate.getUTCDate()).padStart(2,'0')} ${String(uploadDate.getUTCHours()).padStart(2,'0')}:${String(uploadDate.getUTCMinutes()).padStart(2,'0')}`
                       return (
                         <tr key={f.id} style={{ borderBottom: '1px solid #1A1F2E' }}>
                           <td style={{ ...tdStyle, color: '#8892A0' }}>{f.memberId}</td>

@@ -521,8 +521,8 @@ export default function MypagePage() {
               <div style={{ padding: '28px', textAlign: 'center', fontSize: 13, color: 'var(--text3)' }}>업로드된 파일이 없습니다</div>
             ) : (
               myFiles.map((f, fi) => {
-                const uploadDate = new Date(f.created_at)
-                const dateStr = `${uploadDate.getFullYear()}-${String(uploadDate.getMonth()+1).padStart(2,'0')}-${String(uploadDate.getDate()).padStart(2,'0')}`
+                const uploadDate = new Date(new Date(f.created_at).getTime() + 9 * 60 * 60 * 1000)
+                const dateStr = `${uploadDate.getUTCFullYear()}-${String(uploadDate.getUTCMonth()+1).padStart(2,'0')}-${String(uploadDate.getUTCDate()).padStart(2,'0')}`
                 return (
                   <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 20px', borderBottom: fi < myFiles.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     <span style={{ color: 'var(--text3)', flexShrink: 0, marginRight: 8 }}>{fileIcon(f.name)}</span>

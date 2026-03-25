@@ -87,6 +87,20 @@ Deno.serve(async (req: Request) => {
   const winner = correct[0]
   const totalPool = preds.length
   if (winner) {
+    const datePrefix = todayIso.replace(/-/g, '')
+    const { data: existingTx } = await supabase
+      .from('계좌거래내역')
+      .select('거래일시')
+      .eq('아이디', winner.아이디)
+      .eq('입출금구분', 'W')
+      .gte('거래일시', `${datePrefix}000000`)
+      .lte('거래일시', `${datePrefix}235959`)
+      .limit(1)
+
+    if (existingTx && existingTx.length > 0) {
+      return new Response(JSON.stringify({ message: '이미 지급된 날짜. 중복 지급 방지로 건너뜀', date: todayIso, winner: winner.아이디 }), { status: 200 })
+    }
+
     const { data: winBal } = await supabase
       .from('빵보유기본').select('빵갯수').eq('아이디', winner.아이디).single()
     const winCurrent = (winBal as { 빵갯수: number } | null)?.빵갯수 ?? 0
@@ -94,7 +108,7 @@ Deno.serve(async (req: Request) => {
       .upsert({ 아이디: winner.아이디, 빵갯수: winCurrent + totalPool })
 
     const logNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-    const ts = `${logNow.getFullYear()}${String(logNow.getMonth()+1).padStart(2,'0')}${String(logNow.getDate()).padStart(2,'0')}${String(logNow.getHours()).padStart(2,'0')}${String(logNow.getMinutes()).padStart(2,'0')}${String(logNow.getSeconds()).padStart(2,'0')}`
+    const ts = `${logNow.getUTCFullYear()}${String(logNow.getUTCMonth()+1).padStart(2,'0')}${String(logNow.getUTCDate()).padStart(2,'0')}${String(logNow.getUTCHours()).padStart(2,'0')}${String(logNow.getUTCMinutes()).padStart(2,'0')}${String(logNow.getUTCSeconds()).padStart(2,'0')}`
     await supabase.from('계좌거래내역').insert({
       아이디: winner.아이디, 거래일시: ts,
       입출금구분: 'W', 빵갯수: totalPool, 상태: 'Y',

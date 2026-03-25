@@ -3,9 +3,17 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { RefreshCw, Check, X, ArrowLeft, Users, CreditCard, User } from 'lucide-react'
+import { RefreshCw, Check, X, ArrowLeft, Users, CreditCard, User, List, Calendar } from 'lucide-react'
 
 interface Request {
+  아이디: string
+  거래일시: string
+  입출금구분: string
+  빵갯수: number
+  상태: string
+}
+
+interface TxLog {
   아이디: string
   거래일시: string
   입출금구분: string
@@ -27,7 +35,7 @@ const btnBase: React.CSSProperties = {
 
 export default function AdminPage() {
   const router = useRouter()
-  const [tab, setTab] = useState<'requests' | 'members'>('requests')
+  const [tab, setTab] = useState<'requests' | 'members' | 'txlog'>('requests')
 
   // 충전/출금
   const [requests, setRequests] = useState<Request[]>([])
@@ -40,6 +48,14 @@ export default function AdminPage() {
   const [processingMem, setProcessingMem] = useState<string | null>(null)
   const [memberFilter, setMemberFilter] = useState<'all' | 'P' | 'Y' | 'N'>('all')
   const [requestFilter, setRequestFilter] = useState<'all' | 'P' | 'Y' | 'N'>('all')
+
+  // 계좌거래내역
+  const [txLogs, setTxLogs] = useState<TxLog[]>([])
+  const [loadingTx, setLoadingTx] = useState(false)
+  const [txDateFilter, setTxDateFilter] = useState('')
+  const [txPeriodFilter, setTxPeriodFilter] = useState<'2' | 'all' | ''>('2')
+  const [txIdFilter, setTxIdFilter] = useState('')
+  const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'I' | 'O' | 'B' | 'W'>('all')
 
   // 비밀번호 초기화
   const [resetTarget, setResetTarget] = useState<string | null>(null)
@@ -54,6 +70,7 @@ export default function AdminPage() {
     }
     fetchRequests()
     fetchMembers()
+    fetchTxLogs()
   }, [router])
 
   async function fetchRequests() {
@@ -61,6 +78,13 @@ export default function AdminPage() {
     const { data } = await getSupabase().from('계좌거래내역').select('*').order('등록일시', { ascending: false })
     setRequests((data as unknown as Request[]) || [])
     setLoadingReq(false)
+  }
+
+  async function fetchTxLogs() {
+    setLoadingTx(true)
+    const { data } = await getSupabase().from('계좌거래내역').select('*').order('거래일시', { ascending: false })
+    setTxLogs((data as unknown as TxLog[]) || [])
+    setLoadingTx(false)
   }
 
   async function fetchMembers() {
@@ -152,6 +176,9 @@ export default function AdminPage() {
               {pendingCount}
             </span>
           )}
+        </button>
+        <button onClick={() => setTab('txlog')} style={{ flex: 1, padding: '14px', fontSize: 13, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: tab === 'txlog' ? '#FF3D78' : '#4A5568', borderBottom: tab === 'txlog' ? '2px solid #FF3D78' : '2px solid transparent' }}>
+          <List size={15} /> 거래내역
         </button>
       </div>
 
@@ -336,7 +363,118 @@ export default function AdminPage() {
             </>
           )
         })()}
+
+        {/* 계좌거래내역 탭 */}
+        {tab === 'txlog' && (() => {
+          const txTypeLabel: Record<string, string> = { I: '충전', O: '출금', B: '차감', W: '지급' }
+          const txTypeColor: Record<string, string> = { I: '#2ECC8A', O: '#FF5C5C', B: '#FF5C5C', W: '#4A9EFF' }
+
+          const twoDaysAgo = (() => {
+            const d = new Date(Date.now() + 9 * 60 * 60 * 1000)
+            d.setUTCDate(d.getUTCDate() - 2)
+            return d.toISOString().slice(0, 10).replace(/-/g, '')
+          })()
+
+          const filtered = txLogs.filter(tx => {
+            const dateMatch =
+              txPeriodFilter === '2' ? tx.거래일시.slice(0, 8) >= twoDaysAgo :
+              txPeriodFilter === 'all' ? true :
+              txDateFilter ? tx.거래일시.slice(0, 8) === txDateFilter.replace(/-/g, '') : true
+            const idMatch = txIdFilter ? tx.아이디.includes(txIdFilter) : true
+            const typeMatch = txTypeFilter === 'all' || tx.입출금구분 === txTypeFilter
+            return dateMatch && idMatch && typeMatch
+          })
+
+          return (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>계좌거래내역</div>
+                <button onClick={fetchTxLogs} style={{ background: '#181C22', border: '1px solid #252D3A', color: '#8892A0', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><RefreshCw size={14} /></button>
+              </div>
+
+              {/* 필터 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Calendar size={14} color="#4A5568" style={{ position: 'absolute', left: 10, pointerEvents: 'none' }} />
+                    <input
+                      type="date"
+                      value={txDateFilter}
+                      onChange={e => { setTxDateFilter(e.target.value); setTxPeriodFilter('') }}
+                      style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: 8, background: '#181C22', border: '1px solid #252D3A', color: txDateFilter ? '#EEF0F4' : '#4A5568', fontSize: 13, fontFamily: 'inherit', colorScheme: 'dark' }}
+                    />
+                    {txDateFilter && (
+                      <button onClick={() => { setTxDateFilter(''); setTxPeriodFilter('2') }} style={{ position: 'absolute', right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#4A5568', padding: 0, display: 'flex', alignItems: 'center' }}>
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="아이디 검색"
+                    value={txIdFilter}
+                    onChange={e => setTxIdFilter(e.target.value)}
+                    style={{ flex: 1, padding: '6px 10px', borderRadius: 8, background: '#181C22', border: '1px solid #252D3A', color: '#EEF0F4', fontSize: 13, fontFamily: 'inherit' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button onClick={() => { setTxPeriodFilter('2'); setTxDateFilter(''); setTxTypeFilter('all') }} style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: txPeriodFilter === '2' ? 'linear-gradient(135deg,#4A9EFF,#2ECC8A)' : '#181C22', color: txPeriodFilter === '2' ? '#fff' : '#4A5568' }}>
+                    최근2일
+                  </button>
+                  {([['I', '충전'], ['O', '출금'], ['B', '차감'], ['W', '지급']] as const).map(([key, label]) => (
+                    <button key={key} onClick={() => setTxTypeFilter(key)} style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: txTypeFilter === key ? 'linear-gradient(135deg,#FF3D78,#9B2FC9)' : '#181C22', color: txTypeFilter === key ? '#fff' : '#4A5568' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {loadingTx ? (
+                <div style={{ textAlign: 'center', color: '#4A5568', padding: '40px 0' }}>불러오는 중...</div>
+              ) : filtered.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#4A5568', padding: '40px 0' }}>거래내역이 없어요.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #1E2430' }}>
+                        <th style={thStyle}>날짜</th>
+                        <th style={thStyle}>아이디</th>
+                        <th style={thStyle}>구분</th>
+                        <th style={{ ...thStyle, textAlign: 'right' }}>빵</th>
+                        <th style={thStyle}>거래일시</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((tx, idx) => {
+                        const dateStr = tx.거래일시.slice(0, 8)
+                        const formatted = `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}`
+                        const timeStr = `${tx.거래일시.slice(8,10)}:${tx.거래일시.slice(10,12)}:${tx.거래일시.slice(12,14)}`
+                        return (
+                          <tr key={idx} style={{ borderBottom: '1px solid #1A1F28', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                            <td style={tdStyle}>{formatted}</td>
+                            <td style={{ ...tdStyle, color: '#4A9EFF' }}>{tx.아이디}</td>
+                            <td style={{ ...tdStyle, color: txTypeColor[tx.입출금구분] ?? '#8892A0', fontWeight: 700 }}>{txTypeLabel[tx.입출금구분] ?? tx.입출금구분}</td>
+                            <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700 }}>{tx.빵갯수}</td>
+                            <td style={{ ...tdStyle, color: '#4A5568' }}>{formatted} {timeStr}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )
+        })()}
       </div>
     </div>
   )
+}
+
+const thStyle: React.CSSProperties = {
+  padding: '8px 10px', textAlign: 'left', color: '#8892A0', fontWeight: 600, whiteSpace: 'nowrap',
+}
+const tdStyle: React.CSSProperties = {
+  padding: '8px 10px', whiteSpace: 'nowrap',
 }

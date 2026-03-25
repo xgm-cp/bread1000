@@ -60,7 +60,19 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   }
 
   useEffect(() => {
-    const stored = localStorage.getItem('user')
+    let stored = localStorage.getItem('user')
+    if (!stored) {
+      const match = document.cookie.match(/(?:^|;\s*)auth_user=([^;]+)/)
+      if (match) {
+        try {
+          const decoded = decodeURIComponent(escape(atob(match[1])))
+          localStorage.setItem('user', decoded)
+          stored = decoded
+        } catch {
+          // 쿠키 파싱 실패
+        }
+      }
+    }
     if (!stored) {
       router.replace('/')
       return
@@ -82,7 +94,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
 
   function logout() {
     localStorage.removeItem('user')
-    document.cookie = 'auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    document.cookie = 'auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
     router.push('/')
   }
 

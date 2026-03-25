@@ -14,10 +14,10 @@ Deno.serve(async (req: Request) => {
 
   if (!body.force) {
     const { data: already } = await supabase
-      .from('종가관리내역')
-      .select('종가증감구분')
+      .from('종가예측내역')
+      .select('순위')
       .eq('기준일자', todayIso)
-      .not('종가증감구분', 'is', null)
+      .not('순위', 'is', null)
       .limit(1)
 
     if (already && already.length > 0) {
@@ -86,7 +86,6 @@ Deno.serve(async (req: Request) => {
   await supabase.from('종가관리내역').upsert({
     기준일자: todayIso,
     종가: actualClose,
-    종가증감구분: direction,
   })
 
   const winner = correct[0]

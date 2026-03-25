@@ -92,32 +92,25 @@ Deno.serve(async (req: Request) => {
   const winner = correct[0]
   const totalPool = preds.length
   if (winner) {
-    const datePrefix = todayIso.replace(/-/g, '')
-    const { data: existingTx } = await supabase
-      .from('계좌거래내역')
-      .select('거래일시')
-      .eq('아이디', winner.아이디)
-      .eq('입출금구분', 'W')
-      .gte('거래일시', `${datePrefix}000000`)
-      .lte('거래일시', `${datePrefix}235959`)
-      .limit(1)
+    // 1. 계좌거래내역 INSERT 먼저 시도 — unique index(아이디+날짜+W)로 중복 방지
+    const logNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const ts = `${logNow.getUTCFullYear()}${String(logNow.getUTCMonth()+1).padStart(2,'0')}${String(logNow.getUTCDate()).padStart(2,'0')}${String(logNow.getUTCHours()).padStart(2,'0')}${String(logNow.getUTCMinutes()).padStart(2,'0')}${String(logNow.getUTCSeconds()).padStart(2,'0')}`
+    const { error: insertErr } = await supabase.from('계좌거래내역').insert({
+      아이디: winner.아이디, 거래일시: ts,
+      입출금구분: 'W', 빵갯수: totalPool, 상태: 'Y',
+    })
 
-    if (existingTx && existingTx.length > 0) {
-      return new Response(JSON.stringify({ message: '이미 지급된 날짜. 중복 지급 방지로 건너뜀', date: todayIso, winner: winner.아이디 }), { status: 200 })
+    // 2. INSERT 실패(unique 위반 등)면 잔액 업데이트 없이 종료
+    if (insertErr) {
+      return new Response(JSON.stringify({ message: '빵 지급 INSERT 실패(중복 방지)', error: insertErr.message, date: todayIso, winner: winner.아이디 }), { status: 200 })
     }
 
+    // 3. INSERT 성공한 경우에만 빵 잔액 업데이트
     const { data: winBal } = await supabase
       .from('빵보유기본').select('빵갯수').eq('아이디', winner.아이디).single()
     const winCurrent = (winBal as { 빵갯수: number } | null)?.빵갯수 ?? 0
     await supabase.from('빵보유기본')
       .upsert({ 아이디: winner.아이디, 빵갯수: winCurrent + totalPool })
-
-    const logNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-    const ts = `${logNow.getUTCFullYear()}${String(logNow.getUTCMonth()+1).padStart(2,'0')}${String(logNow.getUTCDate()).padStart(2,'0')}${String(logNow.getUTCHours()).padStart(2,'0')}${String(logNow.getUTCMinutes()).padStart(2,'0')}${String(logNow.getUTCSeconds()).padStart(2,'0')}`
-    await supabase.from('계좌거래내역').insert({
-      아이디: winner.아이디, 거래일시: ts,
-      입출금구분: 'W', 빵갯수: totalPool, 상태: 'Y',
-    })
   }
 
   return new Response(JSON.stringify({

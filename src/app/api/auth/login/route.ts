@@ -35,5 +35,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '사용이 중지된 계정입니다. 관리자에게 문의하세요.' }, { status: 403 })
   }
 
-  return NextResponse.json({ 아이디: row.아이디, 이름: row.이름, role: row.role })
+  const userObj = { 아이디: row.아이디, 이름: row.이름, role: row.role }
+  const encoded = Buffer.from(JSON.stringify(userObj)).toString('base64')
+  const res = NextResponse.json(userObj)
+  res.cookies.set('session', encoded, {
+    httpOnly: true,
+    path: '/',
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 24 * 30,
+  })
+  return res
 }

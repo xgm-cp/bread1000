@@ -42,10 +42,7 @@ export default function LoginPage() {
         })
         const data = await res.json()
         if (!res.ok) { setError(data.error); return }
-        const userObj = { 아이디: data.아이디, 이름: data.이름, role: data.role }
-        localStorage.setItem('user', JSON.stringify(userObj))
-        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(userObj))))
-        document.cookie = `auth_user=${encoded}; path=/; SameSite=Strict; Max-Age=${60 * 60 * 24 * 30}`
+        localStorage.setItem('user', JSON.stringify({ 아이디: data.아이디, 이름: data.이름, role: data.role }))
         router.push('/home')
       }
     } finally {

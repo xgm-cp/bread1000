@@ -60,26 +60,14 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   }
 
   useEffect(() => {
-    let stored = localStorage.getItem('user')
-    if (!stored) {
-      const match = document.cookie.match(/(?:^|;\s*)auth_user=([^;]+)/)
-      if (match) {
-        try {
-          const decoded = decodeURIComponent(escape(atob(match[1])))
-          localStorage.setItem('user', decoded)
-          stored = decoded
-        } catch {
-          // 쿠키 파싱 실패
-        }
-      }
-    }
-    if (!stored) {
-      router.replace('/')
-      return
-    }
-    const user = JSON.parse(stored)
-    setIsAdmin(user.role === 1)
-    setUserId(user.아이디 || '')
+    fetch('/api/auth/me')
+      .then(res => res.ok ? res.json() : null)
+      .then(user => {
+        if (!user) { router.replace('/'); return }
+        localStorage.setItem('user', JSON.stringify(user))
+        setIsAdmin(user.role === 1)
+        setUserId(user.아이디 || '')
+      })
   }, [router])
 
   useEffect(() => {
@@ -92,9 +80,9 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function logout() {
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
     localStorage.removeItem('user')
-    document.cookie = 'auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
     router.push('/')
   }
 

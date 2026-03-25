@@ -182,18 +182,26 @@ export default function MypagePage() {
     setFileError('')
     setFileUploading(true)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('아이디', userId)
-      const res = await fetch('/api/files/upload', { method: 'POST', body: fd })
-      const data = await res.json()
+      // 1. signed upload URL 발급
+      const urlRes = await fetch(`/api/files/upload-url?아이디=${encodeURIComponent(userId)}&filename=${encodeURIComponent(file.name)}`)
+      const urlData = await urlRes.json()
+      if (!urlRes.ok) { setFileError(urlData.error ?? '업로드 URL 발급 실패'); return }
+
+      // 2. 클라이언트에서 Supabase Storage로 직접 업로드 (Vercel 4.5MB 한도 우회)
+      const uploadRes = await fetch(urlData.signedUrl, {
+        method: 'PUT',
+        headers: { 'content-type': file.type || 'application/octet-stream' },
+        body: file,
+      })
+      if (!uploadRes.ok) { setFileError('업로드 실패 (' + uploadRes.status + ')'); return }
+
+      // 3. 파일 목록 갱신
       e.target.value = ''
-      if (!res.ok) { setFileError(data.error ?? '업로드 실패'); return }
       const listRes = await fetch(`/api/files/list?아이디=${encodeURIComponent(userId)}`)
       const listData = await listRes.json()
       setMyFiles(listData.files ?? [])
     } catch (err) {
-      setFileError('업로드 중 오류가 발생했습니다: ' + (err instanceof Error ? err.message : String(err)))
+      setFileError('업로드 중 오류: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setFileUploading(false)
     }

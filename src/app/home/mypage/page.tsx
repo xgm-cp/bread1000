@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff, Lock, Upload, Trash2, FileText, Image as ImageIcon } from 'lucide-react'
+import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff, Lock, Upload, Trash2, FileText, Image as ImageIcon, Download } from 'lucide-react'
 import { subscribePush } from '@/lib/usePushSubscription'
 import { getAvatar } from '@/lib/avatar'
 
@@ -546,7 +546,10 @@ export default function MypagePage() {
                       {f.name.replace(/^\d+_/, '')}
                     </span>
                     <span style={{ width: 110, fontSize: 12, color: 'var(--text3)', flexShrink: 0 }}>{dateStr}</span>
-                    <button onClick={() => deleteFile(f.name)} style={{ width: 28, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={() => downloadFile(f.name)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: 2, display: 'flex' }}>
+                      <Download size={15} />
+                    </button>
+                    <button onClick={() => deleteFile(f.name)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, display: 'flex' }}>
                       <Trash2 size={15} />
                     </button>
                   </div>

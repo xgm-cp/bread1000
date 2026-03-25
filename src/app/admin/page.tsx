@@ -114,6 +114,14 @@ export default function AdminPage() {
     setLoadingFiles(false)
   }
 
+  async function adminDownloadFile(path: string) {
+    const stored = localStorage.getItem('user')
+    const 아이디 = stored ? JSON.parse(stored).아이디 : ''
+    const res = await fetch(`/api/files/signed-url?path=${encodeURIComponent(path)}&아이디=${encodeURIComponent(아이디)}`)
+    const data = await res.json()
+    if (data.url) window.open(data.url, '_blank')
+  }
+
   async function adminDeleteFile(path: string) {
     if (!confirm(`"${path.split('/').pop()?.replace(/^\d+_/, '')}" 파일을 삭제할까요?`)) return
     setFileDeleteProcessing(path)
@@ -594,7 +602,13 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td style={{ ...tdStyle, color: '#8892A0' }}>{dateStr}</td>
-                          <td style={tdStyle}>
+                          <td style={{ ...tdStyle, display: 'flex', gap: 6 }}>
+                            <button
+                              onClick={() => adminDownloadFile(`${f.memberId}/${f.name}`)}
+                              style={{ ...btnBase, background: 'rgba(59,130,246,0.15)', color: '#3B82F6', padding: '4px 10px', fontSize: 12 }}
+                            >
+                              <Download size={12} style={{ display: 'inline', marginRight: 4 }} />다운로드
+                            </button>
                             <button
                               onClick={() => adminDeleteFile(`${f.memberId}/${f.name}`)}
                               disabled={fileDeleteProcessing === `${f.memberId}/${f.name}`}

@@ -48,22 +48,30 @@ Deno.serve(async (req: Request) => {
 
   const { data: preds, error: predsErr } = await supabase
     .from('종가예측내역')
-    .select('아이디, 예측종가, 종가증감구분')
+    .select('아이디, 예측종가, 종가증감구분, 등록일시')
     .eq('기준일자', todayIso)
 
   if (predsErr || !preds || preds.length === 0) {
     return new Response(JSON.stringify({ message: '예측 없음', date: todayIso }), { status: 200 })
   }
 
-  type Pred = { 아이디: string; 예측종가: number; 종가증감구분: string }
+  type Pred = { 아이디: string; 예측종가: number; 종가증감구분: string; 등록일시: string }
 
   // 보합(F)이면 방향 무관하게 전원 참여, 종가 근접순 정렬
   const allPreds = preds as Pred[]
   const correct = direction === 'F'
-    ? [...allPreds].sort((a, b) => Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose))
+    ? [...allPreds].sort((a, b) => {
+        const diff = Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose)
+        if (diff !== 0) return diff
+        return a.등록일시 < b.등록일시 ? -1 : a.등록일시 > b.등록일시 ? 1 : 0
+      })
     : allPreds
         .filter(p => p.종가증감구분 === direction)
-        .sort((a, b) => Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose))
+        .sort((a, b) => {
+          const diff = Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose)
+          if (diff !== 0) return diff
+          return a.등록일시 < b.등록일시 ? -1 : a.등록일시 > b.등록일시 ? 1 : 0
+        })
 
   const wrong = direction === 'F' ? [] : allPreds.filter(p => p.종가증감구분 !== direction)
 

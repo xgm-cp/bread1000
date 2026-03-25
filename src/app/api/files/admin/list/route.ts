@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 업로드일자 내림차순 정렬
-  allFiles.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  allFiles.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
 
   return NextResponse.json({ files: allFiles })
 }

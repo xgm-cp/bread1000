@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const memberMap: Record<string, string> = {}
   if (members) {
-    for (const m of members as { 아이디: string; 이름: string }[]) {
+    for (const m of members as unknown as { 아이디: string; 이름: string }[]) {
       memberMap[m.아이디] = m.이름
     }
   }

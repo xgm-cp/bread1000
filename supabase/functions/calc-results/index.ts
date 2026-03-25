@@ -26,11 +26,11 @@ Deno.serve(async (req: Request) => {
   }
 
   let actualClose: number
-  let direction: 'U' | 'D'
+  let direction: 'U' | 'D' | 'F' // F = 보합
 
   if (body.actualClose && body.direction) {
     actualClose = body.actualClose
-    direction = body.direction as 'U' | 'D'
+    direction = body.direction as 'U' | 'D' | 'F'
   } else {
     const appUrl = Deno.env.get('APP_URL')
     if (!appUrl) {
@@ -42,7 +42,8 @@ Deno.serve(async (req: Request) => {
     }
     const kospi = await kospiRes.json()
     actualClose = parseFloat(kospi.bstp_nmix_prpr)
-    direction = ['1', '2'].includes(kospi.prdy_vrss_sign) ? 'U' : 'D'
+    const sign = kospi.prdy_vrss_sign
+    direction = sign === '3' ? 'F' : ['1', '2'].includes(sign) ? 'U' : 'D'
   }
 
   const { data: preds, error: predsErr } = await supabase
@@ -56,11 +57,15 @@ Deno.serve(async (req: Request) => {
 
   type Pred = { 아이디: string; 예측종가: number; 종가증감구분: string }
 
-  const correct = (preds as Pred[])
-    .filter(p => p.종가증감구분 === direction)
-    .sort((a, b) => Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose))
+  // 보합(F)이면 방향 무관하게 전원 참여, 종가 근접순 정렬
+  const allPreds = preds as Pred[]
+  const correct = direction === 'F'
+    ? [...allPreds].sort((a, b) => Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose))
+    : allPreds
+        .filter(p => p.종가증감구분 === direction)
+        .sort((a, b) => Math.abs(a.예측종가 - actualClose) - Math.abs(b.예측종가 - actualClose))
 
-  const wrong = (preds as Pred[]).filter(p => p.종가증감구분 !== direction)
+  const wrong = direction === 'F' ? [] : allPreds.filter(p => p.종가증감구분 !== direction)
 
   const updateErrors: string[] = []
   for (const [i, p] of correct.entries()) {

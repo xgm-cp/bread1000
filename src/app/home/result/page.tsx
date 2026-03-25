@@ -7,7 +7,7 @@ import { BarChart2, Download, Trophy } from 'lucide-react'
 
 
 function getToday(): string {
-  return new Date().toISOString().slice(0, 10).replace(/-/g, '')
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
 }
 
 type MemberRow = Record<string, unknown>
@@ -166,7 +166,7 @@ export default function ResultPage() {
       const increase = increaseMap[id] ?? 0
       const dayCells = allDays.map(d => {
         const isToday = d === todayStr
-        const beforeCutoff = isToday && new Date().getHours() < 16
+        const beforeCutoff = isToday && new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours() < 16
         const rank = beforeCutoff ? undefined : gridPredMap[id]?.[d]
         if (rank === 1) return 'O'
         if (rank !== undefined) return 'X'
@@ -335,7 +335,7 @@ export default function ResultPage() {
                     <td style={{ ...tdNotFixed, color: increaseMap[id] ? '#2ECC8A' : 'var(--text3)', textAlign: 'right' as const }}>{increaseMap[id] ? `+${(increaseMap[id]).toLocaleString()}` : '-'}</td>
                     {allDays.map(d => {
                       const isToday = d === getToday()
-                      const beforeCutoff = isToday && new Date().getHours() < 16
+                      const beforeCutoff = isToday && new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours() < 16
                       const rank = beforeCutoff ? undefined : gridPredMap[id]?.[d]
                       const isFirst = rank === 1
                       const participated = rank !== undefined

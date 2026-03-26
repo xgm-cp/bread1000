@@ -30,7 +30,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: '파일 업로드 권한이 없습니다.' }, { status: 403 })
   }
 
-  const path = `${아이디}/${Date.now()}_${filename}`
+  // 한글 파일명 → ASCII safe path (확장자만 유지)
+  const ext = filename.includes('.') ? filename.split('.').pop() : ''
+  const safeName = ext ? `${Date.now()}.${ext}` : `${Date.now()}`
+  const path = `${아이디}/${safeName}`
 
   const { data, error } = await supabase.storage
     .from('member-files')
@@ -40,5 +43,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error?.message ?? '업로드 URL 생성 실패' }, { status: 500 })
   }
 
-  return NextResponse.json({ signedUrl: data.signedUrl, token: data.token, path })
+  return NextResponse.json({ signedUrl: data.signedUrl, token: data.token, path, 원본파일명: filename })
 }

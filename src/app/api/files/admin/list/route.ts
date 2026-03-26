@@ -58,23 +58,27 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 특이사항 조회
+  // 특이사항 + 원본파일명 조회
   const allPaths = allFiles.map(f => `${f.memberId}/${f.name}`)
   const { data: metaRows } = await supabase
     .from('파일업로드내역')
-    .select('파일경로, 특이사항')
+    .select('파일경로, 특이사항, 원본파일명')
     .in('파일경로', allPaths)
 
-  const metaMap: Record<string, string> = {}
+  const metaMap: Record<string, { 특이사항: string; 원본파일명: string }> = {}
   if (metaRows) {
-    for (const r of metaRows as { 파일경로: string; 특이사항: string }[]) {
-      metaMap[r.파일경로] = r.특이사항
+    for (const r of metaRows as unknown as { 파일경로: string; 특이사항: string; 원본파일명: string }[]) {
+      metaMap[r.파일경로] = { 특이사항: r.특이사항, 원본파일명: r.원본파일명 }
     }
   }
 
-  // 업로드일자 내림차순 정렬 + 특이사항 병합
+  // 업로드일자 내림차순 정렬 + 메타 병합
   allFiles.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-  const result = allFiles.map(f => ({ ...f, 특이사항: metaMap[`${f.memberId}/${f.name}`] ?? '' }))
+  const result = allFiles.map(f => ({
+    ...f,
+    특이사항: metaMap[`${f.memberId}/${f.name}`]?.특이사항 ?? '',
+    원본파일명: metaMap[`${f.memberId}/${f.name}`]?.원본파일명 ?? f.name,
+  }))
 
   return NextResponse.json({ files: result })
 }

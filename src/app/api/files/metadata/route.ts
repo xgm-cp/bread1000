@@ -9,7 +9,7 @@ function getServiceSupabase() {
 }
 
 export async function POST(req: NextRequest) {
-  const { 파일경로, 아이디, 특이사항 } = await req.json()
+  const { 파일경로, 아이디, 특이사항, 원본파일명 } = await req.json()
 
   if (!파일경로 || !아이디) {
     return NextResponse.json({ error: '파일경로와 아이디가 필요합니다.' }, { status: 400 })
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     파일경로,
     아이디,
     특이사항: 특이사항 ?? '',
+    원본파일명: 원본파일명 ?? '',
     변경일시: new Date().toISOString(),
   })
 

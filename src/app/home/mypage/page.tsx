@@ -45,7 +45,7 @@ export default function MypagePage() {
 
   // 정직원 파일 업로드
   const [isRegular, setIsRegular] = useState(false)
-  const [myFiles, setMyFiles] = useState<{ name: string; id: string; created_at: string; 특이사항: string }[]>([])
+  const [myFiles, setMyFiles] = useState<{ name: string; id: string; created_at: string; 특이사항: string; 원본파일명: string }[]>([])
   const [fileUploading, setFileUploading] = useState(false)
   const [fileError, setFileError] = useState('')
   const [showFilesModal, setShowFilesModal] = useState(false)
@@ -212,7 +212,7 @@ export default function MypagePage() {
       await fetch('/api/files/metadata', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ 파일경로: urlData.path, 아이디: userId, 특이사항: uploadNote }),
+        body: JSON.stringify({ 파일경로: urlData.path, 아이디: userId, 특이사항: uploadNote, 원본파일명: urlData.원본파일명 }),
       })
 
       // 4. 파일 목록 갱신
@@ -582,7 +582,7 @@ export default function MypagePage() {
                   <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 20px', borderBottom: fi < myFiles.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     <span style={{ color: 'var(--text3)', flexShrink: 0, marginRight: 6 }}>{fileIcon(f.name)}</span>
                     <span style={{ flex: 1, fontSize: 12, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
-                      {f.name.replace(/^\d+_/, '')}
+                      {f.원본파일명 || f.name.replace(/^\d+_/, '')}
                     </span>
                     <span style={{ flex: 1, fontSize: 12, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{f.특이사항 || '-'}</span>
                     <span style={{ width: 90, fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{dateStr}</span>

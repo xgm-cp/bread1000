@@ -30,19 +30,20 @@ export async function GET(req: NextRequest) {
   const paths = (data ?? []).map(f => `${아이디}/${f.name}`)
   const { data: metaRows } = await supabase
     .from('파일업로드내역')
-    .select('파일경로, 특이사항')
+    .select('파일경로, 특이사항, 원본파일명')
     .in('파일경로', paths)
 
-  const metaMap: Record<string, string> = {}
+  const metaMap: Record<string, { 특이사항: string; 원본파일명: string }> = {}
   if (metaRows) {
-    for (const r of metaRows as { 파일경로: string; 특이사항: string }[]) {
-      metaMap[r.파일경로] = r.특이사항
+    for (const r of metaRows as unknown as { 파일경로: string; 특이사항: string; 원본파일명: string }[]) {
+      metaMap[r.파일경로] = { 특이사항: r.특이사항, 원본파일명: r.원본파일명 }
     }
   }
 
   const files = (data ?? []).map(f => ({
     ...f,
-    특이사항: metaMap[`${아이디}/${f.name}`] ?? '',
+    특이사항: metaMap[`${아이디}/${f.name}`]?.특이사항 ?? '',
+    원본파일명: metaMap[`${아이디}/${f.name}`]?.원본파일명 ?? f.name,
   }))
 
   return NextResponse.json({ files })

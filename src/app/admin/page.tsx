@@ -59,7 +59,7 @@ export default function AdminPage() {
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'I' | 'O' | 'B' | 'W'>('all')
 
   // 업로드 파일 목록
-  interface UploadedFile { name: string; id: string; created_at: string; memberId: string; memberName: string }
+  interface UploadedFile { name: string; id: string; created_at: string; memberId: string; memberName: string; 특이사항?: string; 원본파일명?: string }
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [fileDeleteProcessing, setFileDeleteProcessing] = useState<string | null>(null)
@@ -586,9 +586,9 @@ export default function AdminPage() {
                   ) : uploadedFiles.length === 0 ? (
                     <tr><td colSpan={6} style={{ textAlign: 'center', color: '#8892A0', padding: 32 }}>업로드된 파일이 없습니다</td></tr>
                   ) : (
-                    (uploadedFiles as (typeof uploadedFiles[0] & { 특이사항?: string })[]).map(f => {
-                      const displayName = f.name.replace(/^\d+_/, '')
-                      const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
+                    uploadedFiles.map(f => {
+                      const displayName = f.원본파일명 || f.name.replace(/^\d+_/, '')
+                      const ext = (f.원본파일명 || f.name).split('.').pop()?.toLowerCase() ?? ''
                       const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext)
                       const uploadDate = new Date(new Date(f.created_at).getTime() + 9 * 60 * 60 * 1000)
                       const dateStr = `${uploadDate.getUTCFullYear()}-${String(uploadDate.getUTCMonth()+1).padStart(2,'0')}-${String(uploadDate.getUTCDate()).padStart(2,'0')} ${String(uploadDate.getUTCHours()).padStart(2,'0')}:${String(uploadDate.getUTCMinutes()).padStart(2,'0')}`

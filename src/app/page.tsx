@@ -30,7 +30,7 @@ export default function LoginPage() {
         })
         const data = await res.json()
         if (!res.ok) { setError(data.error); return }
-        alert('회원가입 완료! 로그인해주세요.')
+        alert('회원가입 완료! 관리자 승인 후 로그인 됩니다.')
         setMode('login')
         set이름('')
         set패스워드('')

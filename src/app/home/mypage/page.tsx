@@ -206,7 +206,7 @@ export default function MypagePage() {
         .uploadToSignedUrl(urlData.path, urlData.token, pendingFile, {
           contentType: pendingFile.type || 'application/octet-stream',
         })
-      if (uploadErr) { setFileError('업로드 실패: ' + uploadErr.message); return }
+      if (uploadErr) { setFileError(uploadErr.message.includes('maximum allowed size') ? '파일용량은 10M 이하만 처리됩니다' : '업로드 실패: ' + uploadErr.message); return }
 
       // 3. 특이사항 저장
       await fetch('/api/files/metadata', {

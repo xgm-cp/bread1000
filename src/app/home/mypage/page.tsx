@@ -554,7 +554,6 @@ export default function MypagePage() {
           <div style={{ flexShrink: 0, background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '24px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
             <div style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <FileText size={20} /> 내 파일 목록
-              <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text3)' }}>(10M이하 파일만 허용)</span>
             </div>
             <label style={{ cursor: fileUploading ? 'not-allowed' : 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: fileUploading ? 'var(--text3)' : '#FF3D78', padding: '6px 14px', borderRadius: 9, border: `1.5px solid ${fileUploading ? 'var(--border2)' : '#FF3D78'}` }}>
@@ -569,7 +568,10 @@ export default function MypagePage() {
               />
             </label>
           </div>
-          {diskPercent != null && <div style={{ flexShrink: 0, fontSize: 12, color: 'var(--text3)', padding: '4px 24px' }}>디스크사용량: {diskPercent}%</div>}
+          <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 24px' }}>
+            <span style={{ fontSize: 11, color: 'var(--text3)' }}>{diskPercent != null ? `디스크사용량: ${diskPercent}%` : ''}</span>
+            <span style={{ fontSize: 11, color: 'var(--text3)' }}>(10M이하 파일만 허용)</span>
+          </div>
           {fileError && <div style={{ flexShrink: 0, fontSize: 13, color: 'var(--down)', padding: '8px 24px' }}>{fileError}</div>}
           <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', padding: '8px 20px', background: 'var(--surface2)' }}>
             <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.05em' }}>파일명</span>

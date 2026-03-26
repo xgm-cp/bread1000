@@ -66,7 +66,7 @@ export default function ResultPage() {
 
     // 전체 회원 + 해당월 예측 데이터 + 빵보유기본 + 계좌거래내역
     Promise.all([
-      getSupabase().from('회원기본').select('*').neq('아이디', 'webadmin'),
+      getSupabase().from('회원기본').select('*').neq('아이디', 'webadmin').eq('사용여부', 'Y'),
       getSupabase()
         .from('종가예측내역')
         .select('아이디, 기준일자, 순위')

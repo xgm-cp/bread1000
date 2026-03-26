@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html,body {
+  touch-action: pan-x pan-y;
+}
+
 /* ── 천원빵 디자인 시스템 ── */
 :root {
   --bg: #0A0C0F;

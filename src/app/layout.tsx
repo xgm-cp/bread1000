@@ -14,7 +14,7 @@ const dmSerifDisplay = DM_Serif_Display({
   weight: "400",
 });
 
-export const veiwport: Viewport = {
+export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,

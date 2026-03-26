@@ -200,13 +200,13 @@ export default function MypagePage() {
       const urlData = await urlRes.json()
       if (!urlRes.ok) { setFileError(urlData.error ?? '업로드 URL 발급 실패'); return }
 
-      // 2. Supabase Storage 직접 업로드
-      const uploadRes = await fetch(urlData.signedUrl, {
-        method: 'PUT',
-        headers: { 'content-type': pendingFile.type || 'application/octet-stream' },
-        body: pendingFile,
-      })
-      if (!uploadRes.ok) { setFileError('업로드 실패 (' + uploadRes.status + ')'); return }
+      // 2. Supabase 클라이언트로 signed URL 업로드
+      const { error: uploadErr } = await getSupabase().storage
+        .from('member-files')
+        .uploadToSignedUrl(urlData.path, urlData.token, pendingFile, {
+          contentType: pendingFile.type || 'application/octet-stream',
+        })
+      if (uploadErr) { setFileError('업로드 실패: ' + uploadErr.message); return }
 
       // 3. 특이사항 저장
       await fetch('/api/files/metadata', {

@@ -14,6 +14,13 @@ const dmSerifDisplay = DM_Serif_Display({
   weight: "400",
 });
 
+export const veiwport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
 export const metadata: Metadata = {
   title: "bread1000",
   description: "종가 예측 게임",

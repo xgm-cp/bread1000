@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata,Viewport } from "next";
 import { Noto_Sans_KR, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 

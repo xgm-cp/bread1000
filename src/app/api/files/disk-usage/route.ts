@@ -13,21 +13,27 @@ const TOTAL_BYTES = 1024 * 1024 * 1024 * 1024 // 1TB
 export async function GET() {
   const supabase = getServiceSupabase()
 
-  // storage.objects 에서 모든 파일의 size 합산
-  const { data, error } = await supabase
-    .schema('storage')
-    .from('objects')
-    .select('metadata')
-    .eq('bucket_id', 'member-files')
+  // 버킷 루트 폴더(회원ID) 목록
+  const { data: folders, error: folderErr } = await supabase.storage
+    .from('member-files')
+    .list('', { sortBy: { column: 'name', order: 'asc' } })
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (folderErr) {
+    return NextResponse.json({ error: folderErr.message }, { status: 500 })
   }
 
-  const totalBytes = (data ?? []).reduce((sum, obj) => {
-    const size = (obj.metadata as { size?: number } | null)?.size ?? 0
-    return sum + size
-  }, 0)
+  let totalBytes = 0
+
+  for (const folder of folders ?? []) {
+    const { data: files } = await supabase.storage
+      .from('member-files')
+      .list(folder.name)
+
+    for (const file of files ?? []) {
+      const size = (file.metadata as { size?: number } | null)?.size ?? 0
+      totalBytes += size
+    }
+  }
 
   const percent = ((totalBytes / TOTAL_BYTES) * 100).toFixed(4)
 

@@ -554,6 +554,7 @@ export default function MypagePage() {
           <div style={{ flexShrink: 0, background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '24px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
             <div style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <FileText size={20} /> 내 파일 목록
+              <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text3)' }}>(10M이하 파일만 허용)</span>
             </div>
             <label style={{ cursor: fileUploading ? 'not-allowed' : 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: fileUploading ? 'var(--text3)' : '#FF3D78', padding: '6px 14px', borderRadius: 9, border: `1.5px solid ${fileUploading ? 'var(--border2)' : '#FF3D78'}` }}>

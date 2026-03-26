@@ -586,10 +586,10 @@ export default function MypagePage() {
                     </span>
                     <span style={{ flex: 1, fontSize: 12, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{f.특이사항 || '-'}</span>
                     <span style={{ width: 90, fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{dateStr}</span>
-                    <button onClick={() => downloadFile(f.name)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: 2, display: 'flex' }}>
+                    <button onClick={() => downloadFile(f.name)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: '2px 6px', display: 'flex' }}>
                       <Download size={14} />
                     </button>
-                    <button onClick={() => deleteFile(f.name)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, display: 'flex' }}>
+                    <button onClick={() => deleteFile(f.name)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: '2px 6px', display: 'flex' }}>
                       <Trash2 size={14} />
                     </button>
                   </div>

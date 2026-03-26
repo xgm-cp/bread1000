@@ -26,5 +26,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ files: data ?? [] })
+  // 특이사항 조회
+  const paths = (data ?? []).map(f => `${아이디}/${f.name}`)
+  const { data: metaRows } = await supabase
+    .from('파일업로드내역')
+    .select('파일경로, 특이사항')
+    .in('파일경로', paths)
+
+  const metaMap: Record<string, string> = {}
+  if (metaRows) {
+    for (const r of metaRows as { 파일경로: string; 특이사항: string }[]) {
+      metaMap[r.파일경로] = r.특이사항
+    }
+  }
+
+  const files = (data ?? []).map(f => ({
+    ...f,
+    특이사항: metaMap[`${아이디}/${f.name}`] ?? '',
+  }))
+
+  return NextResponse.json({ files })
 }

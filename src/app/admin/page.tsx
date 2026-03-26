@@ -575,17 +575,18 @@ export default function AdminPage() {
                     <th style={thStyle}>아이디</th>
                     <th style={thStyle}>성명</th>
                     <th style={thStyle}>파일명</th>
+                    <th style={thStyle}>특이사항</th>
                     <th style={thStyle}>업로드일자</th>
                     <th style={thStyle}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {loadingFiles ? (
-                    <tr><td colSpan={5} style={{ textAlign: 'center', color: '#8892A0', padding: 32 }}>불러오는 중...</td></tr>
+                    <tr><td colSpan={6} style={{ textAlign: 'center', color: '#8892A0', padding: 32 }}>불러오는 중...</td></tr>
                   ) : uploadedFiles.length === 0 ? (
-                    <tr><td colSpan={5} style={{ textAlign: 'center', color: '#8892A0', padding: 32 }}>업로드된 파일이 없습니다</td></tr>
+                    <tr><td colSpan={6} style={{ textAlign: 'center', color: '#8892A0', padding: 32 }}>업로드된 파일이 없습니다</td></tr>
                   ) : (
-                    uploadedFiles.map(f => {
+                    (uploadedFiles as (typeof uploadedFiles[0] & { 특이사항?: string })[]).map(f => {
                       const displayName = f.name.replace(/^\d+_/, '')
                       const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
                       const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext)
@@ -601,6 +602,7 @@ export default function AdminPage() {
                               {displayName}
                             </span>
                           </td>
+                          <td style={{ ...tdStyle, color: '#8892A0' }}>{f.특이사항 || '-'}</td>
                           <td style={{ ...tdStyle, color: '#8892A0' }}>{dateStr}</td>
                           <td style={{ ...tdStyle, display: 'flex', gap: 6 }}>
                             <button

@@ -34,5 +34,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // 메타데이터도 삭제
+  await supabase.from('파일업로드내역').delete().eq('파일경로', path)
+
   return NextResponse.json({ ok: true })
 }

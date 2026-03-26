@@ -45,10 +45,13 @@ export default function MypagePage() {
 
   // 정직원 파일 업로드
   const [isRegular, setIsRegular] = useState(false)
-  const [myFiles, setMyFiles] = useState<{ name: string; id: string; created_at: string }[]>([])
+  const [myFiles, setMyFiles] = useState<{ name: string; id: string; created_at: string; 특이사항: string }[]>([])
   const [fileUploading, setFileUploading] = useState(false)
   const [fileError, setFileError] = useState('')
   const [showFilesModal, setShowFilesModal] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [uploadNote, setUploadNote] = useState('')
+  const [showNoteModal, setShowNoteModal] = useState(false)
 
   // 비밀번호 변경
   const [showPwModal, setShowPwModal] = useState(false)
@@ -176,27 +179,43 @@ export default function MypagePage() {
   }
 
 
-  async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ''
+    setPendingFile(file)
+    setUploadNote('')
     setFileError('')
+    setShowNoteModal(true)
+  }
+
+  async function confirmUpload() {
+    if (!pendingFile) return
+    setShowNoteModal(false)
     setFileUploading(true)
+    setFileError('')
     try {
       // 1. signed upload URL 발급
-      const urlRes = await fetch(`/api/files/upload-url?아이디=${encodeURIComponent(userId)}&filename=${encodeURIComponent(file.name)}`)
+      const urlRes = await fetch(`/api/files/upload-url?아이디=${encodeURIComponent(userId)}&filename=${encodeURIComponent(pendingFile.name)}`)
       const urlData = await urlRes.json()
       if (!urlRes.ok) { setFileError(urlData.error ?? '업로드 URL 발급 실패'); return }
 
-      // 2. 클라이언트에서 Supabase Storage로 직접 업로드 (Vercel 4.5MB 한도 우회)
+      // 2. Supabase Storage 직접 업로드
       const uploadRes = await fetch(urlData.signedUrl, {
         method: 'PUT',
-        headers: { 'content-type': file.type || 'application/octet-stream' },
-        body: file,
+        headers: { 'content-type': pendingFile.type || 'application/octet-stream' },
+        body: pendingFile,
       })
       if (!uploadRes.ok) { setFileError('업로드 실패 (' + uploadRes.status + ')'); return }
 
-      // 3. 파일 목록 갱신
-      e.target.value = ''
+      // 3. 특이사항 저장
+      await fetch('/api/files/metadata', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ 파일경로: urlData.path, 아이디: userId, 특이사항: uploadNote }),
+      })
+
+      // 4. 파일 목록 갱신
       const listRes = await fetch(`/api/files/list?아이디=${encodeURIComponent(userId)}`)
       const listData = await listRes.json()
       setMyFiles(listData.files ?? [])
@@ -204,6 +223,7 @@ export default function MypagePage() {
       setFileError('업로드 중 오류: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setFileUploading(false)
+      setPendingFile(null)
     }
   }
 
@@ -503,6 +523,27 @@ export default function MypagePage() {
       </div>
     </div>
 
+    {showNoteModal && pendingFile && (
+      <div onClick={() => { setShowNoteModal(false); setPendingFile(null) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 400, display: 'flex', alignItems: 'flex-end' }}>
+        <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '28px 24px 40px' }}>
+          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>파일 업로드</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>{pendingFile.name}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 6, letterSpacing: '0.1em', textTransform: 'uppercase' }}>특이사항 (선택)</div>
+          <textarea
+            value={uploadNote}
+            onChange={e => setUploadNote(e.target.value)}
+            placeholder="특이사항을 입력하세요"
+            rows={3}
+            style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: '1.5px solid var(--border2)', background: 'var(--bg)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', marginBottom: 20, boxSizing: 'border-box' }}
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <button onClick={() => { setShowNoteModal(false); setPendingFile(null) }} style={{ padding: '14px', borderRadius: 12, border: '1px solid var(--border2)', background: 'var(--surface2)', color: 'var(--text2)', fontWeight: 600, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
+            <button onClick={confirmUpload} style={{ padding: '14px', borderRadius: 12, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>업로드</button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {showFilesModal && (
       <div onClick={() => { setShowFilesModal(false); setFileError('') }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>
         <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -519,15 +560,16 @@ export default function MypagePage() {
                 accept="image/jpeg,image/png,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 style={{ display: 'none' }}
                 disabled={fileUploading}
-                onChange={uploadFile}
+                onChange={onFileSelected}
               />
             </label>
           </div>
           {fileError && <div style={{ flexShrink: 0, fontSize: 13, color: 'var(--down)', padding: '8px 24px' }}>{fileError}</div>}
           <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', padding: '8px 20px', background: 'var(--surface2)' }}>
             <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.05em' }}>파일명</span>
-            <span style={{ width: 110, fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.05em' }}>업로드일자</span>
-            <span style={{ width: 28 }}></span>
+            <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.05em' }}>특이사항</span>
+            <span style={{ width: 90, fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.05em' }}>업로드일자</span>
+            <span style={{ width: 56 }}></span>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {myFiles.length === 0 ? (
@@ -538,19 +580,17 @@ export default function MypagePage() {
                 const dateStr = `${uploadDate.getUTCFullYear()}-${String(uploadDate.getUTCMonth()+1).padStart(2,'0')}-${String(uploadDate.getUTCDate()).padStart(2,'0')}`
                 return (
                   <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 20px', borderBottom: fi < myFiles.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <span style={{ color: 'var(--text3)', flexShrink: 0, marginRight: 8 }}>{fileIcon(f.name)}</span>
-                    <span
-                      onClick={() => downloadFile(f.name)}
-                      style={{ flex: 1, fontSize: 13, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
-                    >
+                    <span style={{ color: 'var(--text3)', flexShrink: 0, marginRight: 6 }}>{fileIcon(f.name)}</span>
+                    <span style={{ flex: 1, fontSize: 12, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>
                       {f.name.replace(/^\d+_/, '')}
                     </span>
-                    <span style={{ width: 110, fontSize: 12, color: 'var(--text3)', flexShrink: 0 }}>{dateStr}</span>
+                    <span style={{ flex: 1, fontSize: 12, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{f.특이사항 || '-'}</span>
+                    <span style={{ width: 90, fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{dateStr}</span>
                     <button onClick={() => downloadFile(f.name)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: 2, display: 'flex' }}>
-                      <Download size={15} />
+                      <Download size={14} />
                     </button>
                     <button onClick={() => deleteFile(f.name)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, display: 'flex' }}>
-                      <Trash2 size={15} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 )

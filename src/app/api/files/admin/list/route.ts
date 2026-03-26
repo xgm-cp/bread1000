@@ -58,8 +58,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 업로드일자 내림차순 정렬
-  allFiles.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+  // 특이사항 조회
+  const allPaths = allFiles.map(f => `${f.memberId}/${f.name}`)
+  const { data: metaRows } = await supabase
+    .from('파일업로드내역')
+    .select('파일경로, 특이사항')
+    .in('파일경로', allPaths)
 
-  return NextResponse.json({ files: allFiles })
+  const metaMap: Record<string, string> = {}
+  if (metaRows) {
+    for (const r of metaRows as { 파일경로: string; 특이사항: string }[]) {
+      metaMap[r.파일경로] = r.특이사항
+    }
+  }
+
+  // 업로드일자 내림차순 정렬 + 특이사항 병합
+  allFiles.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+  const result = allFiles.map(f => ({ ...f, 특이사항: metaMap[`${f.memberId}/${f.name}`] ?? '' }))
+
+  return NextResponse.json({ files: result })
 }

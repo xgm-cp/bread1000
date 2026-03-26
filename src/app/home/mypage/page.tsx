@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff, Lock, Upload, Trash2, FileText, Image as ImageIcon, Download } from 'lucide-react'
+import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff, Lock, Upload, Trash2, FileText, Image as ImageIcon, Download, X } from 'lucide-react'
 import { subscribePush } from '@/lib/usePushSubscription'
 import { getAvatar } from '@/lib/avatar'
 
@@ -555,6 +555,7 @@ export default function MypagePage() {
             <div style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <FileText size={20} /> 내 파일 목록
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ cursor: fileUploading ? 'not-allowed' : 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: fileUploading ? 'var(--text3)' : '#FF3D78', padding: '6px 14px', borderRadius: 9, border: `1.5px solid ${fileUploading ? 'var(--border2)' : '#FF3D78'}` }}>
                 <Upload size={13} /> {fileUploading ? '업로드 중...' : '파일 업로드'}
@@ -567,6 +568,10 @@ export default function MypagePage() {
                 onChange={onFileSelected}
               />
             </label>
+            <button onClick={() => setShowFilesModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex', alignItems: 'center', padding: 4 }}>
+              <X size={20} />
+            </button>
+            </div>
           </div>
           <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 24px' }}>
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>{diskPercent != null ? `디스크사용량: ${diskPercent}%` : ''}</span>

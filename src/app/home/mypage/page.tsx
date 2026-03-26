@@ -52,6 +52,7 @@ export default function MypagePage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [uploadNote, setUploadNote] = useState('')
   const [showNoteModal, setShowNoteModal] = useState(false)
+  const [diskPercent, setDiskPercent] = useState<string | null>(null)
 
   // 비밀번호 변경
   const [showPwModal, setShowPwModal] = useState(false)
@@ -83,6 +84,9 @@ export default function MypagePage() {
           fetch(`/api/files/list?아이디=${encodeURIComponent(user.아이디)}`)
             .then(r => r.json())
             .then(d => setMyFiles(d.files ?? []))
+          fetch('/api/files/disk-usage')
+            .then(r => r.json())
+            .then(d => { if (d.percent != null) setDiskPercent(d.percent) })
         }
       })
 
@@ -564,6 +568,7 @@ export default function MypagePage() {
               />
             </label>
           </div>
+          {diskPercent != null && <div style={{ flexShrink: 0, fontSize: 12, color: 'var(--text3)', padding: '4px 24px' }}>디스크사용량: {diskPercent}%</div>}
           {fileError && <div style={{ flexShrink: 0, fontSize: 13, color: 'var(--down)', padding: '8px 24px' }}>{fileError}</div>}
           <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', padding: '8px 20px', background: 'var(--surface2)' }}>
             <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.05em' }}>파일명</span>

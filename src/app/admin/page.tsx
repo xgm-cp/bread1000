@@ -63,6 +63,7 @@ export default function AdminPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [fileDeleteProcessing, setFileDeleteProcessing] = useState<string | null>(null)
+  const [diskPercent, setDiskPercent] = useState<string | null>(null)
 
   // 정직원여부 선택 (대기 회원 승인 시)
   const [regularMap, setRegularMap] = useState<Record<string, 'Y' | 'N'>>({})
@@ -108,9 +109,14 @@ export default function AdminPage() {
 
   async function fetchUploadedFiles() {
     setLoadingFiles(true)
-    const res = await fetch('/api/files/admin/list')
+    const [res, diskRes] = await Promise.all([
+      fetch('/api/files/admin/list'),
+      fetch('/api/files/disk-usage'),
+    ])
     const data = await res.json()
+    const diskData = await diskRes.json()
     setUploadedFiles(data.files ?? [])
+    if (diskData.percent != null) setDiskPercent(diskData.percent)
     setLoadingFiles(false)
   }
 
@@ -566,7 +572,10 @@ export default function AdminPage() {
           <>
             <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg, #0F1117)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', marginBottom: 8, borderBottom: '1px solid #252D3A' }}>
               <div style={{ fontSize: 15, fontWeight: 700 }}>업로드 파일 목록</div>
-              <button onClick={fetchUploadedFiles} style={{ background: '#181C22', border: '1px solid #252D3A', color: '#8892A0', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><RefreshCw size={14} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {diskPercent != null && <span style={{ fontSize: 12, color: '#8892A0' }}>디스크사용량: {diskPercent}%</span>}
+                <button onClick={fetchUploadedFiles} style={{ background: '#181C22', border: '1px solid #252D3A', color: '#8892A0', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><RefreshCw size={14} /></button>
+              </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>

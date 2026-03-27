@@ -76,6 +76,7 @@ export default function HomePage() {
   const [kospiDir, setKospiDir] = useState('')
   const [myId, setMyId] = useState<string | null>(null)
   const [isTradingDay, setIsTradingDay] = useState<boolean | null>(null)
+  const [supabaseFallback, setSupabaseFallback] = useState(false)
   const isMounted = useRef(true)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
@@ -151,6 +152,31 @@ export default function HomePage() {
               setLoading(false)
               return
             }
+          }
+        } catch { }
+        // sessionStorage 캐시도 없으면 → Supabase 종가관리내역 폴백
+        try {
+          const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+          const { data: supaData } = await getSupabase()
+            .from('종가관리내역')
+            .select('종가')
+            .eq('기준일자', today)
+            .eq('종목코드', '0001')
+            .maybeSingle()
+          if (supaData && isMounted.current) {
+            const fallbackStock: StockData = {
+              ticker: '0001',
+              name: '코스피',
+              price: String(supaData.종가),
+              change: '0',
+              changeRate: '0.00',
+              sign: '3',
+            }
+            setStocks([fallbackStock])
+            setKospiPrice(Number(supaData.종가))
+            setSupabaseFallback(true)
+            setLoading(false)
+            return
           }
         } catch { }
         setError(true)
@@ -357,17 +383,21 @@ export default function HomePage() {
                             {isKospi && (
                               <span className="stock-card-main-badge">예측 대상</span>
                             )}
-                            <div className={`stock-badge badge-${direction}`}>
-                              {formatRate(stock.changeRate, stock.sign)}
-                            </div>
+                            {!(isKospi && supabaseFallback) && (
+                              <div className={`stock-badge badge-${direction}`}>
+                                {formatRate(stock.changeRate, stock.sign)}
+                              </div>
+                            )}
                           </div>
                           <div className="stock-name">{stock.name}</div>
                         </div>
                         <div className="stock-card-right">
                           <div className="stock-price" style={isKospi ? { fontSize: '26px' } : undefined}>{formatPrice(stock.price)}</div>
-                          <div className={`stock-change change-${direction}`}>
-                            {formatChange(stock.change, stock.sign)}
-                          </div>
+                          {!(isKospi && supabaseFallback) && (
+                            <div className={`stock-change change-${direction}`}>
+                              {formatChange(stock.change, stock.sign)}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )

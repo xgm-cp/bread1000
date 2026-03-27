@@ -28,8 +28,9 @@ export default function LoginPage() {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ 아이디, 이름, 패스워드 }),
         })
-        const data = await res.json()
-        if (!res.ok) { setError(data.error); return }
+        let data: { error?: string } = {}
+        try { data = await res.json() } catch { }
+        if (!res.ok) { setError(data.error ?? '서버 오류가 발생했습니다.'); return }
         alert('회원가입 완료! 관리자 승인 후 로그인 됩니다.')
         setMode('login')
         set이름('')
@@ -40,8 +41,9 @@ export default function LoginPage() {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ 아이디, 패스워드 }),
         })
-        const data = await res.json()
-        if (!res.ok) { setError(data.error); return }
+        let data: { error?: string; 아이디?: string; 이름?: string; role?: number } = {}
+        try { data = await res.json() } catch { }
+        if (!res.ok) { setError(data.error ?? '서버 오류가 발생했습니다.'); return }
         localStorage.setItem('user', JSON.stringify({ 아이디: data.아이디, 이름: data.이름, role: data.role }))
         router.push('/home')
       }

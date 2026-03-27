@@ -273,7 +273,6 @@ export default function PredictPage() {
           <h3 style={{ whiteSpace: 'nowrap' }}>종가 예측</h3>
           <p>예측 마감시간은 09시 30분 입니다. <br />
             예측 제출시 빵 1개가 차감됩니다.</p>
-          <p style={{ fontSize: 12, color: 'var(--text3)', margin: '-8px 0 0' }}>(테스트중에는 14시 30분까지 제출가능합니다)</p>
           <div className="input-group">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>
               예측 증감값
@@ -317,7 +316,7 @@ export default function PredictPage() {
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>마감입니다</p>
           )}
           {timeExpired && !alreadyPredicted && !isWeekend && (
-            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측시간종료 (14:30 마감)</p>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측시간종료 (09:00 마감)</p>
           )}
           {marketClosed && !alreadyPredicted && !isWeekend && (
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 장 마감</p>

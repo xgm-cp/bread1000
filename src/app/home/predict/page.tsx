@@ -30,8 +30,8 @@ export default function PredictPage() {
     const h = kstNow.getUTCHours()
     const m = kstNow.getUTCMinutes()
     setMarketClosed(h >= 16)
-    setMarketPreparing(h < 8)
-    setTimeExpired((h > 14 || (h === 14 && m >= 30)) && h < 16)
+    setMarketPreparing(h < 7 || (h === 7 && m < 30))
+    setTimeExpired((h > 9 || (h === 9 && m >= 31)) && h < 16)
   }
 
   const checkTradingDay = async () => {
@@ -316,7 +316,7 @@ export default function PredictPage() {
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>마감입니다</p>
           )}
           {timeExpired && !alreadyPredicted && !isWeekend && (
-            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측시간종료 (09:00 마감)</p>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>예측시간종료 (09:30 마감)</p>
           )}
           {marketClosed && !alreadyPredicted && !isWeekend && (
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>오늘 장 마감</p>

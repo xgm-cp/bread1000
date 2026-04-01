@@ -295,7 +295,7 @@ export default function HomePage() {
 
       // 3순위: 등록일시 오름차순
       return (tsMap.get(a.아이디) ?? 0) - (tsMap.get(b.아이디) ?? 0)
-    }).slice(0, 10)
+    })
   }, [rawLeaderboard, kospiPrice, kospiDir])
 
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)

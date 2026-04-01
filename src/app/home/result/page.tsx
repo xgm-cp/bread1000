@@ -15,7 +15,7 @@ type PredEntry = { 아이디: string; 기준일자: string; 순위: number }
 type TxEntry = { 아이디: string; 입출금구분: string; 빵갯수: number; 상태: string }
 
 export default function ResultPage() {
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10))
+  const [selectedDate, setSelectedDate] = useState<string>(new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10))
   const [userId, setUserId] = useState('')
   const [myRank1Count, setMyRank1Count] = useState<number | null>(null)
 

@@ -321,9 +321,17 @@ export default function ResultPage() {
                 <td style={{ ...tdFixedNo, borderBottom: '1px solid #444' }}></td>
                 <td style={{ ...tdFixed, borderBottom: '1px solid #444', color: 'var(--text2)', fontWeight: 700, fontSize: 10 }}>합계</td>
                 <td style={{ ...tdFixed2, borderBottom: '1px solid #444' }}></td>
-                <td style={{ ...tdFixed3, borderBottom: '1px solid #444', color: '#FFA500', fontWeight: 700, textAlign: 'right' as const }}>
-                  {gridMembers.reduce((sum, m) => sum + (breadMap[String(m['아이디'] ?? '')] ?? 0), 0).toLocaleString()}
-                </td>
+                {(() => {
+                  const totalBread = gridMembers.reduce((sum, m) => sum + (breadMap[String(m['아이디'] ?? '')] ?? 0), 0)
+                  const totalDeduct = gridMembers.reduce((s, m) => s + (deductMap[String(m['아이디'] ?? '')] ?? 0), 0)
+                  const totalIncrease = gridMembers.reduce((s, m) => s + (increaseMap[String(m['아이디'] ?? '')] ?? 0), 0)
+                  const adjustedBread = totalBread + totalDeduct - totalIncrease
+                  return (
+                    <td style={{ ...tdFixed3, borderBottom: '1px solid #444', color: '#FFA500', fontWeight: 700, textAlign: 'right' as const }}>
+                      {adjustedBread.toLocaleString()}
+                    </td>
+                  )
+                })()}
                 {(() => {
                   const totalDeduct = gridMembers.reduce((s, m) => s + (deductMap[String(m['아이디'] ?? '')] ?? 0), 0)
                   const totalIncrease = gridMembers.reduce((s, m) => s + (increaseMap[String(m['아이디'] ?? '')] ?? 0), 0)

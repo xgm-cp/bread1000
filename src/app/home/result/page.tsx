@@ -34,7 +34,7 @@ export default function ResultPage() {
     if (!scrollContainerRef.current || !todayThRef.current) return
     const container = scrollContainerRef.current
     const cell = todayThRef.current
-    const stickyWidth = 52 + 72 + 52 // 성명 + ID + 잔여빵
+    const stickyWidth = 32 + 52 + 72 + 52 // 순서 + 성명 + ID + 잔여빵
     const visibleWidth = container.offsetWidth - stickyWidth
     container.scrollLeft = cell.offsetLeft - stickyWidth - visibleWidth / 2 + cell.offsetWidth / 2
   }, [selectedDate, gridDayCounts])
@@ -81,8 +81,6 @@ export default function ResultPage() {
         .gte('거래일시', `${sy}${sm}01000000`)
         .lte('거래일시', `${sy}${sm}${String(lastDayNum).padStart(2,'0')}235959`),
     ]).then(([{ data: members }, { data: preds }, { data: breads }, { data: txs }]) => {
-      setGridMembers((members ?? []) as MemberRow[])
-
       // 아이디 -> 빵갯수
       const bMap: Record<string, number> = {}
       if (breads) {
@@ -93,6 +91,13 @@ export default function ResultPage() {
         })
       }
       setBreadMap(bMap)
+
+      const sortedMembers = ((members ?? []) as MemberRow[]).sort((a, b) => {
+        const aId = String(a['아이디'] ?? '')
+        const bId = String(b['아이디'] ?? '')
+        return (bMap[bId] ?? 0) - (bMap[aId] ?? 0)
+      })
+      setGridMembers(sortedMembers)
 
       // 아이디 -> 차감/증가 합계
       const dMap: Record<string, number> = {}
@@ -152,13 +157,13 @@ export default function ResultPage() {
 
   const handleDownload = () => {
     const todayStr = getToday()
-    const fixedCols = 5
+    const fixedCols = 6 // # + 성명 + ID + 잔여빵 + 차감 + 증가
 
     // 헤더 행
-    const header = ['성명', 'ID', '잔여빵', '차감', '증가', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
+    const header = ['#', '성명', 'ID', '잔여빵', '차감', '증가', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
 
     // 데이터 행
-    const rows = gridMembers.map(member => {
+    const rows = gridMembers.map((member, idx) => {
       const id = String(member['아이디'] ?? '')
       const name = String(member['이름'] ?? '')
       const bread = breadMap[id] ?? 0
@@ -172,10 +177,16 @@ export default function ResultPage() {
         if (rank !== undefined) return 'X'
         return '-'
       })
-      return [name, id, bread, deduct, increase, ...dayCells]
+      return [idx + 1, name, id, bread, deduct, increase, ...dayCells]
     })
 
-    const ws = XLSX.utils.aoa_to_sheet([header, ...rows])
+    // 합계 행
+    const totalBread = gridMembers.reduce((s, m) => s + (breadMap[String(m['아이디'] ?? '')] ?? 0), 0)
+    const totalDeduct = gridMembers.reduce((s, m) => s + (deductMap[String(m['아이디'] ?? '')] ?? 0), 0)
+    const totalIncrease = gridMembers.reduce((s, m) => s + (increaseMap[String(m['아이디'] ?? '')] ?? 0), 0)
+    const summaryRow = ['', '합계', '', totalBread, totalDeduct, totalIncrease, ...allDays.map(() => '')]
+
+    const ws = XLSX.utils.aoa_to_sheet([header, summaryRow, ...rows])
 
     const borderStyle = {
       top:    { style: 'thin', color: { rgb: 'CCCCCC' } },
@@ -185,8 +196,9 @@ export default function ResultPage() {
     }
     const grayFill = { patternType: 'solid', fgColor: { rgb: 'D9D9D9' } }
     const headerFill = { patternType: 'solid', fgColor: { rgb: '2D2D2D' } }
+    const summaryFill = { patternType: 'solid', fgColor: { rgb: '2A2A2A' } }
 
-    const totalRows = rows.length + 1 // +1 for header
+    const totalRows = rows.length + 2 // +1 header +1 summary
     const totalCols = header.length
 
     for (let r = 0; r < totalRows; r++) {
@@ -195,14 +207,17 @@ export default function ResultPage() {
         if (!ws[cellAddr]) continue
 
         const isHeader = r === 0
+        const isSummary = r === 1
         const dayIdx = c - fixedCols
         const isWeekendCol = dayIdx >= 0 && isWeekend(allDays[dayIdx])
 
         ws[cellAddr].s = {
           border: borderStyle,
-          fill: isHeader ? headerFill : isWeekendCol ? grayFill : { patternType: 'none' },
+          fill: isHeader ? headerFill : isSummary ? summaryFill : isWeekendCol ? grayFill : { patternType: 'none' },
           font: isHeader
             ? { bold: true, color: { rgb: 'FFFFFF' } }
+            : isSummary
+            ? { bold: true, color: { rgb: 'FFA500' } }
             : { color: { rgb: '222222' } },
           alignment: { horizontal: c >= fixedCols ? 'center' : 'left', vertical: 'center' },
         }
@@ -281,6 +296,7 @@ export default function ResultPage() {
             <thead>
               {/* 날짜 헤더 */}
               <tr>
+                <th style={thFixedNo}>#</th>
                 <th style={thFixed}>성명</th>
                 <th style={thFixed2}>ID</th>
                 <th style={thFixed3}>잔여빵</th>
@@ -300,15 +316,35 @@ export default function ResultPage() {
                   )
                 })}
               </tr>
-              {/* 날짜별 참여자 수 */}
+              {/* 참여자수 + 합계 */}
               <tr>
-                <td style={{ ...thFixed, color: 'var(--text3)', fontSize: 10 }}></td>
-                <td style={{ ...thFixed2, color: 'var(--text3)', fontSize: 10 }}></td>
-                <td style={{ ...thFixed3, color: 'var(--text3)', fontSize: 10 }}></td>
-                <td style={{ ...thNotFixed, color: 'var(--text3)', fontSize: 10 }} colSpan={2}></td>
+                <td style={{ ...tdFixedNo, borderBottom: '1px solid #444' }}></td>
+                <td style={{ ...tdFixed, borderBottom: '1px solid #444', color: 'var(--text2)', fontWeight: 700, fontSize: 10 }}>합계</td>
+                <td style={{ ...tdFixed2, borderBottom: '1px solid #444' }}></td>
+                <td style={{ ...tdFixed3, borderBottom: '1px solid #444', color: '#FFA500', fontWeight: 700, textAlign: 'right' as const }}>
+                  {gridMembers.reduce((sum, m) => sum + (breadMap[String(m['아이디'] ?? '')] ?? 0), 0).toLocaleString()}
+                </td>
+                {(() => {
+                  const totalDeduct = gridMembers.reduce((s, m) => s + (deductMap[String(m['아이디'] ?? '')] ?? 0), 0)
+                  const totalIncrease = gridMembers.reduce((s, m) => s + (increaseMap[String(m['아이디'] ?? '')] ?? 0), 0)
+                  const isAfter16 = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours() >= 16
+                  const mismatch = isAfter16 && (totalDeduct > 0 || totalIncrease > 0) && totalDeduct !== totalIncrease
+                  return (
+                    <>
+                      <td style={{ ...thNotFixed, borderBottom: '1px solid #444', color: mismatch ? '#FF3D78' : '#FFA500', fontWeight: 700, textAlign: 'right' as const, background: mismatch ? 'rgba(255,61,120,0.12)' : undefined }}>
+                        {totalDeduct ? totalDeduct.toLocaleString() : '-'}
+                      </td>
+                      <td style={{ ...thNotFixed, borderBottom: '1px solid #444', color: mismatch ? '#FF3D78' : '#FFA500', fontWeight: 700, textAlign: 'right' as const, background: mismatch ? 'rgba(255,61,120,0.12)' : undefined }}>
+                        {totalIncrease ? totalIncrease.toLocaleString() : '-'}
+                        {mismatch && <span style={{ marginLeft: 4, fontSize: 10 }}>⚠</span>}
+                      </td>
+                    </>
+                  )
+                })()}
                 {allDays.map(d => (
                   <td key={d} style={{
                     ...thDay,
+                    borderBottom: '1px solid #444',
                     color: '#888',
                     fontSize: 10,
                     background: isWeekend(d) ? 'rgba(255,255,255,0.08)' : 'var(--bg2, #111)',
@@ -326,6 +362,7 @@ export default function ResultPage() {
                 const isMe = id === userId
                 return (
                   <tr key={id} style={{ background: isMe ? 'rgba(123,245,160,0.08)' : idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                    <td style={{ ...tdFixedNo, color: 'var(--text3)', textAlign: 'center' as const }}>{idx + 1}</td>
                     <td style={{ ...tdFixed, color: isMe ? '#7BF5A0' : 'var(--text)', fontWeight: isMe ? 700 : 400 }}>
                       {isMe ? `★${name}` : name}
                     </td>
@@ -363,23 +400,29 @@ export default function ResultPage() {
 
 const stickyBase: React.CSSProperties = { position: 'sticky', zIndex: 2 }
 
+const thFixedNo: React.CSSProperties = {
+  padding: '6px 4px', textAlign: 'center', borderBottom: '1px solid #333',
+  background: '#111', color: 'var(--text2)', fontWeight: 600,
+  width: 32, minWidth: 32, maxWidth: 32,
+  ...stickyBase, left: 0,
+}
 const thFixed: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
   background: '#111', color: 'var(--text2)', fontWeight: 600,
   width: 52, minWidth: 52, maxWidth: 52,
-  ...stickyBase, left: 0,
+  ...stickyBase, left: 32,
 }
 const thFixed2: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
   background: '#111', color: 'var(--text2)', fontWeight: 600,
   width: 72, minWidth: 72, maxWidth: 72,
-  ...stickyBase, left: 52,
+  ...stickyBase, left: 84,
 }
 const thFixed3: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #333',
   background: '#111', color: 'var(--text2)', fontWeight: 600,
   width: 52, minWidth: 52, maxWidth: 52,
-  ...stickyBase, left: 124,
+  ...stickyBase, left: 156,
 }
 const thNotFixed: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
@@ -389,22 +432,28 @@ const thDay: React.CSSProperties = {
   padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid #333',
   minWidth: 28,
 }
+const tdFixedNo: React.CSSProperties = {
+  padding: '5px 4px', borderBottom: '1px solid #222',
+  width: 32, minWidth: 32, maxWidth: 32,
+  position: 'sticky', left: 0, zIndex: 1,
+  background: 'var(--bg, #0d0d0d)',
+}
 const tdFixed: React.CSSProperties = {
   padding: '5px 8px', borderBottom: '1px solid #222',
   width: 52, minWidth: 52, maxWidth: 52,
-  position: 'sticky', left: 0, zIndex: 1,
+  position: 'sticky', left: 32, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
 }
 const tdFixed2: React.CSSProperties = {
   padding: '5px 8px', borderBottom: '1px solid #222',
   width: 72, minWidth: 72, maxWidth: 72,
-  position: 'sticky', left: 52, zIndex: 1,
+  position: 'sticky', left: 84, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
 }
 const tdFixed3: React.CSSProperties = {
   padding: '5px 8px', borderBottom: '1px solid #222',
   width: 52, minWidth: 52, maxWidth: 52,
-  position: 'sticky', left: 124, zIndex: 1,
+  position: 'sticky', left: 156, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
 }
 const tdNotFixed: React.CSSProperties = {

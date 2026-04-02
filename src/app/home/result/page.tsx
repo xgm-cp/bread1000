@@ -128,14 +128,14 @@ export default function ResultPage() {
       // 기초 (전월 월빵보유기본)
       const bsMap: Record<string, number> = {}
       if (baseBread) {
-        (baseBread as { 아이디: string; 빵갯수: number }[]).forEach(b => { bsMap[b.아이디] = b.빵갯수 })
+        (baseBread as unknown as { 아이디: string; 빵갯수: number }[]).forEach(b => { bsMap[b.아이디] = b.빵갯수 })
       }
       setBaseMap(bsMap)
 
       // 기말 (해당월 월빵보유기본)
       const meMap: Record<string, number> = {}
       if (monthEndBread) {
-        (monthEndBread as { 아이디: string; 빵갯수: number }[]).forEach(b => { meMap[b.아이디] = b.빵갯수 })
+        (monthEndBread as unknown as { 아이디: string; 빵갯수: number }[]).forEach(b => { meMap[b.아이디] = b.빵갯수 })
       }
       setMonthEndMap(meMap)
 

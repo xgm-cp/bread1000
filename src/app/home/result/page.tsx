@@ -36,7 +36,7 @@ export default function ResultPage() {
     if (!scrollContainerRef.current || !todayThRef.current) return
     const container = scrollContainerRef.current
     const cell = todayThRef.current
-    const stickyWidth = 32 + 52 + 72 + 52 + 52 // 순서 + 성명 + ID + 기초 + 잔여빵/기말
+    const stickyWidth = 32 + 52 + 72 + 52 // 순서 + 성명 + ID + 잔여빵
     const visibleWidth = container.offsetWidth - stickyWidth
     container.scrollLeft = cell.offsetLeft - stickyWidth - visibleWidth / 2 + cell.offsetWidth / 2
   }, [selectedDate, gridDayCounts])
@@ -189,7 +189,7 @@ export default function ResultPage() {
 
     // 헤더 행
     const breadColLabel = '잔여빵'
-    const header = ['#', '성명', 'ID', '기초', breadColLabel, '충전빵', '차감', '증가', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
+    const header = ['#', '성명', 'ID', breadColLabel, '기초', '충전빵', '차감', '증가', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
 
     // 데이터 행
     const rows = gridMembers.map((member, idx) => {
@@ -208,7 +208,7 @@ export default function ResultPage() {
         if (rank !== undefined) return 'X'
         return '-'
       })
-      return [idx + 1, name, id, base, bread, charge || '', deduct, increase, ...dayCells]
+      return [idx + 1, name, id, bread, base, charge || '', deduct, increase, ...dayCells]
     })
 
     // 합계 행
@@ -218,7 +218,7 @@ export default function ResultPage() {
     }, 0)
     const totalDeduct = gridMembers.reduce((s, m) => s + (deductMap[String(m['아이디'] ?? '')] ?? 0), 0)
     const totalIncrease = gridMembers.reduce((s, m) => s + (increaseMap[String(m['아이디'] ?? '')] ?? 0), 0)
-    const summaryRow = ['', '합계', '', '', totalBread, '', totalDeduct, totalIncrease, ...allDays.map(() => '')]
+    const summaryRow = ['', '합계', '', totalBread, '', '', totalDeduct, totalIncrease, ...allDays.map(() => '')]
 
     const ws = XLSX.utils.aoa_to_sheet([header, summaryRow, ...rows])
 
@@ -337,8 +337,8 @@ export default function ResultPage() {
                 <th style={thFixedNo}>#</th>
                 <th style={thFixed}>성명</th>
                 <th style={thFixed2}>ID</th>
-                <th style={thFixed4}>기초</th>
                 <th style={thFixed3}>잔여빵</th>
+                <th style={{ ...thNotFixed, textAlign: 'right' }}>기초</th>
                 <th style={{ ...thNotFixed, textAlign: 'right' }}>충전빵</th>
                 <th style={{ ...thNotFixed, textAlign: 'right' }}>차감</th>
                 <th style={{ ...thNotFixed, textAlign: 'right' }}>증가</th>
@@ -361,10 +361,6 @@ export default function ResultPage() {
                 <td style={{ ...tdFixedNo, borderBottom: '1px solid #444' }}></td>
                 <td style={{ ...tdFixed, borderBottom: '1px solid #444', color: 'var(--text2)', fontWeight: 700, fontSize: 10 }}>합계</td>
                 <td style={{ ...tdFixed2, borderBottom: '1px solid #444' }}></td>
-                {/* 기초 합계 */}
-                <td style={{ ...tdFixed4, borderBottom: '1px solid #444', color: '#4A9EFF', fontWeight: 700, textAlign: 'right' as const }}>
-                  {gridMembers.reduce((s, m) => s + (baseMap[String(m['아이디'] ?? '')] ?? 0), 0) || '-'}
-                </td>
                 {(() => {
                   const totalBread = gridMembers.reduce((sum, m) => {
                     const id = String(m['아이디'] ?? '')
@@ -379,6 +375,10 @@ export default function ResultPage() {
                     </td>
                   )
                 })()}
+                {/* 기초 합계 */}
+                <td style={{ ...thNotFixed, borderBottom: '1px solid #444', color: '#4A9EFF', fontWeight: 700, textAlign: 'right' as const }}>
+                  {gridMembers.reduce((s, m) => s + (baseMap[String(m['아이디'] ?? '')] ?? 0), 0) || '-'}
+                </td>
                 {/* 충전빵 합계 */}
                 <td style={{ ...thNotFixed, borderBottom: '1px solid #444', color: '#A78BFA', fontWeight: 700, textAlign: 'right' as const }}>
                   {(() => {
@@ -436,7 +436,6 @@ export default function ResultPage() {
                       {isMe ? `★${name}` : name}
                     </td>
                     <td style={{ ...tdFixed2, color: '#4A9EFF' }}>{id}</td>
-                    <td style={{ ...tdFixed4, color: baseMap[id] !== undefined ? '#4A9EFF' : 'var(--text3)', textAlign: 'right' as const }}>{baseMap[id] !== undefined ? baseMap[id].toLocaleString() : '-'}</td>
                     {(() => {
                       const dispBread = isPastMonth ? (monthEndMap[id] ?? 0) : bread
                       const base = baseMap[id] ?? 0
@@ -446,6 +445,7 @@ export default function ResultPage() {
                       return (
                         <>
                           <td style={{ ...tdFixed3, color: dispBread > 0 ? '#FFA500' : 'var(--text3)', textAlign: 'right' as const }}>{dispBread.toLocaleString()}</td>
+                          <td style={{ ...tdNotFixed, color: base > 0 ? '#4A9EFF' : 'var(--text3)', textAlign: 'right' as const }}>{base > 0 ? base.toLocaleString() : '-'}</td>
                           <td style={{ ...tdNotFixed, color: charge !== 0 ? '#A78BFA' : 'var(--text3)', textAlign: 'right' as const }}>{charge !== 0 ? charge.toLocaleString() : '-'}</td>
                         </>
                       )
@@ -504,13 +504,13 @@ const thFixed4: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #333',
   background: '#111', color: 'var(--text2)', fontWeight: 600,
   width: 52, minWidth: 52, maxWidth: 52,
-  ...stickyBase, left: 156,
+  ...stickyBase, left: 208,
 }
 const thFixed3: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #333',
   background: '#111', color: 'var(--text2)', fontWeight: 600,
   width: 52, minWidth: 52, maxWidth: 52,
-  ...stickyBase, left: 208,
+  ...stickyBase, left: 156,
 }
 const thNotFixed: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
@@ -541,13 +541,13 @@ const tdFixed2: React.CSSProperties = {
 const tdFixed4: React.CSSProperties = {
   padding: '5px 8px', borderBottom: '1px solid #222',
   width: 52, minWidth: 52, maxWidth: 52,
-  position: 'sticky', left: 156, zIndex: 1,
+  position: 'sticky', left: 208, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
 }
 const tdFixed3: React.CSSProperties = {
   padding: '5px 8px', borderBottom: '1px solid #222',
   width: 52, minWidth: 52, maxWidth: 52,
-  position: 'sticky', left: 208, zIndex: 1,
+  position: 'sticky', left: 156, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
 }
 const tdNotFixed: React.CSSProperties = {

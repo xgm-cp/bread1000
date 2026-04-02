@@ -112,6 +112,20 @@ Deno.serve(async (req: Request) => {
       .upsert({ 아이디: winner.아이디, 빵갯수: winCurrent + totalPool })
   }
 
+  // 빵보유기본 → 월빵보유기본 백업 (작업일자 앞 6자리 기준년월으로 insert/update)
+  const yyyymm = todayIso.replace(/-/g, '').slice(0, 6)
+  const { data: allBreads } = await supabase.from('빵보유기본').select('아이디, 빵갯수')
+  if (allBreads && allBreads.length > 0) {
+    const nowTs = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+    const upsertRows = (allBreads as { 아이디: string; 빵갯수: number }[]).map(b => ({
+      기준년월: yyyymm,
+      아이디: b.아이디,
+      빵갯수: b.빵갯수,
+      변경일시: nowTs,
+    }))
+    await supabase.from('월빵보유기본').upsert(upsertRows, { onConflict: '기준년월,아이디' })
+  }
+
   return new Response(JSON.stringify({
     date: todayIso,
     actualClose,

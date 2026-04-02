@@ -26,6 +26,8 @@ export default function ResultPage() {
   const [breadMap, setBreadMap] = useState<Record<string, number>>({})
   const [deductMap, setDeductMap] = useState<Record<string, number>>({})
   const [increaseMap, setIncreaseMap] = useState<Record<string, number>>({})
+  const [baseMap, setBaseMap] = useState<Record<string, number>>({})       // 기초 (전월 월빵보유기본)
+  const [monthEndMap, setMonthEndMap] = useState<Record<string, number>>({}) // 기말 (해당월 월빵보유기본)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const todayThRef = useRef<HTMLTableCellElement>(null)
@@ -34,7 +36,7 @@ export default function ResultPage() {
     if (!scrollContainerRef.current || !todayThRef.current) return
     const container = scrollContainerRef.current
     const cell = todayThRef.current
-    const stickyWidth = 32 + 52 + 72 + 52 // 순서 + 성명 + ID + 잔여빵
+    const stickyWidth = 32 + 52 + 72 + 52 + 52 // 순서 + 성명 + ID + 기초 + 잔여빵/기말
     const visibleWidth = container.offsetWidth - stickyWidth
     container.scrollLeft = cell.offsetLeft - stickyWidth - visibleWidth / 2 + cell.offsetWidth / 2
   }, [selectedDate, gridDayCounts])
@@ -51,6 +53,11 @@ export default function ResultPage() {
     const lastDay = `${sy}${sm}${String(lastDayNum).padStart(2, '0')}`
     const todayStr = getToday()
 
+    // 전월 기준년월 계산
+    const prevMonthNum = Number(sm) - 1
+    const prevYYYYMM = prevMonthNum === 0 ? `${Number(sy) - 1}12` : `${sy}${String(prevMonthNum).padStart(2, '0')}`
+    const currentYYYYMM = `${sy}${sm}`
+
     // 이달 나의 1위 횟수
     setMyRank1Count(null)
     getSupabase()
@@ -64,7 +71,7 @@ export default function ResultPage() {
       .neq('기준일자', todayStr)
       .then(({ count }) => setMyRank1Count(count ?? 0))
 
-    // 전체 회원 + 해당월 예측 데이터 + 빵보유기본 + 계좌거래내역
+    // 전체 회원 + 해당월 예측 데이터 + 빵보유기본 + 계좌거래내역 + 월빵보유기본(전월/해당월)
     Promise.all([
       getSupabase().from('회원기본').select('*').neq('아이디', 'webadmin').eq('사용여부', 'Y'),
       getSupabase()
@@ -80,7 +87,9 @@ export default function ResultPage() {
         .eq('상태', 'Y')
         .gte('거래일시', `${sy}${sm}01000000`)
         .lte('거래일시', `${sy}${sm}${String(lastDayNum).padStart(2,'0')}235959`),
-    ]).then(([{ data: members }, { data: preds }, { data: breads }, { data: txs }]) => {
+      getSupabase().from('월빵보유기본').select('아이디, 빵갯수').eq('기준년월', prevYYYYMM),
+      getSupabase().from('월빵보유기본').select('아이디, 빵갯수').eq('기준년월', currentYYYYMM),
+    ]).then(([{ data: members }, { data: preds }, { data: breads }, { data: txs }, { data: baseBread }, { data: monthEndBread }]) => {
       // 아이디 -> 빵갯수
       const bMap: Record<string, number> = {}
       if (breads) {
@@ -116,6 +125,20 @@ export default function ResultPage() {
       setDeductMap(dMap)
       setIncreaseMap(iMap)
 
+      // 기초 (전월 월빵보유기본)
+      const bsMap: Record<string, number> = {}
+      if (baseBread) {
+        (baseBread as { 아이디: string; 빵갯수: number }[]).forEach(b => { bsMap[b.아이디] = b.빵갯수 })
+      }
+      setBaseMap(bsMap)
+
+      // 기말 (해당월 월빵보유기본)
+      const meMap: Record<string, number> = {}
+      if (monthEndBread) {
+        (monthEndBread as { 아이디: string; 빵갯수: number }[]).forEach(b => { meMap[b.아이디] = b.빵갯수 })
+      }
+      setMonthEndMap(meMap)
+
       const predRows = (preds ?? []) as unknown as PredEntry[]
 
       // 아이디 -> 기준일자(YYYYMMDD) -> 순위
@@ -132,8 +155,13 @@ export default function ResultPage() {
     })
   }, [selectedDate])
 
+  // 현재 월과 선택 월 비교
+  const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const todayYYYYMM = `${todayKST.getFullYear()}${String(todayKST.getMonth() + 1).padStart(2, '0')}`
+
   // 선택 월의 모든 날짜 생성
   const [sy, sm] = selectedDate.split('-')
+  const isPastMonth = `${sy}${sm}` !== todayYYYYMM
   const year = Number(sy), month = Number(sm)
   const daysInMonth = new Date(year, month, 0).getDate()
   const allDays: string[] = Array.from({ length: daysInMonth }, (_, i) => {
@@ -157,18 +185,21 @@ export default function ResultPage() {
 
   const handleDownload = () => {
     const todayStr = getToday()
-    const fixedCols = 6 // # + 성명 + ID + 잔여빵 + 차감 + 증가
+    const fixedCols = 8 // # + 성명 + ID + 기초 + 잔여빵/기말 + 충전빵 + 차감 + 증가
 
     // 헤더 행
-    const header = ['#', '성명', 'ID', '잔여빵', '차감', '증가', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
+    const breadColLabel = '잔여빵'
+    const header = ['#', '성명', 'ID', '기초', breadColLabel, '충전빵', '차감', '증가', ...allDays.map(d => `${Number(d.slice(4,6))}/${Number(d.slice(6,8))}`)]
 
     // 데이터 행
     const rows = gridMembers.map((member, idx) => {
       const id = String(member['아이디'] ?? '')
       const name = String(member['이름'] ?? '')
-      const bread = breadMap[id] ?? 0
+      const bread = isPastMonth ? (monthEndMap[id] ?? 0) : (breadMap[id] ?? 0)
+      const base = baseMap[id] ?? 0
       const deduct = deductMap[id] ?? 0
       const increase = increaseMap[id] ?? 0
+      const charge = bread - base + Math.abs(deduct) - Math.abs(increase)
       const dayCells = allDays.map(d => {
         const isToday = d === todayStr
         const beforeCutoff = isToday && new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours() < 16
@@ -177,14 +208,17 @@ export default function ResultPage() {
         if (rank !== undefined) return 'X'
         return '-'
       })
-      return [idx + 1, name, id, bread, deduct, increase, ...dayCells]
+      return [idx + 1, name, id, base, bread, charge || '', deduct, increase, ...dayCells]
     })
 
     // 합계 행
-    const totalBread = gridMembers.reduce((s, m) => s + (breadMap[String(m['아이디'] ?? '')] ?? 0), 0)
+    const totalBread = gridMembers.reduce((s, m) => {
+      const id = String(m['아이디'] ?? '')
+      return s + (isPastMonth ? (monthEndMap[id] ?? 0) : (breadMap[id] ?? 0))
+    }, 0)
     const totalDeduct = gridMembers.reduce((s, m) => s + (deductMap[String(m['아이디'] ?? '')] ?? 0), 0)
     const totalIncrease = gridMembers.reduce((s, m) => s + (increaseMap[String(m['아이디'] ?? '')] ?? 0), 0)
-    const summaryRow = ['', '합계', '', totalBread, totalDeduct, totalIncrease, ...allDays.map(() => '')]
+    const summaryRow = ['', '합계', '', '', totalBread, '', totalDeduct, totalIncrease, ...allDays.map(() => '')]
 
     const ws = XLSX.utils.aoa_to_sheet([header, summaryRow, ...rows])
 
@@ -236,10 +270,12 @@ export default function ResultPage() {
         <BarChart2 size={15} color="var(--text3)" />
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginRight: 4 }}>결과 조회</span>
         <select value={y} onChange={e => {
-          const lastDay = new Date(Number(e.target.value), m, 0).getDate()
-          setSelectedDate(`${e.target.value}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`)
+          const newY = Number(e.target.value)
+          const clampedM = newY === currentYear ? Math.min(m, todayKST.getMonth() + 1) : m
+          const lastDay = new Date(newY, clampedM, 0).getDate()
+          setSelectedDate(`${newY}-${String(clampedM).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`)
         }} style={selectStyle}>
-          {Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i).map(yr => (
+          {Array.from({ length: currentYear - 2026 + 1 }, (_, i) => 2026 + i).map(yr => (
             <option key={yr} value={yr}>{yr}년</option>
           ))}
         </select>
@@ -247,9 +283,11 @@ export default function ResultPage() {
           const lastDay = new Date(y, Number(e.target.value), 0).getDate()
           setSelectedDate(`${y}-${String(e.target.value).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`)
         }} style={selectStyle}>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map(mo => (
-            <option key={mo} value={mo}>{mo}월</option>
-          ))}
+          {Array.from({ length: 12 }, (_, i) => i + 1)
+            .filter(mo => mo >= (y === 2026 ? 3 : 1) && (y < currentYear || mo <= todayKST.getMonth() + 1))
+            .map(mo => (
+              <option key={mo} value={mo}>{mo}월</option>
+            ))}
         </select>
         <button onClick={handleDownload} title="엑셀 다운로드" style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: 6 }}>
           <Download size={16} color="#22c55e" />
@@ -299,7 +337,9 @@ export default function ResultPage() {
                 <th style={thFixedNo}>#</th>
                 <th style={thFixed}>성명</th>
                 <th style={thFixed2}>ID</th>
+                <th style={thFixed4}>기초</th>
                 <th style={thFixed3}>잔여빵</th>
+                <th style={{ ...thNotFixed, textAlign: 'right' }}>충전빵</th>
                 <th style={{ ...thNotFixed, textAlign: 'right' }}>차감</th>
                 <th style={{ ...thNotFixed, textAlign: 'right' }}>증가</th>
                 {allDays.map(d => {
@@ -321,8 +361,15 @@ export default function ResultPage() {
                 <td style={{ ...tdFixedNo, borderBottom: '1px solid #444' }}></td>
                 <td style={{ ...tdFixed, borderBottom: '1px solid #444', color: 'var(--text2)', fontWeight: 700, fontSize: 10 }}>합계</td>
                 <td style={{ ...tdFixed2, borderBottom: '1px solid #444' }}></td>
+                {/* 기초 합계 */}
+                <td style={{ ...tdFixed4, borderBottom: '1px solid #444', color: '#4A9EFF', fontWeight: 700, textAlign: 'right' as const }}>
+                  {gridMembers.reduce((s, m) => s + (baseMap[String(m['아이디'] ?? '')] ?? 0), 0) || '-'}
+                </td>
                 {(() => {
-                  const totalBread = gridMembers.reduce((sum, m) => sum + (breadMap[String(m['아이디'] ?? '')] ?? 0), 0)
+                  const totalBread = gridMembers.reduce((sum, m) => {
+                    const id = String(m['아이디'] ?? '')
+                    return sum + (isPastMonth ? (monthEndMap[id] ?? 0) : (breadMap[id] ?? 0))
+                  }, 0)
                   const totalDeduct = gridMembers.reduce((s, m) => s + (deductMap[String(m['아이디'] ?? '')] ?? 0), 0)
                   const totalIncrease = gridMembers.reduce((s, m) => s + (increaseMap[String(m['아이디'] ?? '')] ?? 0), 0)
                   const adjustedBread = totalBread + totalDeduct - totalIncrease
@@ -332,6 +379,20 @@ export default function ResultPage() {
                     </td>
                   )
                 })()}
+                {/* 충전빵 합계 */}
+                <td style={{ ...thNotFixed, borderBottom: '1px solid #444', color: '#A78BFA', fontWeight: 700, textAlign: 'right' as const }}>
+                  {(() => {
+                    const total = gridMembers.reduce((s, m) => {
+                      const id = String(m['아이디'] ?? '')
+                      const base = baseMap[id] ?? 0
+                      const dispBread = isPastMonth ? (monthEndMap[id] ?? 0) : (breadMap[id] ?? 0)
+                      const deduct = deductMap[id] ?? 0
+                      const increase = increaseMap[id] ?? 0
+                      return s + (dispBread - base + Math.abs(deduct) - Math.abs(increase))
+                    }, 0)
+                    return total !== 0 ? total.toLocaleString() : '-'
+                  })()}
+                </td>
                 {(() => {
                   const totalDeduct = gridMembers.reduce((s, m) => s + (deductMap[String(m['아이디'] ?? '')] ?? 0), 0)
                   const totalIncrease = gridMembers.reduce((s, m) => s + (increaseMap[String(m['아이디'] ?? '')] ?? 0), 0)
@@ -375,7 +436,20 @@ export default function ResultPage() {
                       {isMe ? `★${name}` : name}
                     </td>
                     <td style={{ ...tdFixed2, color: '#4A9EFF' }}>{id}</td>
-                    <td style={{ ...tdFixed3, color: bread > 0 ? '#FFA500' : 'var(--text3)', textAlign: 'right' as const }}>{bread.toLocaleString()}</td>
+                    <td style={{ ...tdFixed4, color: baseMap[id] !== undefined ? '#4A9EFF' : 'var(--text3)', textAlign: 'right' as const }}>{baseMap[id] !== undefined ? baseMap[id].toLocaleString() : '-'}</td>
+                    {(() => {
+                      const dispBread = isPastMonth ? (monthEndMap[id] ?? 0) : bread
+                      const base = baseMap[id] ?? 0
+                      const deduct = deductMap[id] ?? 0
+                      const increase = increaseMap[id] ?? 0
+                      const charge = dispBread - base + Math.abs(deduct) - Math.abs(increase)
+                      return (
+                        <>
+                          <td style={{ ...tdFixed3, color: dispBread > 0 ? '#FFA500' : 'var(--text3)', textAlign: 'right' as const }}>{dispBread.toLocaleString()}</td>
+                          <td style={{ ...tdNotFixed, color: charge !== 0 ? '#A78BFA' : 'var(--text3)', textAlign: 'right' as const }}>{charge !== 0 ? charge.toLocaleString() : '-'}</td>
+                        </>
+                      )
+                    })()}
                     <td style={{ ...tdNotFixed, color: deductMap[id] ? '#FF5C5C' : 'var(--text3)', textAlign: 'right' as const }}>{deductMap[id] ? `-${(deductMap[id]).toLocaleString()}` : '-'}</td>
                     <td style={{ ...tdNotFixed, color: increaseMap[id] ? '#2ECC8A' : 'var(--text3)', textAlign: 'right' as const }}>{increaseMap[id] ? `+${(increaseMap[id]).toLocaleString()}` : '-'}</td>
                     {allDays.map(d => {
@@ -426,11 +500,17 @@ const thFixed2: React.CSSProperties = {
   width: 72, minWidth: 72, maxWidth: 72,
   ...stickyBase, left: 84,
 }
-const thFixed3: React.CSSProperties = {
+const thFixed4: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #333',
   background: '#111', color: 'var(--text2)', fontWeight: 600,
   width: 52, minWidth: 52, maxWidth: 52,
   ...stickyBase, left: 156,
+}
+const thFixed3: React.CSSProperties = {
+  padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #333',
+  background: '#111', color: 'var(--text2)', fontWeight: 600,
+  width: 52, minWidth: 52, maxWidth: 52,
+  ...stickyBase, left: 208,
 }
 const thNotFixed: React.CSSProperties = {
   padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #333',
@@ -458,10 +538,16 @@ const tdFixed2: React.CSSProperties = {
   position: 'sticky', left: 84, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
 }
-const tdFixed3: React.CSSProperties = {
+const tdFixed4: React.CSSProperties = {
   padding: '5px 8px', borderBottom: '1px solid #222',
   width: 52, minWidth: 52, maxWidth: 52,
   position: 'sticky', left: 156, zIndex: 1,
+  background: 'var(--bg, #0d0d0d)',
+}
+const tdFixed3: React.CSSProperties = {
+  padding: '5px 8px', borderBottom: '1px solid #222',
+  width: 52, minWidth: 52, maxWidth: 52,
+  position: 'sticky', left: 208, zIndex: 1,
   background: 'var(--bg, #0d0d0d)',
 }
 const tdNotFixed: React.CSSProperties = {

@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { Agent, fetch as undiciFetch } from 'undici'
 import { getSupabase } from '@/lib/supabase'
 
-const BASE_URL = 'https://openapi.koreainvestment.com:9443'
+const BASE_URL = 'https://openapivts.koreainvestment.com:29443'
+// 모의서버 SSL 인증서 불일치 우회 (KIS API 호출 전용)
+const kisAgent = new Agent({ connect: { rejectUnauthorized: false } })
 const FALLBACK_FILE = path.join(process.cwd(), 'data', 'stocks-fallback.json')
 
 let cachedToken: string | null = null
@@ -18,7 +21,7 @@ const FILE_WRITE_TTL = 1 * 60 * 1000 // 1분
 async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
   if (cachedToken && Date.now() < tokenExpireAt) return cachedToken
 
-  const res = await fetch(`${BASE_URL}/oauth2/tokenP`, {
+  const res = await undiciFetch(`${BASE_URL}/oauth2/tokenP`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -26,11 +29,12 @@ async function getAccessToken(appKey: string, appSecret: string): Promise<string
       appkey: appKey,
       appsecret: appSecret,
     }),
+    dispatcher: kisAgent,
   })
 
   if (!res.ok) throw new Error(`토큰 발급 실패: ${res.status}`)
 
-  const data = await res.json()
+  const data = await res.json() as { access_token: string; expires_in: number }
   cachedToken = data.access_token
   tokenExpireAt = Date.now() + (data.expires_in - 60) * 1000
   return cachedToken!
@@ -96,13 +100,14 @@ export async function GET() {
     }
 
     async function fetchIndex(iscd: string, name: string): Promise<StockItem> {
-      const res = await fetch(
+      const res = await undiciFetch(
         `${BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-price` +
         `?FID_COND_MRKT_DIV_CODE=U&FID_INPUT_ISCD=${iscd}`,
-        { headers: { ...baseHeaders, tr_id: 'FHPUP02100000' }, cache: 'no-store' }
+        { headers: { ...baseHeaders, tr_id: 'FHPUP02100000' }, dispatcher: kisAgent }
       )
-      const data = await res.json()
+      const data = await res.json() as { output?: Record<string, string>; msg1?: string }
       const o = data.output
+      if (!res.ok || !o?.bstp_nmix_prpr) throw new Error(`index ${iscd} 조회 실패: ${data.msg1 ?? res.status}`)
       return {
         ticker: iscd,
         name,
@@ -114,13 +119,14 @@ export async function GET() {
     }
 
     async function fetchStock(ticker: string, name: string): Promise<StockItem> {
-      const res = await fetch(
+      const res = await undiciFetch(
         `${BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price` +
         `?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${ticker}`,
-        { headers: { ...baseHeaders, tr_id: 'FHKST01010100' }, cache: 'no-store' }
+        { headers: { ...baseHeaders, tr_id: 'FHKST01010100' }, dispatcher: kisAgent }
       )
-      const data = await res.json()
+      const data = await res.json() as { output?: Record<string, string>; msg1?: string }
       const o = data.output
+      if (!res.ok || !o?.stck_prpr) throw new Error(`stock ${ticker} 조회 실패: ${data.msg1 ?? res.status}`)
       return {
         ticker,
         name,
@@ -160,14 +166,14 @@ export async function GET() {
           stocks.push(result.value)
           succeeded.push(result.value)
         } else if (ticker === '0001') {
-          // 코스피 KIS API 실패 → Supabase 종가관리내역 폴백
+          // 코스피 KIS API 실패 → Supabase 종가관리내역 폴백 (가장 최근 데이터)
           try {
-            const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
             const { data } = await getSupabase()
               .from('종가관리내역')
               .select('종가')
-              .eq('기준일자', today)
               .eq('종목코드', '0001')
+              .order('기준일자', { ascending: false })
+              .limit(1)
               .maybeSingle()
             const row = data as unknown as { 종가: number } | null
             if (row?.종가) {

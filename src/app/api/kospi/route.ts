@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
+import { Agent, fetch as undiciFetch } from 'undici'
 
-const BASE_URL = 'https://openapivts.koreainvestment.com:29443'  
+const BASE_URL = 'https://openapivts.koreainvestment.com:29443'
+const kisAgent = new Agent({ connect: { rejectUnauthorized: false } })
 
 function toDateStr(d: Date) {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
@@ -17,7 +19,7 @@ const KOSPI_CACHE_TTL = 3 * 60 * 1000 // 3분
 async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
   if (cachedToken && Date.now() < tokenExpireAt) return cachedToken
 
-  const res = await fetch(`${BASE_URL}/oauth2/tokenP`, {
+  const res = await undiciFetch(`${BASE_URL}/oauth2/tokenP`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -25,11 +27,12 @@ async function getAccessToken(appKey: string, appSecret: string): Promise<string
       appkey: appKey,
       appsecret: appSecret,
     }),
+    dispatcher: kisAgent,
   })
 
   if (!res.ok) throw new Error(`토큰 발급 실패: ${res.status}`)
 
-  const data = await res.json()
+  const data = await res.json() as { access_token: string; expires_in: number }
   cachedToken = data.access_token
   // 만료 1분 전에 재발급하도록 설정
   tokenExpireAt = Date.now() + (data.expires_in - 60) * 1000
@@ -78,16 +81,16 @@ export async function GET() {
     }
 
     const [priceRes, dailyRes] = await Promise.all([
-      fetch(
+      undiciFetch(
         `${BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-price` +
         `?FID_COND_MRKT_DIV_CODE=U&FID_INPUT_ISCD=0001`,
-        { headers: { ...headers, tr_id: 'FHPUP02100000' }, cache: 'no-store' }
+        { headers: { ...headers, tr_id: 'FHPUP02100000' }, dispatcher: kisAgent }
       ),
-      fetch(
+      undiciFetch(
         `${BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-daily-price` +
         `?FID_COND_MRKT_DIV_CODE=U&FID_INPUT_ISCD=0001` +
         `&FID_INPUT_DATE_1=${today}&FID_INPUT_DATE_2=${past}&FID_PERIOD_DIV_CODE=D`,
-        { headers: { ...headers, tr_id: 'FHPUP02120000' }, cache: 'no-store' }
+        { headers: { ...headers, tr_id: 'FHPUP02120000' }, dispatcher: kisAgent }
       ),
     ])
 
@@ -96,12 +99,12 @@ export async function GET() {
       throw new Error(`KIS API error: ${priceRes.status} / ${dailyRes.status}`)
     }
 
-    const priceData = await priceRes.json()
-    const dailyData = await dailyRes.json()
+    const priceData = await priceRes.json() as { output: Record<string, string> }
+    const dailyData = await dailyRes.json() as { output2: { stck_bsop_date: string; bstp_nmix_prpr: string }[] }
     const output = priceData.output
 
     const todayStr = toDateStr(new Date())
-    const daily = (dailyData.output2 as { stck_bsop_date: string; bstp_nmix_prpr: string }[])
+    const daily = dailyData.output2
       .filter(d => d.stck_bsop_date < todayStr)
       .slice(0, 5)
       .reverse()

@@ -155,14 +155,14 @@ export default function HomePage() {
             }
           }
         } catch { }
-        // sessionStorage 캐시도 없으면 → Supabase 종가관리내역 폴백
+        // sessionStorage 캐시도 없으면 → Supabase 종가관리내역 폴백 (가장 최근 데이터)
         try {
-          const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
           const { data: rawSupaData } = await getSupabase()
             .from('종가관리내역')
             .select('종가')
-            .eq('기준일자', today)
             .eq('종목코드', '0001')
+            .order('기준일자', { ascending: false })
+            .limit(1)
             .maybeSingle()
           const supaData = rawSupaData as unknown as { 종가: number } | null
           if (supaData && isMounted.current) {

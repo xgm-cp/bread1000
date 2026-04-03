@@ -11,7 +11,7 @@ let tokenExpireAt = 0
 
 type StockItem = { ticker: string; name: string; price: string; change: string; changeRate: string; sign: string }
 let stockCache: StockItem[] | null = null // KIS API 실패 시 서버 메모리 폴백용
-let inflight: Promise<StockItem[]> | null = null // KIS API 중복 호출 방지
+let inflight: Promise<{ stocks: StockItem[]; kospiFromSupabase: boolean }> | null = null // KIS API 중복 호출 방지
 let lastWrittenAt = 0 // 파일 쓰기 마지막 시각
 const FILE_WRITE_TTL = 1 * 60 * 1000 // 1분
 
@@ -184,14 +184,15 @@ export async function GET() {
         lastWrittenAt = Date.now()
       }
       if (stocks.length > 0) stockCache = stocks // 성공 시 서버 메모리에 저장
+      const kospiFromSupabase = stocks.some(s => s.ticker === '0001') && !succeeded.find(r => r.ticker === '0001')
 
-      return stocks
+      return { stocks, kospiFromSupabase }
     }).finally(() => {
       inflight = null
     })
   }
 
-  const stocks = await inflight
+  const { stocks, kospiFromSupabase } = await inflight
 
   if (stocks.length === 0) {
     // KIS API 전부 실패 → 서버 메모리 캐시 → 파일 폴백 순서
@@ -205,6 +206,5 @@ export async function GET() {
     return NextResponse.json({ error: '모든 종목 조회 실패' }, { status: 500 })
   }
 
-  const kospiFromSupabase = stocks.some(s => s.ticker === '0001' && !succeeded.find(r => r.ticker === '0001'))
   return NextResponse.json({ stocks, partial: stocks.length < 3, kospiFromSupabase })
 }

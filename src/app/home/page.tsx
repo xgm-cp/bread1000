@@ -89,6 +89,7 @@ export default function HomePage() {
       const data = await res.json()
       if (!Array.isArray(data.stocks) || data.stocks.length === 0) throw new Error('no data')
       if (!isMounted.current) return
+      if (data.kospiFromSupabase) setSupabaseFallback(true)
 
       // 코스피 없으면 재시도 (코스피는 종목 표시 + 리더보드 순위 산정의 기준)
       const kospi = data.stocks.find((s: StockData) => s.ticker === '0001')

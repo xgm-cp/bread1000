@@ -205,5 +205,6 @@ export async function GET() {
     return NextResponse.json({ error: '모든 종목 조회 실패' }, { status: 500 })
   }
 
-  return NextResponse.json({ stocks, partial: stocks.length < 3 })
+  const kospiFromSupabase = stocks.some(s => s.ticker === '0001' && !succeeded.find(r => r.ticker === '0001'))
+  return NextResponse.json({ stocks, partial: stocks.length < 3, kospiFromSupabase })
 }

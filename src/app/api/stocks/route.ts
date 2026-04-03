@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getSupabase } from '@/lib/supabase'
 
 const BASE_URL = 'https://openapi.koreainvestment.com:9443'
 const FALLBACK_FILE = path.join(process.cwd(), 'data', 'stocks-fallback.json')
@@ -141,7 +142,7 @@ export async function GET() {
     inflight = Promise.all([
       fetchKospiWithRetry(),
       Promise.allSettled([fetchIndex('1001', '코스닥'), fetchStock('069500', 'KODEX 200')]),
-    ]).then(([kospiResult, [kosdaqResult, kodexResult]]) => {
+    ]).then(async ([kospiResult, [kosdaqResult, kodexResult]]) => {
       const fallback = readFallback()
       const fallbackMap = new Map(fallback.map(s => [s.ticker, s]))
 
@@ -158,6 +159,21 @@ export async function GET() {
         if (result.status === 'fulfilled') {
           stocks.push(result.value)
           succeeded.push(result.value)
+        } else if (ticker === '0001') {
+          // 코스피 KIS API 실패 → Supabase 종가관리내역 폴백
+          try {
+            const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+            const { data } = await getSupabase()
+              .from('종가관리내역')
+              .select('종가')
+              .eq('기준일자', today)
+              .eq('종목코드', '0001')
+              .maybeSingle()
+            const row = data as unknown as { 종가: number } | null
+            if (row?.종가) {
+              stocks.push({ ticker: '0001', name: '코스피', price: String(row.종가), change: '0', changeRate: '0.00', sign: '3' })
+            }
+          } catch { /* Supabase 폴백도 실패하면 무시 */ }
         } else if (fallbackMap.has(ticker)) {
           stocks.push(fallbackMap.get(ticker)!)
         }

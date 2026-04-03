@@ -30,6 +30,7 @@ async function getAccessToken(appKey: string, appSecret: string): Promise<string
       appsecret: appSecret,
     }),
     dispatcher: kisAgent,
+    signal: AbortSignal.timeout(3000),
   })
 
   if (!res.ok) throw new Error(`토큰 발급 실패: ${res.status}`)
@@ -99,11 +100,15 @@ export async function GET() {
       appsecret: appSecret,
     }
 
+    function makeAbortSignal(ms: number) {
+      return AbortSignal.timeout(ms)
+    }
+
     async function fetchIndex(iscd: string, name: string): Promise<StockItem> {
       const res = await undiciFetch(
         `${BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-price` +
         `?FID_COND_MRKT_DIV_CODE=U&FID_INPUT_ISCD=${iscd}`,
-        { headers: { ...baseHeaders, tr_id: 'FHPUP02100000' }, dispatcher: kisAgent }
+        { headers: { ...baseHeaders, tr_id: 'FHPUP02100000' }, dispatcher: kisAgent, signal: makeAbortSignal(3000) }
       )
       const data = await res.json() as { output?: Record<string, string>; msg1?: string }
       const o = data.output
@@ -122,7 +127,7 @@ export async function GET() {
       const res = await undiciFetch(
         `${BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price` +
         `?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${ticker}`,
-        { headers: { ...baseHeaders, tr_id: 'FHKST01010100' }, dispatcher: kisAgent }
+        { headers: { ...baseHeaders, tr_id: 'FHKST01010100' }, dispatcher: kisAgent, signal: makeAbortSignal(3000) }
       )
       const data = await res.json() as { output?: Record<string, string>; msg1?: string }
       const o = data.output
@@ -137,18 +142,10 @@ export async function GET() {
       }
     }
 
-    // KOSPI 재시도 포함 조회 (실패 시 최대 2회 추가 시도)
-    async function fetchKospiWithRetry(retries = 2): Promise<PromiseSettledResult<StockItem>> {
-      const result = await Promise.allSettled([fetchIndex('0001', '코스피')])
-      if (result[0].status === 'fulfilled' || retries === 0) return result[0]
-      await new Promise(r => setTimeout(r, 1000))
-      return fetchKospiWithRetry(retries - 1)
-    }
-
     inflight = Promise.all([
-      fetchKospiWithRetry(),
+      Promise.allSettled([fetchIndex('0001', '코스피')]),
       Promise.allSettled([fetchIndex('1001', '코스닥'), fetchStock('069500', 'KODEX 200')]),
-    ]).then(async ([kospiResult, [kosdaqResult, kodexResult]]) => {
+    ]).then(async ([[kospiResult], [kosdaqResult, kodexResult]]) => {
       const fallback = readFallback()
       const fallbackMap = new Map(fallback.map(s => [s.ticker, s]))
 

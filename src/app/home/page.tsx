@@ -108,13 +108,17 @@ export default function HomePage() {
       try {
         sessionStorage.setItem('stocksCache', JSON.stringify({ stocks: data.stocks }))
         sessionStorage.setItem('kospiPrice', kospi.price)
-        const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
-        sessionStorage.setItem('kospiDir', dir)
+        if (!data.kospiFromSupabase) {
+          const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
+          sessionStorage.setItem('kospiDir', dir)
+        }
       } catch { }
       const price = Number(kospi.price)
       setKospiPrice(price)
-      const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
-      setKospiDir(dir)
+      if (!data.kospiFromSupabase) {
+        const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
+        setKospiDir(dir)
+      }
 
       // 코스닥/KODEX 200이 빠진 경우 백그라운드에서 1회 재시도 (코스피 표시에 영향 없음)
       if (data.partial) {

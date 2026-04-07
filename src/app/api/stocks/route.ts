@@ -170,11 +170,15 @@ export async function GET() {
               .select('종가')
               .eq('종목코드', '0001')
               .order('기준일자', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-            const row = data as unknown as { 종가: number } | null
-            if (row?.종가) {
-              stocks.push({ ticker: '0001', name: '코스피', price: String(row.종가), change: '0', changeRate: '0.00', sign: '3' })
+              .limit(2)
+            const rows = data as unknown as { 종가: number }[] | null
+            if (rows && rows.length > 0) {
+              const latest = rows[0]
+              const prev = rows[1]
+              const sign = prev
+                ? (latest.종가 > prev.종가 ? '2' : latest.종가 < prev.종가 ? '5' : '3')
+                : '3'
+              stocks.push({ ticker: '0001', name: '코스피', price: String(latest.종가), change: '0', changeRate: '0.00', sign })
             }
           } catch { /* Supabase 폴백도 실패하면 무시 */ }
         } else if (fallbackMap.has(ticker)) {

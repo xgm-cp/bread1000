@@ -105,20 +105,15 @@ export default function HomePage() {
 
       setStocks(data.stocks)
       // 성공 시 클라이언트 캐시 갱신 (API 실패 시 최후 폴백용)
+      const price = Number(kospi.price)
+      setKospiPrice(price)
+      const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : (kospi.sign === '5' || kospi.sign === '4') ? 'D' : ''
+      if (dir) setKospiDir(dir)
       try {
         sessionStorage.setItem('stocksCache', JSON.stringify({ stocks: data.stocks }))
         sessionStorage.setItem('kospiPrice', kospi.price)
-        if (!data.kospiFromSupabase) {
-          const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
-          sessionStorage.setItem('kospiDir', dir)
-        }
+        if (dir) sessionStorage.setItem('kospiDir', dir)
       } catch { }
-      const price = Number(kospi.price)
-      setKospiPrice(price)
-      if (!data.kospiFromSupabase) {
-        const dir = (kospi.sign === '2' || kospi.sign === '1') ? 'U' : 'D'
-        setKospiDir(dir)
-      }
 
       // 코스닥/KODEX 200이 빠진 경우 백그라운드에서 1회 재시도 (코스피 표시에 영향 없음)
       if (data.partial) {
@@ -159,27 +154,33 @@ export default function HomePage() {
             }
           }
         } catch { }
-        // sessionStorage 캐시도 없으면 → Supabase 종가관리내역 폴백 (가장 최근 데이터)
+        // sessionStorage 캐시도 없으면 → Supabase 종가관리내역 폴백 (전일/전전일 종가 비교로 방향 산정)
         try {
           const { data: rawSupaData } = await getSupabase()
             .from('종가관리내역')
             .select('종가')
             .eq('종목코드', '0001')
             .order('기준일자', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          const supaData = rawSupaData as unknown as { 종가: number } | null
-          if (supaData && isMounted.current) {
+            .limit(2)
+          const rows = rawSupaData as unknown as { 종가: number }[] | null
+          if (rows && rows.length > 0 && isMounted.current) {
+            const latest = rows[0]
+            const prev = rows[1]
+            const sign = prev
+              ? (latest.종가 > prev.종가 ? '2' : latest.종가 < prev.종가 ? '5' : '3')
+              : '3'
             const fallbackStock: StockData = {
               ticker: '0001',
               name: '코스피',
-              price: String(supaData.종가),
+              price: String(latest.종가),
               change: '0',
               changeRate: '0.00',
-              sign: '3',
+              sign,
             }
             setStocks([fallbackStock])
-            setKospiPrice(Number(supaData.종가))
+            setKospiPrice(Number(latest.종가))
+            const dir = sign === '2' ? 'U' : sign === '5' ? 'D' : ''
+            if (dir) setKospiDir(dir)
             setSupabaseFallback(true)
             setLoading(false)
             return

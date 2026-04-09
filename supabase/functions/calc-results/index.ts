@@ -32,18 +32,43 @@ Deno.serve(async (req: Request) => {
     actualClose = body.actualClose
     direction = body.direction as 'U' | 'D' | 'F'
   } else {
-    const appUrl = Deno.env.get('APP_URL')
-    if (!appUrl) {
-      return new Response(JSON.stringify({ error: 'APP_URL 미설정 — actualClose/direction 을 직접 넘겨주세요' }), { status: 200 })
+    // 종가관리내역 테이블 먼저 확인 (오늘 + 전날)
+    const { data: closeRows } = await supabase
+      .from('종가관리내역')
+      .select('기준일자, 종가, 변경일시')
+      .eq('종목코드', '0001')
+      .order('기준일자', { ascending: false })
+      .limit(2)
+
+    type CloseRow = { 기준일자: string; 종가: number; 변경일시: string }
+    const rows = closeRows as CloseRow[] | null
+    const todayRow = rows && rows[0]?.기준일자 === todayIso ? rows[0] : null
+    const prevRow = rows && rows.length > 1 ? rows[rows.length - 1] : null
+
+    // 변경일시 시(hour) 추출 — fetch-kospi가 KST ISO로 저장 (예: "2026-04-09T16:00:05.000")
+    const 변경시간 = todayRow?.변경일시 ? parseInt(todayRow.변경일시.slice(11, 13), 10) : -1
+    const isAfter16 = 변경시간 >= 16
+
+    if (todayRow && isAfter16) {
+      // 16:00 이후 → fetch-kospi가 저장한 실제 종가 사용
+      actualClose = todayRow.종가
+      const prevClose = prevRow?.종가 ?? todayRow.종가
+      direction = actualClose > prevClose ? 'U' : actualClose < prevClose ? 'D' : 'F'
+    } else {
+      // 16:00 이전 또는 테이블 데이터 없음 → /api/kospi 호출
+      const appUrl = Deno.env.get('APP_URL')
+      if (!appUrl) {
+        return new Response(JSON.stringify({ error: 'APP_URL 미설정 — actualClose/direction 을 직접 넘겨주세요' }), { status: 200 })
+      }
+      const kospiRes = await fetch(`${appUrl}/api/kospi`)
+      if (!kospiRes.ok) {
+        return new Response(JSON.stringify({ error: `KOSPI API 오류: ${kospiRes.status}` }), { status: 200 })
+      }
+      const kospi = await kospiRes.json()
+      actualClose = parseFloat(kospi.bstp_nmix_prpr)
+      const sign = kospi.prdy_vrss_sign
+      direction = sign === '3' ? 'F' : ['1', '2'].includes(sign) ? 'U' : 'D'
     }
-    const kospiRes = await fetch(`${appUrl}/api/kospi`)
-    if (!kospiRes.ok) {
-      return new Response(JSON.stringify({ error: `KOSPI API 오류: ${kospiRes.status}` }), { status: 200 })
-    }
-    const kospi = await kospiRes.json()
-    actualClose = parseFloat(kospi.bstp_nmix_prpr)
-    const sign = kospi.prdy_vrss_sign
-    direction = sign === '3' ? 'F' : ['1', '2'].includes(sign) ? 'U' : 'D'
   }
 
   const { data: preds, error: predsErr } = await supabase

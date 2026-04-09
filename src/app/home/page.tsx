@@ -399,8 +399,22 @@ export default function HomePage() {
                           <div className="stock-name">{stock.name}</div>
                         </div>
                         <div className="stock-card-right">
-                          <div className="stock-price" style={isKospi ? { fontSize: '26px' } : undefined}>{formatPrice(stock.price)}</div>
-                          {!(isKospi && supabaseFallback) && (
+                          <div
+                            className="stock-price"
+                            style={{
+                              fontSize: isKospi ? '26px' : undefined,
+                              color: (isKospi && supabaseFallback && direction !== 'neutral')
+                                ? (direction === 'up' ? 'var(--up)' : 'var(--down)')
+                                : undefined,
+                            }}
+                          >
+                            {formatPrice(stock.price)}
+                          </div>
+                          {isKospi && supabaseFallback && direction !== 'neutral' ? (
+                            <div className={`stock-change change-${direction}`} style={{ fontSize: '11px' }}>
+                              {direction === 'up' ? '▲' : '▼'} 전일比
+                            </div>
+                          ) : !(isKospi && supabaseFallback) && (
                             <div className={`stock-change change-${direction}`}>
                               {formatChange(stock.change, stock.sign)}
                             </div>

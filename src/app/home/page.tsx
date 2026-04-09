@@ -169,11 +169,12 @@ export default function HomePage() {
             const sign = prev
               ? (latest.종가 > prev.종가 ? '2' : latest.종가 < prev.종가 ? '5' : '3')
               : '3'
+            const diff = prev ? latest.종가 - prev.종가 : 0
             const fallbackStock: StockData = {
               ticker: '0001',
               name: '코스피',
               price: String(latest.종가),
-              change: '0',
+              change: String(diff),
               changeRate: '0.00',
               sign,
             }
@@ -411,8 +412,8 @@ export default function HomePage() {
                             {formatPrice(stock.price)}
                           </div>
                           {isKospi && supabaseFallback && direction !== 'neutral' ? (
-                            <div className={`stock-change change-${direction}`} style={{ fontSize: '11px' }}>
-                              {direction === 'up' ? '▲' : '▼'} 전일比
+                            <div className={`stock-change change-${direction}`}>
+                              {formatChange(stock.change, stock.sign)}
                             </div>
                           ) : !(isKospi && supabaseFallback) && (
                             <div className={`stock-change change-${direction}`}>

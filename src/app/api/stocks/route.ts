@@ -178,7 +178,8 @@ export async function GET() {
               const sign = prev
                 ? (latest.종가 > prev.종가 ? '2' : latest.종가 < prev.종가 ? '5' : '3')
                 : '3'
-              stocks.push({ ticker: '0001', name: '코스피', price: String(latest.종가), change: '0', changeRate: '0.00', sign })
+              const diff = prev ? latest.종가 - prev.종가 : 0
+              stocks.push({ ticker: '0001', name: '코스피', price: String(latest.종가), change: String(diff), changeRate: '0.00', sign })
             }
           } catch { /* Supabase 폴백도 실패하면 무시 */ }
         } else if (fallbackMap.has(ticker)) {

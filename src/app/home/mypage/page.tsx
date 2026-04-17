@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase'
 import { Wallet, ArrowDownToLine, Settings, LogOut, TrendingUp, TrendingDown, Minus, Trophy, User, Bell, BellOff, Lock, Upload, Trash2, FileText, Image as ImageIcon, Download, X } from 'lucide-react'
 import { subscribePush } from '@/lib/usePushSubscription'
 import { getAvatar } from '@/lib/avatar'
+import TetrisGame from '@/components/TetrisGame'
 
 type ModalType = 'charge' | 'withdraw' | null
 
@@ -38,6 +39,7 @@ export default function MypagePage() {
   const [amount, setAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [modalError, setModalError] = useState('')
+  const [showTetris, setShowTetris] = useState(false)
   const [visibleCount, setVisibleCount] = useState(5)
   const [isPushSupported, setIsPushSupported] = useState(false)
   const [isPushSubscribed, setIsPushSubscribed] = useState(false)
@@ -397,6 +399,7 @@ export default function MypagePage() {
           </button>
           <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center', marginBottom: 8 }}>초기화는 관리자에게 문의</div>
           <button className="btn-edit-profile" onClick={logout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><LogOut size={15} /> 로그아웃</button>
+          <button className="btn-edit-profile" onClick={() => setShowTetris(true)} style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, color: '#A000F0', borderColor: '#A000F0' }}>🎮 테트리스</button>
         </div>
 
         {/* 예측 히스토리 */}
@@ -673,6 +676,8 @@ export default function MypagePage() {
         </div>
       </div>
     )}
+
+    {showTetris && <TetrisGame onClose={() => setShowTetris(false)} />}
 
     {modal && (
       <div onClick={() => setModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>

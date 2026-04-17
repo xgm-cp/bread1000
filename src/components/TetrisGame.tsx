@@ -118,6 +118,36 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const repeatTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const repeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [activeBtn, setActiveBtn] = useState<string | null>(null)
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
+
+  // 뒤로가기 감지 — 히스토리 스택에 상태 추가 후 popstate 가로채기
+  useEffect(() => {
+    window.history.pushState({ tetris: true }, '')
+    const onPop = () => {
+      // 게임 일시정지
+      pausedRef.current = true
+      setPaused(true)
+      setShowExitConfirm(true)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+    }
+  }, [])
+
+  function confirmExit() {
+    setShowExitConfirm(false)
+    onClose()
+  }
+
+  function cancelExit() {
+    setShowExitConfirm(false)
+    // 히스토리 복구 (다음 뒤로가기도 잡히도록)
+    window.history.pushState({ tetris: true }, '')
+    // 일시정지 해제
+    pausedRef.current = false
+    setPaused(false)
+  }
 
   const getInterval = () => Math.max(100, 800 - (levelRef.current - 1) * 80)
 
@@ -490,6 +520,42 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
             }} />
         </div>
       </div>
+
+      {/* ── 종료 확인 ── */}
+      {showExitConfirm && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 20,
+          background: 'rgba(10,12,15,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }}>
+          <div style={{
+            background: '#111418', border: '1px solid #252D3A',
+            borderRadius: 20, padding: '28px 32px', textAlign: 'center', width: 260,
+            boxShadow: '0 0 40px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#EEF0F4', marginBottom: 8 }}>게임 종료</div>
+            <div style={{ fontSize: 13, color: '#8892A0', marginBottom: 24, lineHeight: 1.6 }}>
+              게임을 종료하시겠어요?<br />진행 중인 게임이 사라집니다.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={cancelExit} style={{
+                flex: 1, padding: '11px', borderRadius: 12,
+                border: '1px solid #252D3A', background: '#1A1E28',
+                color: '#8892A0', fontWeight: 600, fontSize: 14,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>취소</button>
+              <button onClick={confirmExit} style={{
+                flex: 1, padding: '11px', borderRadius: 12,
+                border: 'none', background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
+                color: '#fff', fontWeight: 700, fontSize: 14,
+                cursor: 'pointer', fontFamily: 'inherit',
+                boxShadow: '0 4px 14px rgba(255,61,120,0.3)',
+              }}>종료</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 게임오버 ── */}
       {gameOver && (

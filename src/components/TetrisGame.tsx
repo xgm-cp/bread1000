@@ -56,8 +56,8 @@ function clearLines(board: Board): { board: Board; lines: number } {
 }
 const SCORE_TABLE = [0, 100, 300, 500, 800]
 
-// 헤더 36px + 정보바 44px + 조이패드 116px + 여백 8px = 204px
-const OVERHEAD = 204
+// 헤더 36px + 정보바 44px + 조이패드 90px + 여백 8px = 178px
+const OVERHEAD = 178
 
 function calcBlockSize(W: number, H: number): number {
   const fromW = Math.floor((W - 4) / COLS)   // 좌우 border 2px씩
@@ -359,23 +359,20 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
         />
       </div>
 
-      {/* 조이패드 — 고정 116px */}
+      {/* 조이패드 — 고정 90px */}
       <div style={{
-        width: '100%', flexShrink: 0, height: 116,
+        width: '100%', flexShrink: 0, height: 90,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px', boxSizing: 'border-box',
         borderTop: '1px solid #1a1a1a',
       }}>
-        {/* D-패드 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <div style={{ display: 'flex', gap: 5 }}>
-            <Btn id="left"   label="◀" repeat action={moveLeft}  style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.4 }} />
-            <Btn id="right"  label="▶" repeat action={moveRight} style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.4 }} />
-            <Btn id="rotate" label="↺" action={() => { rotatePiece(); render() }}
-              style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.46, background: 'rgba(160,0,240,0.2)', borderColor: '#7a00c0', color: '#c060ff' }} />
-          </div>
-          <Btn id="down" label="▼" repeat action={moveDown}
-            style={{ width: btnSz * 3 + 10, height: Math.round(btnSz * 0.65), fontSize: btnSz * 0.4 }} />
+        {/* 버튼 한 줄 */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Btn id="left"   label="◀" repeat action={moveLeft}  style={{ width: bigBtnSz, height: bigBtnSz, fontSize: bigBtnSz * 0.4 }} />
+          <Btn id="right"  label="▶" repeat action={moveRight} style={{ width: bigBtnSz, height: bigBtnSz, fontSize: bigBtnSz * 0.4 }} />
+          <Btn id="rotate" label="↺" action={() => { rotatePiece(); render() }}
+            style={{ width: bigBtnSz, height: bigBtnSz, fontSize: bigBtnSz * 0.46, background: 'rgba(160,0,240,0.2)', borderColor: '#7a00c0', color: '#c060ff' }} />
+          <Btn id="down"   label="▼" repeat action={moveDown}  style={{ width: bigBtnSz, height: bigBtnSz, fontSize: bigBtnSz * 0.4 }} />
         </div>
 
         {/* DROP */}

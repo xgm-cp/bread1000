@@ -131,17 +131,17 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     ctx.fillStyle = '#131720'
     ctx.fillRect(0, 0, COLS * B, ROWS * B)
 
-    // 빈 셀 (약한 셀 구분)
+    // 빈 셀
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++) {
         if (boardRef.current[r][c]) continue
-        ctx.fillStyle = 'rgba(255,255,255,0.025)'
+        ctx.fillStyle = 'rgba(255,255,255,0.10)'
         ctx.fillRect(c * B + 1, r * B + 1, B - 2, B - 2)
       }
 
     // 그리드 라인
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)'
-    ctx.lineWidth = 0.5
+    ctx.strokeStyle = 'rgba(255,255,255,0.30)'
+    ctx.lineWidth = 0.7
     for (let r = 0; r <= ROWS; r++) {
       ctx.beginPath(); ctx.moveTo(0, r * B); ctx.lineTo(COLS * B, r * B); ctx.stroke()
     }

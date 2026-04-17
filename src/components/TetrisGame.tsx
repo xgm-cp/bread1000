@@ -363,15 +363,15 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
       <div style={{ width: '100%', maxWidth: cW + 24, padding: `10px 12px ${Math.max(10, 20)}px`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
 
         {/* 왼쪽 D-패드 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-          <Btn id="rotate" label="↺" action={() => { rotatePiece(); render() }}
-            style={{ width: btnSz * 2 + 5, height: btnSz * 0.8, fontSize: btnSz * 0.55, background: 'rgba(160,0,240,0.2)', borderColor: '#7a00c0', color: '#c060ff' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
           <div style={{ display: 'flex', gap: 5 }}>
             <Btn id="left" label="◀" repeat action={moveLeft} style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.45 }} />
             <Btn id="right" label="▶" repeat action={moveRight} style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.45 }} />
+            <Btn id="rotate" label="↺" action={() => { rotatePiece(); render() }}
+              style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.5, background: 'rgba(160,0,240,0.2)', borderColor: '#7a00c0', color: '#c060ff' }} />
           </div>
           <Btn id="down" label="▼" repeat action={moveDown}
-            style={{ width: btnSz * 2 + 5, height: btnSz * 0.8, fontSize: btnSz * 0.45 }} />
+            style={{ width: btnSz * 3 + 10, height: btnSz * 0.8, fontSize: btnSz * 0.45 }} />
         </div>
 
         {/* 오른쪽 낙하 버튼 */}

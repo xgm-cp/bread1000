@@ -54,28 +54,25 @@ function clearLines(board: Board): { board: Board; lines: number } {
   const lines = ROWS - filtered.length
   return { board: [...Array.from({ length: lines }, () => Array(COLS).fill(0)), ...filtered], lines }
 }
-
 const SCORE_TABLE = [0, 100, 300, 500, 800]
 
-// 화면 너비 기준으로 블록 크기 계산 (데스크탑은 최대 34 캡)
-function calcBlockSize(): number {
-  const W = window.innerWidth
-  const isMobile = W <= 540
-  const padding = isMobile ? 4 : 40
-  const fromW = Math.floor((W - padding) / COLS)
-  return isMobile ? Math.min(fromW, 38) : Math.min(fromW, 34)
+// 헤더 36px + 정보바 44px + 조이패드 116px + 여백 8px = 204px
+const OVERHEAD = 204
+
+function calcBlockSize(W: number, H: number): number {
+  const fromW = Math.floor((W - 4) / COLS)   // 좌우 border 2px씩
+  const fromH = Math.floor((H - OVERHEAD) / ROWS)
+  const maxB = W > 600 ? 34 : 40             // 데스크탑 최대 캡
+  return Math.max(14, Math.min(fromW, fromH, maxB))
 }
 
-// 조이패드 영역 고정 높이 (fixed bottom)
-const PAD_H = 130
-
 export default function TetrisGame({ onClose }: { onClose: () => void }) {
-  const [block, setBlock] = useState(30)
-  const blockRef = useRef(30)
+  const [block, setBlock] = useState(28)
+  const blockRef = useRef(28)
 
   useEffect(() => {
     function update() {
-      const b = calcBlockSize()
+      const b = calcBlockSize(window.innerWidth, window.innerHeight)
       blockRef.current = b
       setBlock(b)
     }
@@ -128,7 +125,6 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
           ctx.fillRect(c * B + 1, r * B + 1, B - 2, B - 2)
         }
       }
-    // 고스트
     let ghostY = pieceRef.current.y
     while (isValid(boardRef.current, { ...pieceRef.current, y: ghostY + 1 })) ghostY++
     if (ghostY !== pieceRef.current.y)
@@ -138,7 +134,6 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
           ctx.fillStyle = 'rgba(255,255,255,0.1)'
           ctx.fillRect((pieceRef.current.x + c) * B + 1, (ghostY + r) * B + 1, B - 2, B - 2)
         }
-    // 현재 피스
     for (let r = 0; r < pieceRef.current.shape.length; r++)
       for (let c = 0; c < pieceRef.current.shape[r].length; c++) {
         if (!pieceRef.current.shape[r][c]) continue
@@ -147,10 +142,9 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
         ctx.fillStyle = 'rgba(255,255,255,0.25)'
         ctx.fillRect((pieceRef.current.x + c) * B + 1, (pieceRef.current.y + r) * B + 1, B - 2, 3)
       }
-    // NEXT 미리보기
     const nc = nextCanvasRef.current
     if (nc) {
-      const nb = 18
+      const nb = 16
       const nctx = nc.getContext('2d')!
       nctx.fillStyle = '#1a1a1a'
       nctx.fillRect(0, 0, nc.width, nc.height)
@@ -284,11 +278,11 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   function padRelease() { setActiveBtn(null); stopRepeat() }
 
   const btnBase: React.CSSProperties = {
-    borderRadius: 12, border: '2px solid #3a3a3a', background: '#1e1e1e',
+    borderRadius: 10, border: '2px solid #3a3a3a', background: '#1e1e1e',
     color: '#ccc', cursor: 'pointer', display: 'flex', alignItems: 'center',
     justifyContent: 'center', userSelect: 'none', WebkitUserSelect: 'none',
     touchAction: 'manipulation', fontFamily: 'inherit', flexShrink: 0,
-    boxShadow: '0 4px 0 #0a0a0a',
+    boxShadow: '0 3px 0 #0a0a0a',
   }
   function Btn({ id, label, repeat = false, action, style }: {
     id: string; label: React.ReactNode; repeat?: boolean; action: () => void; style?: React.CSSProperties
@@ -296,7 +290,7 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     const active = activeBtn === id
     return (
       <button
-        style={{ ...btnBase, ...style, ...(active ? { transform: 'translateY(3px)', boxShadow: '0 1px 0 #0a0a0a' } : {}) }}
+        style={{ ...btnBase, ...style, ...(active ? { transform: 'translateY(2px)', boxShadow: '0 1px 0 #0a0a0a' } : {}) }}
         onPointerDown={e => { e.preventDefault(); padPress(id, action, repeat) }}
         onPointerUp={padRelease} onPointerLeave={padRelease} onPointerCancel={padRelease}
       >
@@ -306,98 +300,108 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   }
 
   const cW = COLS * block
-  const cH = ROWS * block
-  const btnSz = Math.max(44, Math.min(60, Math.floor((cW - 60) / 5)))
-  const bigBtnSz = Math.max(54, Math.min(74, btnSz + 14))
+  // 조이패드 버튼 크기: 캔버스 너비에 비례, 44~58px
+  const btnSz = Math.max(44, Math.min(58, Math.floor((cW - 60) / 5)))
+  const bigBtnSz = Math.max(52, Math.min(70, btnSz + 12))
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#0a0a0a', zIndex: 500, overflowY: 'auto', overflowX: 'hidden' }}>
+    <div style={{
+      position: 'fixed', inset: 0, background: '#0a0a0a', zIndex: 500,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      overflow: 'hidden',
+      // 모바일 주소창/내비게이션 바 고려한 실제 뷰포트 높이
+      height: '100dvh',
+    }}>
 
-      {/* 스크롤 영역 — 조이패드 높이만큼 하단 여백 */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: PAD_H + 10 }}>
-
-        {/* 헤더 */}
-        <div style={{ width: '100%', maxWidth: cW + 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px 0', boxSizing: 'border-box' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: 3 }}>TETRIS</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onPointerDown={() => { pausedRef.current = !pausedRef.current; setPaused(p => !p) }}
-              disabled={gameOver}
-              style={{ padding: '4px 12px', borderRadius: 8, border: '1px solid #3a3a3a', background: '#1e1e1e', color: paused ? '#F0A000' : '#888', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              {paused ? '▶ 재개' : '⏸ 정지'}
-            </button>
-            <button onPointerDown={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', display: 'flex', padding: 4 }}><X size={20} /></button>
-          </div>
+      {/* 헤더 — 고정 36px */}
+      <div style={{
+        width: '100%', flexShrink: 0, height: 36,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 12px', boxSizing: 'border-box',
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: 3 }}>TETRIS</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onPointerDown={() => { pausedRef.current = !pausedRef.current; setPaused(p => !p) }}
+            disabled={gameOver}
+            style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid #3a3a3a', background: '#1e1e1e', color: paused ? '#F0A000' : '#888', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            {paused ? '▶ 재개' : '⏸ 정지'}
+          </button>
+          <button onPointerDown={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', display: 'flex', padding: 2 }}><X size={18} /></button>
         </div>
+      </div>
 
-        {/* 정보 바 */}
-        <div style={{ width: '100%', maxWidth: cW + 24, display: 'flex', gap: 6, padding: '8px 12px', boxSizing: 'border-box' }}>
-          {[['SCORE', score.toLocaleString(), '#fff'], ['LINES', String(lines), '#fff'], ['LEVEL', String(level), '#F0A000']].map(([label, val, color]) => (
-            <div key={label} style={{ flex: 1, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, padding: '6px 8px' }}>
-              <div style={{ fontSize: 8, color: '#555', letterSpacing: 1, marginBottom: 1 }}>{label}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color }}>{val}</div>
-            </div>
-          ))}
-          <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, padding: '4px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ fontSize: 8, color: '#555', letterSpacing: 1, marginBottom: 2 }}>NEXT</div>
-            <canvas ref={nextCanvasRef} width={72} height={72} />
+      {/* 정보 바 — 고정 44px */}
+      <div style={{
+        width: '100%', flexShrink: 0, height: 44,
+        display: 'flex', gap: 5, padding: '3px 10px', boxSizing: 'border-box', alignItems: 'stretch',
+      }}>
+        {[['SCORE', score.toLocaleString(), '#fff'], ['LINES', String(lines), '#fff'], ['LEVEL', String(level), '#F0A000']].map(([label, val, color]) => (
+          <div key={label} style={{ flex: 1, background: '#1a1a1a', border: '1px solid #252525', borderRadius: 7, padding: '3px 7px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ fontSize: 7, color: '#555', letterSpacing: 1 }}>{label}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color, lineHeight: 1.2 }}>{val}</div>
           </div>
+        ))}
+        <div style={{ background: '#1a1a1a', border: '1px solid #252525', borderRadius: 7, padding: '3px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ fontSize: 7, color: '#555', letterSpacing: 1, marginBottom: 1 }}>NEXT</div>
+          <canvas ref={nextCanvasRef} width={64} height={64} style={{ display: 'block' }} />
         </div>
+      </div>
 
-        {/* 캔버스 — 너비 꽉 채움 */}
+      {/* 캔버스 — 남은 공간을 flex로 채우되, 실제 크기는 block 기준 */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <canvas
           ref={canvasRef}
           width={cW}
-          height={cH}
-          style={{ display: 'block', border: '2px solid #2a2a2a', borderRadius: 4 }}
+          height={ROWS * block}
+          style={{ display: 'block', border: '2px solid #2a2a2a', borderRadius: 3 }}
         />
-
       </div>
 
-      {/* 조이패드 — 화면 하단 고정 */}
+      {/* 조이패드 — 고정 116px */}
       <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, height: PAD_H,
-        background: '#0a0a0a', borderTop: '1px solid #1e1e1e',
+        width: '100%', flexShrink: 0, height: 116,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', zIndex: 502,
+        padding: '0 16px', boxSizing: 'border-box',
+        borderTop: '1px solid #1a1a1a',
       }}>
         {/* D-패드 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <Btn id="left" label="◀" repeat action={moveLeft} style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.42 }} />
-            <Btn id="right" label="▶" repeat action={moveRight} style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.42 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ display: 'flex', gap: 5 }}>
+            <Btn id="left"   label="◀" repeat action={moveLeft}  style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.4 }} />
+            <Btn id="right"  label="▶" repeat action={moveRight} style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.4 }} />
             <Btn id="rotate" label="↺" action={() => { rotatePiece(); render() }}
-              style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.48, background: 'rgba(160,0,240,0.2)', borderColor: '#7a00c0', color: '#c060ff' }} />
+              style={{ width: btnSz, height: btnSz, fontSize: btnSz * 0.46, background: 'rgba(160,0,240,0.2)', borderColor: '#7a00c0', color: '#c060ff' }} />
           </div>
           <Btn id="down" label="▼" repeat action={moveDown}
-            style={{ width: btnSz * 3 + 12, height: Math.round(btnSz * 0.72), fontSize: btnSz * 0.42 }} />
+            style={{ width: btnSz * 3 + 10, height: Math.round(btnSz * 0.65), fontSize: btnSz * 0.4 }} />
         </div>
 
-        {/* DROP 버튼 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <div style={{ fontSize: 9, color: '#555', letterSpacing: 1 }}>DROP</div>
+        {/* DROP */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+          <div style={{ fontSize: 8, color: '#555', letterSpacing: 1 }}>DROP</div>
           <Btn id="drop" label="⬇" action={() => { hardDrop(); render() }}
-            style={{ width: bigBtnSz, height: bigBtnSz, fontSize: bigBtnSz * 0.42, background: 'rgba(255,61,120,0.18)', borderColor: '#cc2255', color: '#ff4488', boxShadow: '0 4px 0 #550011' }} />
+            style={{ width: bigBtnSz, height: bigBtnSz, fontSize: bigBtnSz * 0.4, background: 'rgba(255,61,120,0.18)', borderColor: '#cc2255', color: '#ff4488', boxShadow: '0 3px 0 #550011' }} />
         </div>
       </div>
 
-      {/* 게임오버 오버레이 */}
+      {/* 게임오버 */}
       {gameOver && (
-        <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 510 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#FF3D78', marginBottom: 8 }}>GAME OVER</div>
-          <div style={{ fontSize: 15, color: '#fff', marginBottom: 4 }}>점수: {score.toLocaleString()}</div>
-          <div style={{ fontSize: 13, color: '#aaa', marginBottom: 24 }}>{lines}줄 · 레벨 {level}</div>
-          <button onClick={restart} style={{ padding: '12px 36px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#FF3D78,#FF6B35)', color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 10 }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#FF3D78', marginBottom: 8 }}>GAME OVER</div>
+          <div style={{ fontSize: 14, color: '#fff', marginBottom: 4 }}>점수: {score.toLocaleString()}</div>
+          <div style={{ fontSize: 12, color: '#aaa', marginBottom: 20 }}>{lines}줄 · 레벨 {level}</div>
+          <button onClick={restart} style={{ padding: '11px 32px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#FF3D78,#FF6B35)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
             다시 시작
           </button>
         </div>
       )}
 
-      {/* 일시정지 오버레이 */}
+      {/* 일시정지 */}
       {paused && !gameOver && (
-        <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', zIndex: 510 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#F0A000' }}>PAUSED</div>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', zIndex: 10 }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#F0A000' }}>PAUSED</div>
         </div>
       )}
     </div>

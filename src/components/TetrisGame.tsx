@@ -290,6 +290,34 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     })
   }
 
+  // ── 터치 스와이프 (캔버스 영역) ──
+  const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null)
+
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0]
+    touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() }
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (!touchStartRef.current || pausedRef.current || gameOverRef.current) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - touchStartRef.current.x
+    const dy = t.clientY - touchStartRef.current.y
+    const dt = Date.now() - touchStartRef.current.t
+    const adx = Math.abs(dx), ady = Math.abs(dy)
+    touchStartRef.current = null
+
+    // 탭 (이동 8px 미만) → 회전
+    if (adx < 8 && ady < 8) { doRotate(); render(); return }
+    // 빠른 아래 스와이프 → 하드드롭
+    if (ady > adx && dy > 30 && dt < 400) { hardDrop(); render(); return }
+    // 좌우 스와이프 → 이동
+    if (adx > ady && adx > 20) {
+      if (dx < 0) { moveLeft(); render() }
+      else        { moveRight(); render() }
+    }
+  }
+
   function padPress(id: string, fn: () => void, repeat = false) {
     if (pausedRef.current || gameOverRef.current) return
     setActiveBtn(id)
@@ -410,7 +438,10 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
             border: '1px solid #1E2430',
             borderRadius: 4,
             boxShadow: '0 0 40px rgba(255,61,120,0.06)',
+            touchAction: 'none',
           }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
         />
       </div>
 

@@ -128,11 +128,19 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     const ctx = canvas.getContext('2d')!
 
     // 배경
-    ctx.fillStyle = '#0A0C0F'
+    ctx.fillStyle = '#131720'
     ctx.fillRect(0, 0, COLS * B, ROWS * B)
 
+    // 빈 셀 (약한 셀 구분)
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++) {
+        if (boardRef.current[r][c]) continue
+        ctx.fillStyle = 'rgba(255,255,255,0.025)'
+        ctx.fillRect(c * B + 1, r * B + 1, B - 2, B - 2)
+      }
+
     // 그리드 라인
-    ctx.strokeStyle = 'rgba(30,36,48,0.8)'
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)'
     ctx.lineWidth = 0.5
     for (let r = 0; r <= ROWS; r++) {
       ctx.beginPath(); ctx.moveTo(0, r * B); ctx.lineTo(COLS * B, r * B); ctx.stroke()

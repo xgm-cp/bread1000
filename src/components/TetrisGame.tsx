@@ -467,13 +467,19 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
         padding: '0 14px', boxSizing: 'border-box',
         borderBottom: '1px solid #1E2430',
       }}>
-        {/* 앱 로고와 같은 그라디언트 텍스트 */}
-        <span style={{
-          fontSize: 16, fontWeight: 800, letterSpacing: 4,
-          background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}>TETRIS</span>
+        {/* 앱 로고 + BEST */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            fontSize: 16, fontWeight: 800, letterSpacing: 4,
+            background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}>TETRIS</span>
+          <span style={{ fontSize: 10, color: '#4A5568', fontWeight: 600 }}>BEST</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#FFD700' }}>
+            {bestScore.toLocaleString()}<span style={{ fontSize: 10, color: '#B8860B', marginLeft: 4 }}>Lv.{bestLevel}</span>
+          </span>
+        </div>
 
         <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
           <button
@@ -520,16 +526,6 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
             <div style={{ fontSize: 13, fontWeight: 700, color }}>{val}</div>
           </div>
         ))}
-        {/* BEST 칸: 점수 + 레벨 */}
-        <div style={{
-          flex: 1, background: '#111418', border: '1px solid #1E2430',
-          borderRadius: 7, padding: '3px 8px',
-          display: 'flex', flexDirection: 'column', justifyContent: 'center',
-        }}>
-          <div style={{ fontSize: 7, color: '#4A5568', letterSpacing: 1, textTransform: 'uppercase' }}>BEST</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#FFD700' }}>{bestScore.toLocaleString()}</div>
-          <div style={{ fontSize: 8, color: '#B8860B', marginTop: 1 }}>Lv.{bestLevel}</div>
-        </div>
         <div style={{
           background: '#111418', border: '1px solid #1E2430', borderRadius: 7,
           padding: '3px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',

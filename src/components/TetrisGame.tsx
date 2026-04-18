@@ -424,17 +424,21 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const bigSz = Math.max(52, Math.min(68, btnSz + 12))
 
   // pull-to-refresh 차단 + 아래 스와이프 → 일시정지
+  // (캔버스 터치 중이거나 버튼 누르는 중엔 판정 안 함)
   const rootTouchStartRef = useRef<{ y: number } | null>(null)
 
   function onRootTouchStart(e: React.TouchEvent) {
+    // 캔버스 위 터치는 캔버스 핸들러에 맡김
+    if ((e.target as HTMLElement).tagName === 'CANVAS') return
     rootTouchStartRef.current = { y: e.touches[0].clientY }
   }
 
   function onRootTouchMove(e: React.TouchEvent) {
-    e.preventDefault()
+    // 버튼 누르는 중이면 무시 (소프트드롭 등 보호)
+    if (activeBtn !== null) { rootTouchStartRef.current = null; return }
     if (!rootTouchStartRef.current || pausedRef.current || gameOverRef.current) return
     const dy = e.touches[0].clientY - rootTouchStartRef.current.y
-    if (dy > 60) {
+    if (dy > 80) {
       rootTouchStartRef.current = null
       pausedRef.current = true
       setPaused(true)

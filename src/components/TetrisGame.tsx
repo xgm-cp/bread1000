@@ -107,15 +107,20 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const [gameOver, setGameOver] = useState(false)
   const [paused, setPaused]   = useState(false)
   const [bestScore, setBestScore] = useState(0)
+  const [bestLevel, setBestLevel] = useState(1)
   const [newBest, setNewBest] = useState(false)
 
   const bestScoreRef = useRef(0)
+  const bestLevelRef = useRef(1)
 
   // 최고기록 불러오기
   useEffect(() => {
-    const saved = parseInt(localStorage.getItem('tetris_best') ?? '0', 10)
-    bestScoreRef.current = saved
-    setBestScore(saved)
+    const savedScore = parseInt(localStorage.getItem('tetris_best') ?? '0', 10)
+    const savedLevel = parseInt(localStorage.getItem('tetris_best_level') ?? '1', 10)
+    bestScoreRef.current = savedScore
+    bestLevelRef.current = savedLevel
+    setBestScore(savedScore)
+    setBestLevel(savedLevel)
   }, [])
 
   const pausedRef   = useRef(false)
@@ -257,6 +262,11 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
         setBestScore(scoreRef.current)
         setNewBest(true)
         localStorage.setItem('tetris_best', String(scoreRef.current))
+      }
+      if (levelRef.current > bestLevelRef.current) {
+        bestLevelRef.current = levelRef.current
+        setBestLevel(levelRef.current)
+        localStorage.setItem('tetris_best_level', String(levelRef.current))
       }
     }
   }, [])
@@ -464,7 +474,6 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
       }}>
         {([
           ['SCORE', score.toLocaleString(), '#FF3D78'],
-          ['BEST',  bestScore.toLocaleString(), '#FFD700'],
           ['LINES', String(lines),          '#8892A0'],
           ['LEVEL', String(level),          '#9B2FC9'],
         ] as [string, string, string][]).map(([label, val, color]) => (
@@ -477,6 +486,16 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
             <div style={{ fontSize: 13, fontWeight: 700, color }}>{val}</div>
           </div>
         ))}
+        {/* BEST 칸: 점수 + 레벨 */}
+        <div style={{
+          flex: 1, background: '#111418', border: '1px solid #1E2430',
+          borderRadius: 7, padding: '3px 8px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        }}>
+          <div style={{ fontSize: 7, color: '#4A5568', letterSpacing: 1, textTransform: 'uppercase' }}>BEST</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#FFD700' }}>{bestScore.toLocaleString()}</div>
+          <div style={{ fontSize: 8, color: '#B8860B', marginTop: 1 }}>Lv.{bestLevel}</div>
+        </div>
         <div style={{
           background: '#111418', border: '1px solid #1E2430', borderRadius: 7,
           padding: '3px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -615,19 +634,23 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
 
       {/* ── 일시정지 ── */}
       {paused && !gameOver && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 10,
-          background: 'rgba(10,12,15,0.7)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backdropFilter: 'blur(3px)',
-        }}>
+        <div
+          style={{
+            position: 'absolute', inset: 0, zIndex: 10,
+            background: 'rgba(10,12,15,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(3px)',
+            cursor: 'pointer',
+          }}
+          onPointerDown={() => { pausedRef.current = false; setPaused(false) }}
+        >
           <div style={{ textAlign: 'center' }}>
             <div style={{
               fontSize: 22, fontWeight: 800, letterSpacing: 4,
               background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             }}>PAUSED</div>
-            <div style={{ fontSize: 12, color: '#4A5568', marginTop: 6 }}>정지 버튼을 눌러 재개</div>
+            <div style={{ fontSize: 12, color: '#4A5568', marginTop: 6 }}>화면을 눌러 재개</div>
           </div>
         </div>
       )}

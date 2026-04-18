@@ -106,6 +106,17 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const [level, setLevel]     = useState(1)
   const [gameOver, setGameOver] = useState(false)
   const [paused, setPaused]   = useState(false)
+  const [bestScore, setBestScore] = useState(0)
+  const [newBest, setNewBest] = useState(false)
+
+  const bestScoreRef = useRef(0)
+
+  // 최고기록 불러오기
+  useEffect(() => {
+    const saved = parseInt(localStorage.getItem('tetris_best') ?? '0', 10)
+    bestScoreRef.current = saved
+    setBestScore(saved)
+  }, [])
 
   const pausedRef   = useRef(false)
   const gameOverRef = useRef(false)
@@ -238,7 +249,16 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     setScore(scoreRef.current); setLines(linesRef.current); setLevel(levelRef.current)
     pieceRef.current = { ...nextRef.current, x: Math.floor(COLS / 2) - Math.floor(nextRef.current.shape[0].length / 2), y: 0 }
     nextRef.current = randomPiece()
-    if (!isValid(boardRef.current, pieceRef.current)) { gameOverRef.current = true; setGameOver(true) }
+    if (!isValid(boardRef.current, pieceRef.current)) {
+      gameOverRef.current = true
+      setGameOver(true)
+      if (scoreRef.current > bestScoreRef.current) {
+        bestScoreRef.current = scoreRef.current
+        setBestScore(scoreRef.current)
+        setNewBest(true)
+        localStorage.setItem('tetris_best', String(scoreRef.current))
+      }
+    }
   }, [])
 
   const moveDown = useCallback(() => {
@@ -316,7 +336,7 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     scoreRef.current = 0; linesRef.current = 0; levelRef.current = 1
     gameOverRef.current = false; pausedRef.current = false
     dropCounterRef.current = 0; lastTimeRef.current = 0
-    setScore(0); setLines(0); setLevel(1); setGameOver(false); setPaused(false)
+    setScore(0); setLines(0); setLevel(1); setGameOver(false); setPaused(false); setNewBest(false)
     cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(function loop(t) {
       if (!gameOverRef.current) rafRef.current = requestAnimationFrame(loop)
@@ -444,6 +464,7 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
       }}>
         {([
           ['SCORE', score.toLocaleString(), '#FF3D78'],
+          ['BEST',  bestScore.toLocaleString(), '#FFD700'],
           ['LINES', String(lines),          '#8892A0'],
           ['LEVEL', String(level),          '#9B2FC9'],
         ] as [string, string, string][]).map(([label, val, color]) => (
@@ -571,8 +592,15 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
             boxShadow: '0 0 60px rgba(255,61,120,0.15)',
           }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#FF3D78', marginBottom: 10 }}>— GAME OVER —</div>
+            {newBest && (
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#FFD700', marginBottom: 6 }}>🏆 최고기록 갱신!</div>
+            )}
             <div style={{ fontSize: 32, fontWeight: 800, color: '#EEF0F4', marginBottom: 4 }}>{score.toLocaleString()}</div>
-            <div style={{ fontSize: 12, color: '#4A5568', marginBottom: 24 }}>{lines}줄 · 레벨 {level}</div>
+            <div style={{ fontSize: 12, color: '#4A5568', marginBottom: newBest ? 8 : 24 }}>{lines}줄 · 레벨 {level}</div>
+            {!newBest && bestScore > 0 && (
+              <div style={{ fontSize: 11, color: '#FFD700', marginBottom: 24 }}>최고 {bestScore.toLocaleString()}</div>
+            )}
+            {newBest && <div style={{ marginBottom: 24 }} />}
             <button onClick={restart} style={{
               padding: '12px 36px', borderRadius: 12, border: 'none',
               background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',

@@ -377,8 +377,13 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
 
     // 탭 (이동 8px 미만) → 회전
     if (adx < 8 && ady < 8) { doRotate(); render(); return }
-    // 빠른 아래 스와이프 → 하드드롭
-    if (ady > adx && dy > 30 && dt < 400) { hardDrop(); render(); return }
+    // 아래 스와이프 → 속도 기반 분기
+    if (ady > adx && dy > 20) {
+      const velocity = ady / dt  // px/ms
+      if (velocity > 0.5) { hardDrop(); render() }   // 빠름 → 하드드롭
+      else                { moveDown();  render() }   // 느림 → 소프트드롭 1칸
+      return
+    }
     // 좌우 스와이프 → 이동
     if (adx > ady && adx > 20) {
       if (dx < 0) { moveLeft(); render() }

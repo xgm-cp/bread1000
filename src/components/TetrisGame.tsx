@@ -423,13 +423,36 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const btnSz = Math.max(44, Math.min(58, Math.floor((cW - 60) / 5)))
   const bigSz = Math.max(52, Math.min(68, btnSz + 12))
 
+  // pull-to-refresh 차단 + 아래 스와이프 → 일시정지
+  const rootTouchStartRef = useRef<{ y: number } | null>(null)
+
+  function onRootTouchStart(e: React.TouchEvent) {
+    rootTouchStartRef.current = { y: e.touches[0].clientY }
+  }
+
+  function onRootTouchMove(e: React.TouchEvent) {
+    e.preventDefault()
+    if (!rootTouchStartRef.current || pausedRef.current || gameOverRef.current) return
+    const dy = e.touches[0].clientY - rootTouchStartRef.current.y
+    if (dy > 60) {
+      rootTouchStartRef.current = null
+      pausedRef.current = true
+      setPaused(true)
+    }
+  }
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 500,
-      background: '#0A0C0F',
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      overflow: 'hidden', height: '100dvh',
-    }}>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        background: '#0A0C0F',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        overflow: 'hidden', height: '100dvh',
+        overscrollBehavior: 'none',
+      }}
+      onTouchStart={onRootTouchStart}
+      onTouchMove={onRootTouchMove}
+    >
 
       {/* ── 헤더 ── */}
       <div style={{

@@ -423,26 +423,25 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const btnSz = Math.max(44, Math.min(58, Math.floor((cW - 60) / 5)))
   const bigSz = Math.max(52, Math.min(68, btnSz + 12))
 
-  // pull-to-refresh 차단 + 아래 스와이프 → 일시정지
-  // (캔버스 터치 중이거나 버튼 누르는 중엔 판정 안 함)
-  const rootTouchStartRef = useRef<{ y: number } | null>(null)
+  // 정보 바(SCORE 영역)에서만 아래 스와이프 → 일시정지
+  const infoSwipeStartY = useRef<number | null>(null)
 
-  function onRootTouchStart(e: React.TouchEvent) {
-    // 캔버스 위 터치는 캔버스 핸들러에 맡김
-    if ((e.target as HTMLElement).tagName === 'CANVAS') return
-    rootTouchStartRef.current = { y: e.touches[0].clientY }
+  function onInfoTouchStart(e: React.TouchEvent) {
+    infoSwipeStartY.current = e.touches[0].clientY
   }
 
-  function onRootTouchMove(e: React.TouchEvent) {
-    // 버튼 누르는 중이면 무시 (소프트드롭 등 보호)
-    if (activeBtn !== null) { rootTouchStartRef.current = null; return }
-    if (!rootTouchStartRef.current || pausedRef.current || gameOverRef.current) return
-    const dy = e.touches[0].clientY - rootTouchStartRef.current.y
-    if (dy > 80) {
-      rootTouchStartRef.current = null
+  function onInfoTouchMove(e: React.TouchEvent) {
+    if (infoSwipeStartY.current === null || pausedRef.current || gameOverRef.current) return
+    const dy = e.touches[0].clientY - infoSwipeStartY.current
+    if (dy > 40) {
+      infoSwipeStartY.current = null
       pausedRef.current = true
       setPaused(true)
     }
+  }
+
+  function onInfoTouchEnd() {
+    infoSwipeStartY.current = null
   }
 
   return (
@@ -454,8 +453,6 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
         overflow: 'hidden', height: '100dvh',
         overscrollBehavior: 'none',
       }}
-      onTouchStart={onRootTouchStart}
-      onTouchMove={onRootTouchMove}
     >
 
       {/* ── 헤더 ── */}
@@ -494,11 +491,16 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* ── 정보 바 ── */}
-      <div style={{
-        width: '100%', flexShrink: 0, height: 44,
-        display: 'flex', gap: 5, padding: '4px 10px', boxSizing: 'border-box',
-        borderBottom: '1px solid #1E2430',
-      }}>
+      <div
+        style={{
+          width: '100%', flexShrink: 0, height: 44,
+          display: 'flex', gap: 5, padding: '4px 10px', boxSizing: 'border-box',
+          borderBottom: '1px solid #1E2430',
+        }}
+        onTouchStart={onInfoTouchStart}
+        onTouchMove={onInfoTouchMove}
+        onTouchEnd={onInfoTouchEnd}
+      >
         {([
           ['SCORE', score.toLocaleString(), '#FF3D78'],
           ['LINES', String(lines),          '#8892A0'],

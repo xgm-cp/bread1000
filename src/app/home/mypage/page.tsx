@@ -680,8 +680,8 @@ export default function MypagePage() {
       </div>
     )}
 
-    {showTetris && <TetrisGame onClose={() => setShowTetris(false)} />}
-    {showMatch3 && <BreadMatch3 onClose={() => setShowMatch3(false)} />}
+    {showTetris && <TetrisGame onClose={() => setShowTetris(false)} userId={userId} userName={userName} />}
+    {showMatch3 && <BreadMatch3 onClose={() => setShowMatch3(false)} userId={userId} userName={userName} />}
 
     {modal && (
       <div onClick={() => setModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }}>

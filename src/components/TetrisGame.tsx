@@ -81,7 +81,11 @@ function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, B: numbe
   ctx.restore()
 }
 
-export default function TetrisGame({ onClose }: { onClose: () => void }) {
+export default function TetrisGame({ onClose, userId = '', userName = '' }: {
+  onClose: () => void
+  userId?: string
+  userName?: string
+}) {
   const [block, setBlock] = useState(28)
   const blockRef = useRef(28)
 
@@ -109,9 +113,14 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const [bestScore, setBestScore] = useState(0)
   const [bestLevel, setBestLevel] = useState(1)
   const [newBest, setNewBest] = useState(false)
+  const [topPlayer, setTopPlayer] = useState<{ 사용자이름: string; 점수: number; 레벨?: number } | null>(null)
 
   const bestScoreRef = useRef(0)
   const bestLevelRef = useRef(1)
+  const userIdRef = useRef(userId)
+  const userNameRef = useRef(userName)
+  useEffect(() => { userIdRef.current = userId }, [userId])
+  useEffect(() => { userNameRef.current = userName }, [userName])
 
   // 최고기록 불러오기
   useEffect(() => {
@@ -121,6 +130,14 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     bestLevelRef.current = savedLevel
     setBestScore(savedScore)
     setBestLevel(savedLevel)
+  }, [])
+
+  // 전체 1위 불러오기
+  useEffect(() => {
+    fetch('/api/game/leaderboard?game=tetris')
+      .then(r => r.json())
+      .then(d => { if (d.top) setTopPlayer(d.top) })
+      .catch(() => {})
   }, [])
 
   const pausedRef   = useRef(false)
@@ -267,6 +284,23 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
         bestLevelRef.current = levelRef.current
         setBestLevel(levelRef.current)
         localStorage.setItem('tetris_best_level', String(levelRef.current))
+      }
+      // Supabase 저장
+      if (userIdRef.current && scoreRef.current > 0) {
+        const payload = {
+          게임종류: 'tetris',
+          사용자아이디: userIdRef.current,
+          사용자이름: userNameRef.current,
+          점수: scoreRef.current,
+          레벨: levelRef.current,
+        }
+        fetch('/api/game/score', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).then(r => r.json()).then(d => {
+          if (d.updated) setTopPlayer({ 사용자이름: payload.사용자이름, 점수: payload.점수, 레벨: payload.레벨 })
+        }).catch(() => {})
       }
     }
   }, [])
@@ -467,18 +501,33 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
         padding: '0 14px', boxSizing: 'border-box',
         borderBottom: '1px solid #1E2430',
       }}>
-        {/* 앱 로고 + BEST */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* 앱 로고 + BEST + 전체 1위 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden' }}>
           <span style={{
-            fontSize: 16, fontWeight: 800, letterSpacing: 4,
+            fontSize: 16, fontWeight: 800, letterSpacing: 4, flexShrink: 0,
             background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
           }}>TETRIS</span>
-          <span style={{ fontSize: 10, color: '#4A5568', fontWeight: 600 }}>BEST</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#FFD700' }}>
+          <span style={{ fontSize: 10, color: '#4A5568', fontWeight: 600, flexShrink: 0 }}>BEST</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#FFD700', flexShrink: 0 }}>
             {bestScore.toLocaleString()}<span style={{ fontSize: 10, color: '#B8860B', marginLeft: 4 }}>Lv.{bestLevel}</span>
           </span>
+          {topPlayer && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0,
+              background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.22)',
+              borderRadius: 6, padding: '1px 7px',
+            }}>
+              <span style={{ fontSize: 9, flexShrink: 0 }}>🏆</span>
+              <span style={{ fontSize: 10, color: '#8892A0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 52 }}>
+                {topPlayer.사용자이름}
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#FFD700', flexShrink: 0 }}>
+                {topPlayer.점수.toLocaleString()}
+              </span>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>

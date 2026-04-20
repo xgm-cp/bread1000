@@ -59,7 +59,11 @@ function ParticleLayer({ particles }: { particles: Particle[] }) {
   )
 }
 
-export default function BreadMatch3({ onClose }: { onClose: () => void }) {
+export default function BreadMatch3({ onClose, userId = '', userName = '' }: {
+  onClose: () => void
+  userId?: string
+  userName?: string
+}) {
   const {
     grid, score, combo, movesLeft, isProcessing,
     gameState, lastMatchPos, particles,
@@ -81,11 +85,24 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
   const [showFinal, setShowFinal] = useState(false) // 10판 완료 화면
   const [newBest, setNewBest] = useState(false)
   const [sessionTotal, setSessionTotal] = useState(0) // 현재 세션 누적 점수
+  const [topPlayer, setTopPlayer] = useState<{ 사용자이름: string; 점수: number } | null>(null)
 
   const scoreRef = useRef(0)
   scoreRef.current = score
   const bestScoreRef = useRef(bestScore)
   const sessionTotalRef = useRef(0)
+  const userIdRef = useRef(userId)
+  const userNameRef = useRef(userName)
+  useEffect(() => { userIdRef.current = userId }, [userId])
+  useEffect(() => { userNameRef.current = userName }, [userName])
+
+  // 전체 1위 불러오기
+  useEffect(() => {
+    fetch('/api/game/leaderboard?game=match3')
+      .then(r => r.json())
+      .then(d => { if (d.top) setTopPlayer(d.top) })
+      .catch(() => {})
+  }, [])
 
   // 게임 종료 시 최고점수 갱신 (localStorage 누적)
   useEffect(() => {
@@ -101,6 +118,17 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
         setBestScore(cur)
         setNewBest(true)
         localStorage.setItem('breadMatch3BestScore', String(cur))
+        // Supabase 저장
+        if (userIdRef.current) {
+          const payload = { 게임종류: 'match3', 사용자아이디: userIdRef.current, 사용자이름: userNameRef.current, 점수: cur }
+          fetch('/api/game/score', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          }).then(r => r.json()).then(d => {
+            if (d.updated) setTopPlayer({ 사용자이름: payload.사용자이름, 점수: cur })
+          }).catch(() => {})
+        }
       } else {
         setNewBest(false)
       }
@@ -266,6 +294,24 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
                   </span>
                   <span style={{ fontSize: 9, color: '#7C3AED', fontWeight: 600 }}>/{MAX_ROUNDS}</span>
                 </div>
+
+                {/* 전체 1위 뱃지 */}
+                {topPlayer && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 3,
+                    background: 'rgba(255,215,0,0.08)',
+                    border: '1px solid rgba(255,215,0,0.22)',
+                    borderRadius: 6, padding: '2px 7px',
+                  }}>
+                    <span style={{ fontSize: 9, flexShrink: 0 }}>🏆</span>
+                    <span style={{ fontSize: 10, color: '#8892A0', fontWeight: 600, maxWidth: 50, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {topPlayer.사용자이름}
+                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: T.neonY, flexShrink: 0 }}>
+                      {topPlayer.점수.toLocaleString()}
+                    </span>
+                  </div>
+                )}
 
                 {/* 최고점수 뱃지 */}
                 <div style={{

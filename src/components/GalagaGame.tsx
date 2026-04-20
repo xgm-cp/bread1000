@@ -70,9 +70,9 @@ function makeStars(): Star[] {
   }))
 }
 
-function makeEntryPath(e: Enemy) {
+function makeEntryPath(e: Enemy, steps: number) {
   const side = e.x < 0 ? -1 : 1
-  const steps = 120; e.path = []   // 80 → 120 : 진입 느리게
+  e.path = []
   for (let t = 0; t <= steps; t++) {
     const pct = t / steps
     const curve = side * Math.sin(pct * Math.PI) * 120
@@ -80,8 +80,8 @@ function makeEntryPath(e: Enemy) {
   }
 }
 
-function makeDivePath(e: Enemy) {
-  const steps = 240; const side = e.fx < W / 2 ? -1 : 1; e.path = []  // 160 → 240 : 다이브 느리게
+function makeDivePath(e: Enemy, steps: number) {
+  const side = e.fx < W / 2 ? -1 : 1; e.path = []
   for (let t = 0; t <= steps; t++) {
     const pct = t / steps; let x: number, y: number
     if (pct < 0.5) {
@@ -137,7 +137,7 @@ export default function GalagaGame({
   const [activeItems, setActiveItems] = useState<number[]>([])  // 현재 활성 아이템 타입들
 
   // 리더보드
-  const [topPlayer, setTopPlayer] = useState<{ 사용자이름: string; 점수: number } | null>(null)
+  const [topPlayer, setTopPlayer] = useState<{ 사용자이름: string; 점수: number; 레벨?: number | null } | null>(null)
   const [myBest, setMyBest]         = useState(0)
   const [myBestStage, setMyBestStage] = useState(0)
 
@@ -229,17 +229,20 @@ export default function GalagaGame({
 
   // ── 아이템 드롭 ───────────────────────────────────────────
   const spawnItem = useCallback((x: number, y: number, enemyType: number) => {
-    // 랜덤 빵 드롭: bee 40%, butterfly 55%, boss 80%
-    const breadChance = [0.40, 0.55, 0.80][enemyType] ?? 0.40
+    const stage = stageRef.current
+    // 빵 드롭: 스테이지 오를수록 감소 (최소 15/25/50%)
+    const baseBreadChance = [0.40, 0.55, 0.80][enemyType] ?? 0.40
+    const breadChance = Math.max([0.15, 0.25, 0.50][enemyType] ?? 0.15, baseBreadChance - (stage - 1) * 0.025)
     if (Math.random() < breadChance) {
       let breadType = ENEMY_BREAD[enemyType] ?? 4
       if (enemyType === 2 && Math.random() < 0.25) breadType = 7  // boss 25% 스페셜
       itemsRef.current.push({ x, y, vy: 1.6, type: breadType, frame: 0 })
     }
 
-    // 희귀 파워업 (최대 1개)
+    // 희귀 파워업: 스테이지 오를수록 감소 (최소 0.5%)
     for (let t = 0; t < 4; t++) {
-      if (Math.random() < POWERUP_CHANCE[t]) {
+      const powerChance = Math.max(0.005, POWERUP_CHANCE[t] - (stage - 1) * 0.002)
+      if (Math.random() < powerChance) {
         itemsRef.current.push({ x: x + (Math.random() - 0.5) * 20, y, vy: 1.4, type: t, frame: 0 })
         break
       }
@@ -485,7 +488,13 @@ export default function GalagaGame({
   // ── 업데이트 ─────────────────────────────────────────────
   const update = useCallback(() => {
     if (gsRef.current !== 'play') return
-    tickRef.current++; formOscRef.current += 0.007
+    tickRef.current++
+    const stage = stageRef.current
+    const entrySteps  = Math.max(80,  160 - (stage - 1) * 8)   // st1:160 → st10:88 → min80
+    const diveSteps   = Math.max(150, 330 - (stage - 1) * 18)  // st1:330 → st10:168 → min150
+    const returnSpeed = Math.min(4.5, 1.8 + (stage - 1) * 0.15) // st1:1.8 → st10:3.15 → max4.5
+    const oscSpeed    = Math.min(0.018, 0.004 + (stage - 1) * 0.001) // st1:0.004 → st14:0.017
+    formOscRef.current += oscSpeed
 
     starsRef.current.forEach(s => { s.y += s.speed; if (s.y > H) { s.y = 0; s.x = Math.random() * W } })
 
@@ -561,7 +570,7 @@ export default function GalagaGame({
       e.frame++
       if (e.state === 'entering') {
         if (e.entryDelay > 0) { e.entryDelay--; return }
-        if (!e.path.length) makeEntryPath(e)
+        if (!e.path.length) makeEntryPath(e, entrySteps)
         if (e.pathIdx < e.path.length) {
           const pt = e.path[e.pathIdx++]; e.x = pt.x; e.y = pt.y
         } else { e.x = e.fx; e.y = e.fy; e.state = 'formed'; e.path = []; e.pathIdx = 0 }
@@ -571,7 +580,8 @@ export default function GalagaGame({
       } else if (e.state === 'diving') {
         if (e.pathIdx < e.path.length) {
           const pt = e.path[e.pathIdx++]; e.x = pt.x; e.y = pt.y
-          if (e.pathIdx % 30 === 15 && e.y > 0 && e.y < H) {
+          const bulletInterval = Math.max(15, 50 - (stageRef.current - 1) * 3)
+          if (e.pathIdx % bulletInterval === Math.floor(bulletInterval / 2) && e.y > 0 && e.y < H) {
             const angle = Math.atan2(p.y - e.y, p.x - e.x)
             ebulletsRef.current.push({ x: e.x, y: e.y, vx: Math.cos(angle) * 2.4, vy: Math.sin(angle) * 2.4 + 0.8 })
           }
@@ -579,7 +589,7 @@ export default function GalagaGame({
       } else if (e.state === 'returning') {
         const dx = e.fx - e.x, dy = e.fy - e.y, d = Math.sqrt(dx * dx + dy * dy)
         if (d < 3) { e.x = e.fx; e.y = e.fy; e.state = 'formed' }
-        else { e.x += dx / d * 2.5; e.y += dy / d * 2.5 }  // 복귀 속도 낮춤
+        else { e.x += dx / d * returnSpeed; e.y += dy / d * returnSpeed }
       }
     })
 
@@ -592,7 +602,7 @@ export default function GalagaGame({
       for (let i = 0; i < count; i++) {
         const idx = Math.floor(Math.random() * formed.length)
         const diver = formed[idx]
-        if (diver) { makeDivePath(diver); diver.state = 'diving'; diver.pathIdx = 0; formed.splice(idx, 1) }
+        if (diver) { makeDivePath(diver, diveSteps); diver.state = 'diving'; diver.pathIdx = 0; formed.splice(idx, 1) }
       }
     }
 
@@ -781,8 +791,10 @@ export default function GalagaGame({
                   }}>
                     <span style={{ color: T.text2 }}>{topPlayer.사용자이름}</span>
                     <span style={{ color: T.neonY, marginLeft: 6 }}>{topPlayer.점수.toLocaleString()}</span>
+                    {topPlayer.레벨 && <span style={{ color: '#9B2FC9', marginLeft: 4, fontSize: 9, fontWeight: 700 }}>St.{topPlayer.레벨}</span>}
                     <span style={{ marginLeft: 18, color: T.text2 }}>{topPlayer.사용자이름}</span>
                     <span style={{ color: T.neonY, marginLeft: 6 }}>{topPlayer.점수.toLocaleString()}</span>
+                    {topPlayer.레벨 && <span style={{ color: '#9B2FC9', marginLeft: 4, fontSize: 9, fontWeight: 700 }}>St.{topPlayer.레벨}</span>}
                   </div>
                 </div>
               </div>

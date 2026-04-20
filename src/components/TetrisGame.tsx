@@ -3,6 +3,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 
+const marqueeStyle = `
+@keyframes marquee-scroll {
+  0%   { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+`
+
 const COLS = 10
 const ROWS = 20
 
@@ -523,22 +530,36 @@ export default function TetrisGame({ onClose, userId = '', userName = '' }: {
             {bestScore.toLocaleString()}<span style={{ fontSize: 10, color: '#B8860B', marginLeft: 4 }}>Lv.{bestLevel}</span>
           </span>
           {topPlayer && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0,
-              background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.22)',
-              borderRadius: 6, padding: '1px 7px',
-            }}>
-              <span style={{ fontSize: 9, flexShrink: 0 }}>🏆</span>
-              <span style={{ fontSize: 10, color: '#8892A0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 52 }}>
-                {topPlayer.사용자이름}
-              </span>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#FFD700', flexShrink: 0 }}>
-                {topPlayer.점수.toLocaleString()}
-              </span>
-              {topPlayer.레벨 && (
-                <span style={{ fontSize: 9, color: '#B8860B', flexShrink: 0 }}>Lv.{topPlayer.레벨}</span>
-              )}
-            </div>
+            <>
+              <style>{marqueeStyle}</style>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0,
+                background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.22)',
+                borderRadius: 6, padding: '1px 7px',
+                overflow: 'hidden', maxWidth: 120,
+              }}>
+                <span style={{ fontSize: 9, flexShrink: 0 }}>🏆</span>
+                <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    display: 'inline-block',
+                    whiteSpace: 'nowrap',
+                    animation: 'marquee-scroll 6s linear infinite',
+                    fontSize: 10, fontWeight: 700,
+                  }}>
+                    <span style={{ color: '#8892A0' }}>{topPlayer.사용자이름}</span>
+                    <span style={{ color: '#FFD700', marginLeft: 6 }}>{topPlayer.점수.toLocaleString()}</span>
+                    {topPlayer.레벨 && (
+                      <span style={{ color: '#B8860B', marginLeft: 4 }}>Lv.{topPlayer.레벨}</span>
+                    )}
+                    <span style={{ marginLeft: 16, color: '#8892A0' }}>{topPlayer.사용자이름}</span>
+                    <span style={{ color: '#FFD700', marginLeft: 6 }}>{topPlayer.점수.toLocaleString()}</span>
+                    {topPlayer.레벨 && (
+                      <span style={{ color: '#B8860B', marginLeft: 4 }}>Lv.{topPlayer.레벨}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
 

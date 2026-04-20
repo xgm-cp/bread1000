@@ -46,6 +46,13 @@ interface Enemy {
   path: V2[]; pathIdx: number; frame: number; entryDelay: number
 }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; col: string }
+// 아이템 타입: 0=버터(실드) 1=잼(연사) 2=우유(2배점수) 3=바나나우유(2연발)
+interface Item { x: number; y: number; vy: number; type: number; frame: number }
+const ITEM_DURATION = 60 * 8  // 8초 (60fps 기준)
+const ITEM_COLORS   = ['#FFD700', '#FF3D78', '#FFFFFF', '#FFE135']
+const ITEM_LABELS   = ['🧈', '🍓', '🥛', '🍌']
+const ITEM_NAMES    = ['버터 실드', '딸기잼 연사', '우유 2배', '바나나 2연발']
+const ITEM_DROP_CHANCE = [0.18, 0.20, 0.15, 0.17]  // 타입별 드롭 확률
 
 // ── 게임 로직 유틸 ────────────────────────────────────────────
 function makeStars(): Star[] {
@@ -115,12 +122,13 @@ export default function GalagaGame({
   const cvRef = useRef<HTMLCanvasElement>(null)
 
   // HUD state
-  const [hudScore, setHudScore] = useState(0)
-  const [hudStage, setHudStage] = useState(1)
-  const [hudLives, setHudLives] = useState(3)
-  const [gstate, setGstate]     = useState<GS>('start')
-  const [stageMsg, setStageMsg] = useState('')
-  const [showExit, setShowExit] = useState(false)
+  const [hudScore, setHudScore]   = useState(0)
+  const [hudStage, setHudStage]   = useState(1)
+  const [hudLives, setHudLives]   = useState(3)
+  const [gstate, setGstate]       = useState<GS>('start')
+  const [stageMsg, setStageMsg]   = useState('')
+  const [showExit, setShowExit]   = useState(false)
+  const [activeItems, setActiveItems] = useState<number[]>([])  // 현재 활성 아이템 타입들
 
   // 리더보드
   const [topPlayer, setTopPlayer] = useState<{ 사용자이름: string; 점수: number } | null>(null)
@@ -139,12 +147,20 @@ export default function GalagaGame({
   const formOscRef  = useRef(0)
   const myBestRef   = useRef(0)
 
-  const playerRef   = useRef({ x: W / 2, y: H - 50, speed: 4 })
-  const bulletsRef  = useRef<Bullet[]>([])
-  const ebulletsRef = useRef<EBullet[]>([])
-  const enemiesRef  = useRef<Enemy[]>([])
-  const particlesRef= useRef<Particle[]>([])
-  const starsRef    = useRef<Star[]>(makeStars())
+  const playerRef    = useRef({ x: W / 2, y: H - 50, speed: 4 })
+  const bulletsRef   = useRef<Bullet[]>([])
+  const ebulletsRef  = useRef<EBullet[]>([])
+  const enemiesRef   = useRef<Enemy[]>([])
+  const particlesRef = useRef<Particle[]>([])
+  const starsRef     = useRef<Star[]>(makeStars())
+  const itemsRef     = useRef<Item[]>([])
+  // 파워업 타이머 (남은 틱, 0=비활성)
+  const shieldRef    = useRef(0)   // 버터 — 실드
+  const jamRef       = useRef(0)   // 잼   — 연사
+  const milkRef      = useRef(0)   // 우유  — 2배점수
+  const bananaRef    = useRef(0)   // 바나나 — 2연발
+  // 자동발사 틱 카운터
+  const autoFireTickRef = useRef(0)
 
   const keysRef    = useRef<Record<string, boolean>>({})
   const tLeftRef   = useRef(false)
@@ -191,13 +207,16 @@ export default function GalagaGame({
     }
   }, [])
 
-  // ── 발사 ─────────────────────────────────────────────────
-  const fire = useCallback(() => {
-    if (gsRef.current !== 'play') return
-    const now = Date.now()
-    if (now - lastShotRef.current < 250) return
-    lastShotRef.current = now
-    bulletsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y - 14, vy: -10, h: 12 })
+  // ── 아이템 드롭 ───────────────────────────────────────────
+  const spawnItem = useCallback((x: number, y: number, enemyType: number) => {
+    // 적 타입에 따라 드롭 확률 가중
+    const bonus = enemyType === 2 ? 0.15 : 0
+    for (let t = 0; t < 4; t++) {
+      if (Math.random() < ITEM_DROP_CHANCE[t] + bonus) {
+        itemsRef.current.push({ x, y, vy: 1.8, type: t, frame: 0 })
+        break  // 한 적에서 하나만
+      }
+    }
   }, [])
 
   // ── 점수 저장 ─────────────────────────────────────────────
@@ -222,12 +241,14 @@ export default function GalagaGame({
   const startGame = useCallback(() => {
     scoreRef.current = 0; stageRef.current = 1; livesRef.current = 3
     playerRef.current = { x: W / 2, y: H - 50, speed: 4 }
-    bulletsRef.current = []; ebulletsRef.current = []; particlesRef.current = []
+    bulletsRef.current = []; ebulletsRef.current = []; particlesRef.current = []; itemsRef.current = []
+    shieldRef.current = 0; jamRef.current = 0; milkRef.current = 0; bananaRef.current = 0
+    autoFireTickRef.current = 0
     const { enemies, interval } = spawnFormation(1)
     enemiesRef.current = enemies; waveIntervalRef.current = interval
     waveTimerRef.current = 0; invincRef.current = 0; tickRef.current = 0
     lastTimeRef.current = 0; accumRef.current = 0
-    gsRef.current = 'play'; setGstate('play'); setStageMsg('')
+    gsRef.current = 'play'; setGstate('play'); setStageMsg(''); setActiveItems([])
     updateHUD()
   }, [updateHUD])
 
@@ -303,6 +324,18 @@ export default function GalagaGame({
 
     // 플레이어
     if (gsRef.current === 'play' || gsRef.current === 'gameover') {
+      const shieldActive = shieldRef.current > 0
+      // 버터 실드 링
+      if (shieldActive) {
+        const px = playerRef.current.x, py = playerRef.current.y
+        const pulse = 0.6 + 0.4 * Math.sin(tick * 0.15)
+        ctx.save()
+        ctx.strokeStyle = `rgba(255,215,0,${pulse})`
+        ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 14
+        ctx.lineWidth = 2.5
+        ctx.beginPath(); ctx.arc(px, py, 22, 0, Math.PI * 2); ctx.stroke()
+        ctx.shadowBlur = 0; ctx.restore()
+      }
       if (!(invincRef.current > 0 && Math.floor(invincRef.current / 5) % 2 === 0)) {
         const px = playerRef.current.x, py = playerRef.current.y
         ctx.save()
@@ -335,6 +368,58 @@ export default function GalagaGame({
       ctx.fillRect(b.x - 2, b.y, 4, 9); ctx.shadowBlur = 0
     })
 
+    // ── 아이템 드롭 ──────────────────────────────────────────
+    itemsRef.current.forEach(it => {
+      const { x, y, type, frame } = it
+      const bob = Math.sin(frame * 0.12) * 2   // 위아래 흔들림
+      ctx.save(); ctx.translate(x, y + bob)
+
+      if (type === 0) {
+        // 버터 — 노란 사각형
+        ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 8
+        ctx.fillStyle = '#FFD700'
+        ctx.fillRect(-9, -7, 18, 14)
+        ctx.fillStyle = '#FFF176'
+        ctx.fillRect(-6, -4, 6, 4)
+        ctx.fillStyle = '#E6B800'
+        ctx.fillRect(-9, 5, 18, 2)
+      } else if (type === 1) {
+        // 딸기잼 — 빨간 병
+        ctx.shadowColor = '#FF3D78'; ctx.shadowBlur = 8
+        ctx.fillStyle = '#8B4513'
+        ctx.fillRect(-5, -10, 10, 4)      // 뚜껑
+        ctx.fillStyle = '#FF3D78'
+        ctx.beginPath(); ctx.roundRect(-7, -6, 14, 16, 3); ctx.fill()
+        ctx.fillStyle = 'rgba(255,180,200,0.5)'
+        ctx.fillRect(-4, -3, 4, 6)
+      } else if (type === 2) {
+        // 우유 — 흰 우유갑
+        ctx.shadowColor = '#AADDFF'; ctx.shadowBlur = 8
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(-8, -10, 16, 18)
+        ctx.fillStyle = '#4A9EFF'
+        ctx.fillRect(-8, -10, 16, 6)
+        ctx.fillStyle = '#FFFFFF'
+        ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'
+        ctx.fillStyle = '#003080'
+        ctx.fillText('2x', 0, 4)
+      } else {
+        // 바나나우유 — 노란 우유갑 + 바나나
+        ctx.shadowColor = '#FFE135'; ctx.shadowBlur = 8
+        ctx.fillStyle = '#FFE135'
+        ctx.fillRect(-8, -10, 16, 18)
+        ctx.fillStyle = '#E6B800'
+        ctx.fillRect(-8, -10, 16, 5)
+        ctx.fillStyle = '#8B6914'
+        ctx.beginPath(); ctx.arc(0, -3, 5, Math.PI, 0); ctx.stroke()
+        ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 2
+        ctx.beginPath(); ctx.arc(0, -3, 5, Math.PI, 0); ctx.stroke()
+        ctx.lineWidth = 1
+      }
+
+      ctx.shadowBlur = 0; ctx.restore()
+    })
+
     // 파티클
     particlesRef.current.forEach(p => {
       ctx.globalAlpha = p.life / 60; ctx.fillStyle = p.col
@@ -359,7 +444,7 @@ export default function GalagaGame({
   // ── 업데이트 ─────────────────────────────────────────────
   const update = useCallback(() => {
     if (gsRef.current !== 'play') return
-    tickRef.current++; formOscRef.current += 0.007  // 대형 흔들림 느리게
+    tickRef.current++; formOscRef.current += 0.007
 
     starsRef.current.forEach(s => { s.y += s.speed; if (s.y > H) { s.y = 0; s.x = Math.random() * W } })
 
@@ -367,6 +452,58 @@ export default function GalagaGame({
     if ((keysRef.current['ArrowLeft'] || tLeftRef.current) && p.x > 20) p.x -= p.speed
     if ((keysRef.current['ArrowRight'] || tRightRef.current) && p.x < W - 20) p.x += p.speed
     if (invincRef.current > 0) invincRef.current--
+
+    // ── 파워업 타이머 카운트다운 ────────────────────────────
+    let powerChanged = false
+    if (shieldRef.current  > 0) { shieldRef.current--;  if (shieldRef.current  === 0) powerChanged = true }
+    if (jamRef.current     > 0) { jamRef.current--;     if (jamRef.current     === 0) powerChanged = true }
+    if (milkRef.current    > 0) { milkRef.current--;    if (milkRef.current    === 0) powerChanged = true }
+    if (bananaRef.current  > 0) { bananaRef.current--;  if (bananaRef.current  === 0) powerChanged = true }
+    if (powerChanged) {
+      const active: number[] = []
+      if (shieldRef.current > 0) active.push(0)
+      if (jamRef.current    > 0) active.push(1)
+      if (milkRef.current   > 0) active.push(2)
+      if (bananaRef.current > 0) active.push(3)
+      setActiveItems(active)
+    }
+
+    // ── 자동 발사 ───────────────────────────────────────────
+    const fireCooldown = jamRef.current > 0 ? 8 : 18  // 잼: 빠른 연사
+    autoFireTickRef.current++
+    if (autoFireTickRef.current >= fireCooldown) {
+      autoFireTickRef.current = 0
+      const px = playerRef.current.x, py = playerRef.current.y - 14
+      if (bananaRef.current > 0) {
+        // 바나나우유: 좌우 2연발
+        bulletsRef.current.push({ x: px - 7, y: py, vy: -11, h: 12 })
+        bulletsRef.current.push({ x: px + 7, y: py, vy: -11, h: 12 })
+      } else {
+        bulletsRef.current.push({ x: px, y: py, vy: -11, h: 12 })
+      }
+    }
+
+    // ── 아이템 이동 & 수집 ──────────────────────────────────
+    itemsRef.current = itemsRef.current.filter(it => {
+      it.y += it.vy; it.frame++
+      if (it.y > H + 20) return false
+      if (hitRect(it.x, it.y, 10, p.x, p.y, 16)) {
+        // 획득
+        if (it.type === 0) shieldRef.current  = ITEM_DURATION
+        if (it.type === 1) jamRef.current     = ITEM_DURATION
+        if (it.type === 2) milkRef.current    = ITEM_DURATION
+        if (it.type === 3) bananaRef.current  = ITEM_DURATION
+        const active: number[] = []
+        if (shieldRef.current > 0) active.push(0)
+        if (jamRef.current    > 0) active.push(1)
+        if (milkRef.current   > 0) active.push(2)
+        if (bananaRef.current > 0) active.push(3)
+        setActiveItems(active)
+        burst(it.x, it.y, ITEM_COLORS[it.type], 16)
+        return false
+      }
+      return true
+    })
 
     bulletsRef.current  = bulletsRef.current.filter(b => { b.y += b.vy; return b.y > -10 })
     ebulletsRef.current = ebulletsRef.current.filter(b => { b.y += b.vy; b.x += b.vx; return b.y < H + 10 })
@@ -416,15 +553,17 @@ export default function GalagaGame({
       enemiesRef.current.filter(e => e.alive).forEach(e => {
         if (hitRect(b.x, b.y, 6, e.x, e.y, 12)) {
           e.alive = false; b.y = -999
-          scoreRef.current += TYPE_POINTS[e.type] * stageRef.current
+          const mult = milkRef.current > 0 ? 2 : 1   // 우유: 2배 점수
+          scoreRef.current += TYPE_POINTS[e.type] * stageRef.current * mult
           burst(e.x, e.y, TYPE_COLORS[e.type], 12)
+          spawnItem(e.x, e.y, e.type)
           updateHUD()
         }
       })
     })
 
-    // 적 vs 플레이어
-    if (invincRef.current <= 0) {
+    // 적 vs 플레이어 (실드 활성 시 무적)
+    if (invincRef.current <= 0 && shieldRef.current <= 0) {
       ebulletsRef.current.forEach(b => {
         if (hitRect(b.x, b.y, 6, p.x, p.y, 12)) {
           b.y = H + 999; burst(p.x, p.y, '#4af', 14)
@@ -461,7 +600,7 @@ export default function GalagaGame({
     particlesRef.current = particlesRef.current.filter(pt => {
       pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.08; pt.life--; return pt.life > 0
     })
-  }, [burst, updateHUD, saveScore])
+  }, [burst, updateHUD, saveScore, spawnItem])
 
   // ── 게임 루프 (고정 60FPS 타임스텝) ─────────────────────
   const loop = useCallback((timestamp: number) => {
@@ -502,13 +641,13 @@ export default function GalagaGame({
     const onDown = (e: KeyboardEvent) => {
       keysRef.current[e.code] = true
       if (['ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault()
-      if (e.code === 'Space') { if (gsRef.current !== 'play') startGame(); else fire() }
+      if (e.code === 'Space') { if (gsRef.current !== 'play') startGame() }
     }
     const onUp = (e: KeyboardEvent) => { keysRef.current[e.code] = false }
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)
     return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp) }
-  }, [startGame, fire])
+  }, [startGame])
 
   // ── 뒤로가기 ─────────────────────────────────────────────
   useEffect(() => {
@@ -540,8 +679,7 @@ export default function GalagaGame({
     if (!swipeRef.current) return
     const totalDx = Math.abs(e.changedTouches[0].clientX - swipeRef.current.startX)
     const dt = Date.now() - swipeRef.current.startTime
-    if (totalDx < 10 && dt < 220) fire()                  // 탭 → 발사
-    swipeRef.current = null
+    swipeRef.current = null  // 자동발사이므로 탭 별도 처리 불필요
     tLeftRef.current = false; tRightRef.current = false
   }
 
@@ -661,6 +799,24 @@ export default function GalagaGame({
             </div>
           </div>
         </div>
+
+        {/* 파워업 아이템 현황 */}
+        {activeItems.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            {activeItems.map(t => (
+              <div key={t} style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                background: `${ITEM_COLORS[t]}18`,
+                border: `1px solid ${ITEM_COLORS[t]}55`,
+                borderRadius: 8, padding: '3px 8px', fontSize: 11, fontWeight: 700,
+                color: ITEM_COLORS[t] === '#FFFFFF' ? '#AADDFF' : ITEM_COLORS[t],
+              }}>
+                <span style={{ fontSize: 13 }}>{ITEM_LABELS[t]}</span>
+                <span>{ITEM_NAMES[t]}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── 스테이지 메시지 ──────────────────────────────── */}
@@ -722,14 +878,16 @@ export default function GalagaGame({
           }}
         >◀</button>
         <button
-          onPointerDown={e => { e.preventDefault(); if (gsRef.current !== 'play') startGame(); else fire() }}
+          onPointerDown={e => { e.preventDefault(); if (gsRef.current !== 'play') startGame() }}
           style={{
             flex: 2, padding: '13px 0',
-            background: 'rgba(255,61,120,0.07)', border: 'none',
-            color: '#FF3D78', fontSize: 12, fontWeight: 800, letterSpacing: 2,
+            background: gstate !== 'play' ? 'rgba(255,61,120,0.12)' : 'transparent',
+            border: 'none',
+            color: gstate !== 'play' ? '#FF3D78' : T.text3,
+            fontSize: gstate !== 'play' ? 13 : 11, fontWeight: 800, letterSpacing: 2,
             cursor: 'pointer', userSelect: 'none', fontFamily: '"Courier New",monospace',
           }}
-        >{gstate === 'play' ? '🔫 FIRE' : '▶ START'}</button>
+        >{gstate !== 'play' ? '▶ START' : '← SWIPE →'}</button>
         <button
           onPointerDown={e => { e.preventDefault(); tRightRef.current = true }}
           onPointerUp={() => tRightRef.current = false}

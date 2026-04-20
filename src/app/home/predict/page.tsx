@@ -59,7 +59,12 @@ export default function PredictPage() {
     if (!price) return
     const user = JSON.parse(localStorage.getItem('user') || '{}')
     const delta = sign === '-' ? -Number(price) : Number(price)
-    const prevClose = rows.find(r => r.기준일자 < today)?.종가 ?? 0
+    const prevClose = rows.find(r => r.기준일자 < today)?.종가 ?? null
+    if (prevClose === null) {
+      alert('전일 종가 데이터를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.')
+      setSubmitting(false)
+      return
+    }
     const final = prevClose + delta
     const now = new Date()
     const kstISO = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 23)
@@ -326,7 +331,7 @@ export default function PredictPage() {
           )}
           <div className="submit-row">
             <button className="btn-cancel" onClick={() => { setPrice(''); setSign('+') }} disabled={alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing}>취소</button>
-            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing}>
+            <button className="btn-submit" onClick={handleSubmit} disabled={submitting || !price || rows.length === 0 || alreadyPredicted || timeExpired || isWeekend || marketClosed || marketPreparing}>
               {submitting ? '저장 중...' : alreadyPredicted ? '제출 완료' : isWeekend ? '마감입니다' : marketClosed ? '오늘 장 마감' : marketPreparing ? '예측 준비중' : timeExpired ? '제출 마감' : '예측 제출하기 →'}
             </button>
           </div>

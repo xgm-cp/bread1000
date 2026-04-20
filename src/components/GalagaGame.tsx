@@ -59,7 +59,7 @@ function makeStars(): Star[] {
 
 function makeEntryPath(e: Enemy) {
   const side = e.x < 0 ? -1 : 1
-  const steps = 80; e.path = []
+  const steps = 120; e.path = []   // 80 → 120 : 진입 느리게
   for (let t = 0; t <= steps; t++) {
     const pct = t / steps
     const curve = side * Math.sin(pct * Math.PI) * 120
@@ -68,7 +68,7 @@ function makeEntryPath(e: Enemy) {
 }
 
 function makeDivePath(e: Enemy) {
-  const steps = 160; const side = e.fx < W / 2 ? -1 : 1; e.path = []
+  const steps = 240; const side = e.fx < W / 2 ? -1 : 1; e.path = []  // 160 → 240 : 다이브 느리게
   for (let t = 0; t <= steps; t++) {
     const pct = t / steps; let x: number, y: number
     if (pct < 0.5) {
@@ -100,7 +100,7 @@ function spawnFormation(stage: number) {
         entryDelay: (r * FORM_COLS + c) * 4,
       })
     }
-  return { enemies, interval: Math.max(120, 200 - stage * 15) }
+  return { enemies, interval: Math.max(180, 300 - stage * 18) }  // 웨이브 간격 늘림
 }
 
 function hitRect(ax: number, ay: number, ar: number, bx: number, by: number, br: number) {
@@ -146,9 +146,11 @@ export default function GalagaGame({
   const particlesRef= useRef<Particle[]>([])
   const starsRef    = useRef<Star[]>(makeStars())
 
-  const keysRef   = useRef<Record<string, boolean>>({})
-  const tLeftRef  = useRef(false)
-  const tRightRef = useRef(false)
+  const keysRef    = useRef<Record<string, boolean>>({})
+  const tLeftRef   = useRef(false)
+  const tRightRef  = useRef(false)
+  // 스와이프 추적
+  const swipeRef   = useRef<{ startX: number; lastX: number; startTime: number } | null>(null)
   const rafRef    = useRef(0)
   const pausedRef = useRef(false)
   const lastTimeRef = useRef(0)   // 직전 프레임 타임스탬프
@@ -241,56 +243,63 @@ export default function GalagaGame({
     })
     ctx.globalAlpha = 1
 
-    // 적
-    enemiesRef.current.filter(e => e.alive).forEach(e => {
-      ctx.save(); ctx.translate(e.x, e.y)
-      if (e.state === 'diving' && e.pathIdx < e.path.length - 1) {
-        const nx = e.path[Math.min(e.pathIdx + 1, e.path.length - 1)]
-        const dx = nx.x - e.x, dy = nx.y - e.y
-        if (Math.abs(dx) + Math.abs(dy) > 0.5) ctx.rotate(Math.atan2(dy, dx) + Math.PI / 2)
-      }
+    // 적 — 타입별로 묶어 shadowBlur 상태 전환 최소화
+    const alive = enemiesRef.current.filter(e => e.alive)
+
+    function drawEnemyShape(e: Enemy) {
+      const wf0 = Math.sin(tick * 0.4 + e.id) * 4
+      const wf1 = Math.sin(tick * 0.35 + e.id) * 5
+      const wf2 = Math.sin(tick * 0.3 + e.id) * 3
       if (e.type === 0) {
-        // 꿀벌
-        ctx.fillStyle = '#FFD700'; ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 8
+        ctx.fillStyle = '#FFD700'
         ctx.beginPath(); ctx.ellipse(0, 0, 7, 9, 0, 0, Math.PI * 2); ctx.fill()
-        const wf = Math.sin(tick * 0.4 + e.id) * 4
         ctx.fillStyle = 'rgba(255,220,100,0.7)'
-        ctx.beginPath(); ctx.ellipse(-10 + wf, -2, 7, 5, Math.PI / 6, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.ellipse(10 - wf, -2, 7, 5, -Math.PI / 6, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(-10 + wf0, -2, 7, 5, Math.PI / 6, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(10 - wf0, -2, 7, 5, -Math.PI / 6, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = '#ff0'; ctx.beginPath(); ctx.arc(0, -10, 4, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = '#000'
         ctx.beginPath(); ctx.arc(-2, -11, 1, 0, Math.PI * 2); ctx.fill()
         ctx.beginPath(); ctx.arc(2, -11, 1, 0, Math.PI * 2); ctx.fill()
       } else if (e.type === 1) {
-        // 나비
-        ctx.fillStyle = '#00FFFF'; ctx.shadowColor = '#00FFFF'; ctx.shadowBlur = 8
-        const wf = Math.sin(tick * 0.35 + e.id) * 5
-        ctx.beginPath(); ctx.ellipse(-11 + wf, 0, 10, 7, Math.PI / 5, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.ellipse(11 - wf, 0, 10, 7, -Math.PI / 5, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = '#00FFFF'
+        ctx.beginPath(); ctx.ellipse(-11 + wf1, 0, 10, 7, Math.PI / 5, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(11 - wf1, 0, 10, 7, -Math.PI / 5, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = '#0099bb'
-        ctx.beginPath(); ctx.ellipse(-9 + wf, 5, 7, 5, Math.PI / 4, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.ellipse(9 - wf, 5, 7, 5, -Math.PI / 4, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(-9 + wf1, 5, 7, 5, Math.PI / 4, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(9 - wf1, 5, 7, 5, -Math.PI / 4, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.ellipse(0, 0, 4, 9, 0, 0, Math.PI * 2); ctx.fill()
       } else {
-        // 보스
-        ctx.shadowColor = '#FF4444'; ctx.shadowBlur = 14
-        const wf = Math.sin(tick * 0.3 + e.id) * 3
         ctx.fillStyle = 'rgba(255,100,0,0.7)'
-        ctx.beginPath(); ctx.ellipse(-16 + wf, 0, 13, 8, Math.PI / 7, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.ellipse(16 - wf, 0, 13, 8, -Math.PI / 7, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(-16 + wf2, 0, 13, 8, Math.PI / 7, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(16 - wf2, 0, 13, 8, -Math.PI / 7, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = '#FF4444'
-        ctx.beginPath(); ctx.ellipse(-10 + wf, 4, 9, 6, Math.PI / 5, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.ellipse(10 - wf, 4, 9, 6, -Math.PI / 5, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(-10 + wf2, 4, 9, 6, Math.PI / 5, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.ellipse(10 - wf2, 4, 9, 6, -Math.PI / 5, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = '#FF2222'
         ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(-6, 8); ctx.lineTo(6, 8); ctx.closePath(); ctx.fill()
         ctx.beginPath(); ctx.arc(0, -4, 6, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = '#ffff00'
         ctx.beginPath(); ctx.arc(-3, -5, 2, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.arc(3, -5, 2, 0, Math.PI * 2); ctx.fill()
-        ctx.shadowBlur = 0
       }
-      ctx.restore()
+    }
+
+    // 타입 순서로 정렬해 shadowColor 전환 횟수 최소화
+    const byType = [0, 1, 2]
+    const glowColors = ['#FFD700', '#00FFFF', '#FF4444']
+    byType.forEach(t => {
+      ctx.shadowColor = glowColors[t]; ctx.shadowBlur = t === 2 ? 10 : 6
+      alive.filter(e => e.type === t).forEach(e => {
+        ctx.save(); ctx.translate(e.x, e.y)
+        if (e.state === 'diving' && e.pathIdx < e.path.length - 1) {
+          const nx = e.path[Math.min(e.pathIdx + 1, e.path.length - 1)]
+          const dx = nx.x - e.x, dy = nx.y - e.y
+          if (Math.abs(dx) + Math.abs(dy) > 0.5) ctx.rotate(Math.atan2(dy, dx) + Math.PI / 2)
+        }
+        drawEnemyShape(e)
+        ctx.restore()
+      })
     })
+    ctx.shadowBlur = 0
 
     // 플레이어
     if (gsRef.current === 'play' || gsRef.current === 'gameover') {
@@ -342,7 +351,7 @@ export default function GalagaGame({
       ctx.fillStyle = T.neonY; ctx.font = '14px "Courier New"'
       ctx.fillText('PRESS SPACE OR TAP TO START', W / 2, H / 2 + 14)
       ctx.fillStyle = T.text3; ctx.font = '11px "Courier New"'
-      ctx.fillText('← → MOVE  |  SPACE / TAP FIRE', W / 2, H / 2 + 42)
+      ctx.fillText('SWIPE: MOVE  |  TAP / SPACE: FIRE', W / 2, H / 2 + 42)
       ctx.textAlign = 'left'
     }
   }, [])
@@ -350,7 +359,7 @@ export default function GalagaGame({
   // ── 업데이트 ─────────────────────────────────────────────
   const update = useCallback(() => {
     if (gsRef.current !== 'play') return
-    tickRef.current++; formOscRef.current += 0.012
+    tickRef.current++; formOscRef.current += 0.007  // 대형 흔들림 느리게
 
     starsRef.current.forEach(s => { s.y += s.speed; if (s.y > H) { s.y = 0; s.x = Math.random() * W } })
 
@@ -379,13 +388,13 @@ export default function GalagaGame({
           const pt = e.path[e.pathIdx++]; e.x = pt.x; e.y = pt.y
           if (e.pathIdx % 30 === 15 && e.y > 0 && e.y < H) {
             const angle = Math.atan2(p.y - e.y, p.x - e.x)
-            ebulletsRef.current.push({ x: e.x, y: e.y, vx: Math.cos(angle) * 3.5, vy: Math.sin(angle) * 3.5 + 1 })
+            ebulletsRef.current.push({ x: e.x, y: e.y, vx: Math.cos(angle) * 2.4, vy: Math.sin(angle) * 2.4 + 0.8 })
           }
         } else { e.state = 'returning'; e.path = []; e.pathIdx = 0 }
       } else if (e.state === 'returning') {
         const dx = e.fx - e.x, dy = e.fy - e.y, d = Math.sqrt(dx * dx + dy * dy)
         if (d < 3) { e.x = e.fx; e.y = e.fy; e.state = 'formed' }
-        else { e.x += dx / d * 4; e.y += dy / d * 4 }
+        else { e.x += dx / d * 2.5; e.y += dy / d * 2.5 }  // 복귀 속도 낮춤
       }
     })
 
@@ -509,17 +518,32 @@ export default function GalagaGame({
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  // ── 터치 ─────────────────────────────────────────────────
+  // ── 터치 (스와이프 이동 + 탭 발사) ──────────────────────
   const onTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault()
     if (gsRef.current !== 'play') { startGame(); return }
-    const rect = cvRef.current!.getBoundingClientRect()
-    const tx = (e.touches[0].clientX - rect.left) * (W / rect.width)
-    if (tx < W * 0.33) tLeftRef.current = true
-    else if (tx > W * 0.66) tRightRef.current = true
-    else fire()
+    const t = e.touches[0]
+    swipeRef.current = { startX: t.clientX, lastX: t.clientX, startTime: Date.now() }
   }
-  const onTouchEnd = () => { tLeftRef.current = false; tRightRef.current = false }
+
+  const onTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    if (!swipeRef.current || gsRef.current !== 'play') return
+    const rect = cvRef.current!.getBoundingClientRect()
+    const scale = W / rect.width                          // canvas ↔ 화면 비율
+    const dx = (e.touches[0].clientX - swipeRef.current.lastX) * scale * 1.6
+    playerRef.current.x = Math.max(20, Math.min(W - 20, playerRef.current.x + dx))
+    swipeRef.current.lastX = e.touches[0].clientX
+  }
+
+  const onTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!swipeRef.current) return
+    const totalDx = Math.abs(e.changedTouches[0].clientX - swipeRef.current.startX)
+    const dt = Date.now() - swipeRef.current.startTime
+    if (totalDx < 10 && dt < 220) fire()                  // 탭 → 발사
+    swipeRef.current = null
+    tLeftRef.current = false; tRightRef.current = false
+  }
 
   function confirmExit() { setShowExit(false); onClose() }
   function cancelExit() {
@@ -677,6 +701,7 @@ export default function GalagaGame({
         height={H}
         style={{ display: 'block', background: '#000', maxWidth: '100%', flex: 1, minHeight: 0, touchAction: 'none' }}
         onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onClick={() => { if (gsRef.current !== 'play') startGame() }}
       />

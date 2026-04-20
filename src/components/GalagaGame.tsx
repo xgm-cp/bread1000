@@ -151,6 +151,9 @@ export default function GalagaGame({
   const tRightRef = useRef(false)
   const rafRef    = useRef(0)
   const pausedRef = useRef(false)
+  const lastTimeRef = useRef(0)   // 직전 프레임 타임스탬프
+  const accumRef    = useRef(0)   // 누적 미처리 시간(ms)
+  const TICK_MS = 1000 / 60       // 고정 논리 스텝 ≈16.667ms
 
   const userIdRef   = useRef(userId)
   const userNameRef = useRef(userName)
@@ -221,6 +224,7 @@ export default function GalagaGame({
     const { enemies, interval } = spawnFormation(1)
     enemiesRef.current = enemies; waveIntervalRef.current = interval
     waveTimerRef.current = 0; invincRef.current = 0; tickRef.current = 0
+    lastTimeRef.current = 0; accumRef.current = 0
     gsRef.current = 'play'; setGstate('play'); setStageMsg('')
     updateHUD()
   }, [updateHUD])
@@ -450,16 +454,36 @@ export default function GalagaGame({
     })
   }, [burst, updateHUD, saveScore])
 
-  // ── 게임 루프 ─────────────────────────────────────────────
-  const loop = useCallback(() => {
+  // ── 게임 루프 (고정 60FPS 타임스텝) ─────────────────────
+  const loop = useCallback((timestamp: number) => {
+    rafRef.current = requestAnimationFrame(loop)
+
     const ctx = cvRef.current?.getContext('2d')
     if (!ctx) return
-    if (!pausedRef.current) update()
+
+    // 첫 프레임 초기화
+    if (lastTimeRef.current === 0) lastTimeRef.current = timestamp
+
+    const delta = Math.min(timestamp - lastTimeRef.current, 100) // 최대 100ms 클램프(탭 전환 복귀 등)
+    lastTimeRef.current = timestamp
+
+    if (!pausedRef.current) {
+      accumRef.current += delta
+      // 누적 시간을 60FPS 스텝 단위로 소비 (최대 3스텝 처리로 스파이크 방지)
+      let steps = 0
+      while (accumRef.current >= TICK_MS && steps < 3) {
+        update()
+        accumRef.current -= TICK_MS
+        steps++
+      }
+    }
+
     draw(ctx)
-    rafRef.current = requestAnimationFrame(loop)
-  }, [update, draw])
+  }, [update, draw, TICK_MS])
 
   useEffect(() => {
+    lastTimeRef.current = 0
+    accumRef.current = 0
     rafRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafRef.current)
   }, [loop])

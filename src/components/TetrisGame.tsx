@@ -299,7 +299,12 @@ export default function TetrisGame({ onClose, userId = '', userName = '' }: {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(payload),
         }).then(r => r.json()).then(d => {
-          if (d.updated) setTopPlayer({ 사용자이름: payload.사용자이름, 점수: payload.점수, 레벨: payload.레벨 })
+          if (d.updated) {
+            fetch('/api/game/leaderboard?game=tetris')
+              .then(r => r.json())
+              .then(d => { if (d.top) setTopPlayer(d.top) })
+              .catch(() => {})
+          }
         }).catch(() => {})
       }
     }

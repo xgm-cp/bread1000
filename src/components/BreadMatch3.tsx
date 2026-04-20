@@ -126,7 +126,13 @@ export default function BreadMatch3({ onClose, userId = '', userName = '' }: {
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(payload),
           }).then(r => r.json()).then(d => {
-            if (d.updated) setTopPlayer({ 사용자이름: payload.사용자이름, 점수: cur })
+            if (d.updated) {
+              // DB에서 실제 전체 1위 다시 읽어오기
+              fetch('/api/game/leaderboard?game=match3')
+                .then(r => r.json())
+                .then(d => { if (d.top) setTopPlayer(d.top) })
+                .catch(() => {})
+            }
           }).catch(() => {})
         }
       } else {

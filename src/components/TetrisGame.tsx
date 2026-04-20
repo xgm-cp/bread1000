@@ -535,6 +535,9 @@ export default function TetrisGame({ onClose, userId = '', userName = '' }: {
               <span style={{ fontSize: 10, fontWeight: 800, color: '#FFD700', flexShrink: 0 }}>
                 {topPlayer.점수.toLocaleString()}
               </span>
+              {topPlayer.레벨 && (
+                <span style={{ fontSize: 9, color: '#B8860B', flexShrink: 0 }}>Lv.{topPlayer.레벨}</span>
+              )}
             </div>
           )}
         </div>

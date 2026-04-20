@@ -138,7 +138,8 @@ export default function GalagaGame({
 
   // 리더보드
   const [topPlayer, setTopPlayer] = useState<{ 사용자이름: string; 점수: number } | null>(null)
-  const [myBest, setMyBest]       = useState(0)
+  const [myBest, setMyBest]         = useState(0)
+  const [myBestStage, setMyBestStage] = useState(0)
 
   // ── game refs ─────────────────────────────────────────────
   const gsRef       = useRef<GS>('start')
@@ -151,7 +152,8 @@ export default function GalagaGame({
   const waveTimerRef    = useRef(0)
   const waveIntervalRef = useRef(200)
   const formOscRef  = useRef(0)
-  const myBestRef   = useRef(0)
+  const myBestRef      = useRef(0)
+  const myBestStageRef = useRef(0)
 
   const playerRef    = useRef({ x: W / 2, y: H - 50, speed: 4 })
   const bulletsRef   = useRef<Bullet[]>([])
@@ -203,7 +205,10 @@ export default function GalagaGame({
     if (!userId) return
     fetch(`/api/game/score?game=galaga&userId=${encodeURIComponent(userId)}`)
       .then(r => r.json()).then(d => {
-        if (d.data) { myBestRef.current = d.data.점수; setMyBest(d.data.점수) }
+        if (d.data) {
+          myBestRef.current = d.data.점수; setMyBest(d.data.점수)
+          myBestStageRef.current = d.data.레벨 ?? 0; setMyBestStage(d.data.레벨 ?? 0)
+        }
       }).catch(() => {})
   }, [userId])
 
@@ -224,10 +229,13 @@ export default function GalagaGame({
 
   // ── 아이템 드롭 ───────────────────────────────────────────
   const spawnItem = useCallback((x: number, y: number, enemyType: number) => {
-    // 항상 빵 드롭: boss는 베이글(6) 기본, 20% 확률로 스페셜빵(7)
-    let breadType = ENEMY_BREAD[enemyType] ?? 4
-    if (enemyType === 2 && Math.random() < 0.20) breadType = 7
-    itemsRef.current.push({ x, y, vy: 1.6, type: breadType, frame: 0 })
+    // 랜덤 빵 드롭: bee 40%, butterfly 55%, boss 80%
+    const breadChance = [0.40, 0.55, 0.80][enemyType] ?? 0.40
+    if (Math.random() < breadChance) {
+      let breadType = ENEMY_BREAD[enemyType] ?? 4
+      if (enemyType === 2 && Math.random() < 0.25) breadType = 7  // boss 25% 스페셜
+      itemsRef.current.push({ x, y, vy: 1.6, type: breadType, frame: 0 })
+    }
 
     // 희귀 파워업 (최대 1개)
     for (let t = 0; t < 4; t++) {
@@ -239,15 +247,21 @@ export default function GalagaGame({
   }, [])
 
   // ── 점수 저장 ─────────────────────────────────────────────
-  const saveScore = useCallback((score: number) => {
+  const saveScore = useCallback((score: number, stage: number) => {
     if (!userIdRef.current || score <= 0) return
-    if (score <= myBestRef.current) return
+    // 갱신 조건: 현재 STAGE > 최고 STAGE  OR  같은 STAGE에서 점수 높을 때
+    const shouldUpdate =
+      stage > myBestStageRef.current ||
+      (stage === myBestStageRef.current && score > myBestRef.current)
+    if (!shouldUpdate) return
     myBestRef.current = score
+    myBestStageRef.current = stage
     setMyBest(score)
+    setMyBestStage(stage)
     fetch('/api/game/score', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ 게임종류: 'galaga', 사용자아이디: userIdRef.current, 사용자이름: userNameRef.current, 점수: score }),
+      body: JSON.stringify({ 게임종류: 'galaga', 사용자아이디: userIdRef.current, 사용자이름: userNameRef.current, 점수: score, 레벨: stage }),
     }).then(r => r.json()).then(d => {
       if (d.updated) {
         fetch('/api/game/leaderboard?game=galaga')
@@ -602,7 +616,7 @@ export default function GalagaGame({
           livesRef.current--; updateHUD()
           if (livesRef.current <= 0) {
             gsRef.current = 'gameover'; setGstate('gameover')
-            saveScore(scoreRef.current)
+            saveScore(scoreRef.current, stageRef.current)
           } else invincRef.current = 180
         }
       })
@@ -612,7 +626,7 @@ export default function GalagaGame({
           livesRef.current--; updateHUD()
           if (livesRef.current <= 0) {
             gsRef.current = 'gameover'; setGstate('gameover')
-            saveScore(scoreRef.current)
+            saveScore(scoreRef.current, stageRef.current)
           } else invincRef.current = 180
         }
       })
@@ -776,16 +790,21 @@ export default function GalagaGame({
 
             {/* 내 최고점수 */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0,
+              display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
               background: 'rgba(255,61,120,0.07)', border: '1px solid rgba(255,61,120,0.25)',
               borderRadius: 6, padding: '2px 8px',
             }}>
-              <span style={{ fontSize: 9, color: '#FF3D78', fontWeight: 700 }}>MY</span>
+              <span style={{ fontSize: 9, color: '#FF3D78', fontWeight: 700 }}>BEST</span>
               <span style={{ fontSize: 12, fontWeight: 900, color: '#FF3D78',
                 textShadow: myBest > 0 ? '0 0 8px rgba(255,61,120,0.5)' : 'none',
               }}>
                 {myBest > 0 ? myBest.toLocaleString() : '-'}
               </span>
+              {myBestStage > 0 && (
+                <span style={{ fontSize: 9, color: '#9B2FC9', fontWeight: 700 }}>
+                  St.{myBestStage}
+                </span>
+              )}
             </div>
           </div>
 

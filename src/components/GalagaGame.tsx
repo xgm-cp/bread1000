@@ -584,7 +584,7 @@ export default function GalagaGame({
           }
         } else {
           // 다이브 완료: 노랑(bee)만 아주 가끔 아래서 위로 복귀, 나머지는 맨 위에서 등장
-          if (e.type === 0 && Math.random() < 0.12) {
+          if (e.type === 0 && Math.random() < 0.05) {
             // 노랑 bee: 현재 위치(화면 아래)에서 그대로 편대로 직선 복귀 (총 안 쏨)
           } else {
             // 맨 위에서 편대 x위치로 등장

@@ -81,19 +81,15 @@ function makeEntryPath(e: Enemy, steps: number) {
 }
 
 function makeDivePath(e: Enemy, steps: number) {
+  // 아래로 내려가는 경로만 생성 (절반 스텝)
   const side = e.fx < W / 2 ? -1 : 1; e.path = []
-  for (let t = 0; t <= steps; t++) {
-    const pct = t / steps; let x: number, y: number
-    if (pct < 0.5) {
-      const p = pct * 2
-      x = e.x + side * Math.sin(p * Math.PI) * 200
-      y = e.y + (H + 40 - e.y) * p
-    } else {
-      const p = (pct - 0.5) * 2
-      x = e.x + side * (Math.sin(p * Math.PI) * 200) * (1 - p)
-      y = H + 40 + (e.fy - (H + 40)) * p
-    }
-    e.path.push({ x, y })
+  const half = Math.floor(steps / 2)
+  for (let t = 0; t <= half; t++) {
+    const p = t / half
+    e.path.push({
+      x: e.x + side * Math.sin(p * Math.PI) * 200,
+      y: e.y + (H + 40 - e.y) * p,
+    })
   }
 }
 
@@ -586,7 +582,16 @@ export default function GalagaGame({
             const angle = Math.atan2(p.y - e.y, p.x - e.x)
             ebulletsRef.current.push({ x: e.x, y: e.y, vx: Math.cos(angle) * 2.4, vy: Math.sin(angle) * 2.4 + 0.8 })
           }
-        } else { e.state = 'returning'; e.path = []; e.pathIdx = 0 }
+        } else {
+          // 다이브 완료: 노랑(bee)만 아주 가끔 아래서 위로 복귀, 나머지는 맨 위에서 등장
+          if (e.type === 0 && Math.random() < 0.12) {
+            // 노랑 bee: 현재 위치(화면 아래)에서 그대로 편대로 직선 복귀 (총 안 쏨)
+          } else {
+            // 맨 위에서 편대 x위치로 등장
+            e.x = e.fx; e.y = -40
+          }
+          e.state = 'returning'; e.path = []; e.pathIdx = 0
+        }
       } else if (e.state === 'returning') {
         const dx = e.fx - e.x, dy = e.fy - e.y, d = Math.sqrt(dx * dx + dy * dy)
         if (d < 3) { e.x = e.fx; e.y = e.fy; e.state = 'formed' }

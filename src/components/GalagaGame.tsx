@@ -50,7 +50,7 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 //  0=버터(실드) 1=잼(연사) 2=우유(2배점수) 3=바나나우유(2연발)
 //  4=흰빵 5=골드빵 6=베이글 7=스페셜빵
 interface Item { x: number; y: number; vy: number; type: number; frame: number }
-const ITEM_DURATION = 60 * 8
+const ITEM_DURATION = 60 * 3
 const ITEM_COLORS   = ['#FFD700','#FF3D78','#AADDFF','#FFE135','#F5DEB3','#FFD700','#C8A96E','#FF69B4']
 const ITEM_LABELS   = ['🧈','🍓','🥛','🍌','🍞','🍞','🥐','✨']
 const ITEM_NAMES    = ['버터 실드','딸기잼 연사','우유 2배','바나나 2연발','흰빵','골드빵','베이글','스페셜빵']

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     .select('점수')
     .eq('사용자아이디', 사용자아이디)
     .eq('게임종류', 게임종류)
-    .maybeSingle()
+    .maybeSingle() as { data: { 점수: number } | null; error: unknown }
 
   if (existing && existing.점수 >= 점수) {
     return NextResponse.json({ updated: false })

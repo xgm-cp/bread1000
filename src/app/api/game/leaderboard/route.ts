@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     .eq('게임종류', game)
     .order('점수', { ascending: false })
     .limit(1)
-    .maybeSingle()
+    .maybeSingle() as { data: { 사용자이름: string; 점수: number; 레벨: number | null } | null; error: unknown }
 
   if (error) return NextResponse.json({ top: null })
   return NextResponse.json({ top: data ?? null })

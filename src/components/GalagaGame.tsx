@@ -20,6 +20,8 @@ const T = {
   up:       '#FF5C5C',
 }
 
+const TITLE_GRADIENT = 'linear-gradient(135deg,#FF3D78,#9B2FC9)'
+
 const marqueeCSS = `
 @keyframes galaga-marquee {
   0%   { transform: translateX(100%); }
@@ -450,13 +452,18 @@ export default function GalagaGame({
     // 시작 화면
     if (gsRef.current === 'start') {
       ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#0ff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 28
-      ctx.font = 'bold 40px "Courier New"'; ctx.textAlign = 'center'
-      ctx.fillText('GALAGA', W / 2, H / 2 - 28); ctx.shadowBlur = 0
-      ctx.fillStyle = T.neonY; ctx.font = '14px "Courier New"'
-      ctx.fillText('PRESS SPACE OR TAP TO START', W / 2, H / 2 + 14)
-      ctx.fillStyle = T.text3; ctx.font = '11px "Courier New"'
-      ctx.fillText('SWIPE: MOVE  |  TAP / SPACE: FIRE', W / 2, H / 2 + 42)
+      // 타이틀 그라디언트 텍스트
+      const tg = ctx.createLinearGradient(W/2 - 120, 0, W/2 + 120, 0)
+      tg.addColorStop(0, '#FF3D78'); tg.addColorStop(1, '#9B2FC9')
+      ctx.fillStyle = tg; ctx.shadowColor = '#FF3D78'; ctx.shadowBlur = 24
+      ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center'
+      ctx.fillText('Galag-Bread', W / 2, H / 2 - 32); ctx.shadowBlur = 0
+      ctx.fillStyle = '#9B2FC9'; ctx.font = '14px sans-serif'
+      ctx.fillText('갤러그레드', W / 2, H / 2 - 8)
+      ctx.fillStyle = T.neonY; ctx.font = '13px sans-serif'
+      ctx.fillText('PRESS SPACE OR TAP TO START', W / 2, H / 2 + 20)
+      ctx.fillStyle = T.text3; ctx.font = '11px sans-serif'
+      ctx.fillText('SWIPE: MOVE  |  AUTO FIRE', W / 2, H / 2 + 44)
       ctx.textAlign = 'left'
     }
   }, [])
@@ -737,11 +744,11 @@ export default function GalagaGame({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, overflow: 'hidden' }}>
             {/* 타이틀 */}
-            <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: 3, flexShrink: 0,
-              background: 'linear-gradient(135deg,#00FFFF,#4A9EFF)',
+            <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: 2, flexShrink: 0,
+              background: TITLE_GRADIENT,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              fontFamily: '"Courier New",monospace',
-            }}>GALAGA</span>
+            }}>Galag-Bread</span>
+            <span style={{ fontSize: 10, color: '#9B2FC9', fontWeight: 700, flexShrink: 0 }}>갤러그레드</span>
 
             {/* 전체 1위 마퀴 */}
             {topPlayer && (
@@ -770,12 +777,12 @@ export default function GalagaGame({
             {/* 내 최고점수 */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0,
-              background: 'rgba(0,255,255,0.07)', border: `1px solid rgba(0,255,255,0.22)`,
+              background: 'rgba(255,61,120,0.07)', border: '1px solid rgba(255,61,120,0.25)',
               borderRadius: 6, padding: '2px 8px',
             }}>
-              <span style={{ fontSize: 9, color: T.neonC, fontWeight: 700 }}>MY</span>
-              <span style={{ fontSize: 12, fontWeight: 900, color: T.neonC,
-                textShadow: myBest > 0 ? '0 0 8px rgba(0,255,255,0.5)' : 'none',
+              <span style={{ fontSize: 9, color: '#FF3D78', fontWeight: 700 }}>MY</span>
+              <span style={{ fontSize: 12, fontWeight: 900, color: '#FF3D78',
+                textShadow: myBest > 0 ? '0 0 8px rgba(255,61,120,0.5)' : 'none',
               }}>
                 {myBest > 0 ? myBest.toLocaleString() : '-'}
               </span>
@@ -898,8 +905,8 @@ export default function GalagaGame({
           onPointerLeave={() => tLeftRef.current = false}
           style={{
             flex: 1, padding: '13px 0',
-            background: 'rgba(0,200,255,0.05)', border: 'none', borderRight: `1px solid ${T.border}`,
-            color: T.neonC, fontSize: 20, cursor: 'pointer', userSelect: 'none',
+            background: 'rgba(255,61,120,0.05)', border: 'none', borderRight: `1px solid ${T.border}`,
+            color: '#FF3D78', fontSize: 20, cursor: 'pointer', userSelect: 'none',
           }}
         >◀</button>
         <button
@@ -919,8 +926,8 @@ export default function GalagaGame({
           onPointerLeave={() => tRightRef.current = false}
           style={{
             flex: 1, padding: '13px 0',
-            background: 'rgba(0,200,255,0.05)', border: 'none', borderLeft: `1px solid ${T.border}`,
-            color: T.neonC, fontSize: 20, cursor: 'pointer', userSelect: 'none',
+            background: 'rgba(255,61,120,0.05)', border: 'none', borderLeft: `1px solid ${T.border}`,
+            color: '#FF3D78', fontSize: 20, cursor: 'pointer', userSelect: 'none',
           }}
         >▶</button>
       </div>

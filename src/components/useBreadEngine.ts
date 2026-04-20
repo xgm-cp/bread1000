@@ -159,6 +159,7 @@ export function useBreadEngine() {
   const [gameState, setGameState] = useState<GameState>('playing')
   const [lastMatchPos, setLastMatchPos] = useState<{ r: number; c: number } | null>(null)
   const [particles, setParticles] = useState<Particle[]>([])
+  const [noMoreMoves, setNoMoreMoves] = useState(false)
 
   const busyRef = useRef(false)
   const scoreRef = useRef(0)
@@ -242,18 +243,9 @@ export function useBreadEngine() {
 
     setCombo(0)
 
-    // Shuffle if no valid moves
+    // 유효한 이동이 없으면 팝업 신호
     if (!hasValidMove(cur)) {
-      const flat = cur.flat()
-      for (let i = flat.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[flat[i], flat[j]] = [flat[j], flat[i]]
-      }
-      cur = Array.from({ length: GRID_SIZE }, (_, r) =>
-        Array.from({ length: GRID_SIZE }, (_, c) => flat[r * GRID_SIZE + c])
-      )
-      setGrid(cur.map(row => [...row]))
-      await new Promise(r => setTimeout(r, 500))
+      setNoMoreMoves(true)
     }
 
     return cur
@@ -270,6 +262,7 @@ export function useBreadEngine() {
     setMovesLeft(MAX_MOVES); movesRef.current = MAX_MOVES
     setGameState('playing')
     setParticles([])
+    setNoMoreMoves(false)
     busyRef.current = true
     setIsProcessing(true)
     await new Promise(r => setTimeout(r, 200))
@@ -308,9 +301,15 @@ export function useBreadEngine() {
     return true
   }, [grid, runBoard])
 
+  const forceEnd = useCallback(() => {
+    setNoMoreMoves(false)
+    setGameState(scoreRef.current >= WIN_SCORE ? 'won' : 'lost')
+  }, [])
+
   return {
     grid, score, combo, movesLeft, isProcessing,
     gameState, lastMatchPos, particles,
+    noMoreMoves, forceEnd,
     handleSwap, initBoard,
   }
 }

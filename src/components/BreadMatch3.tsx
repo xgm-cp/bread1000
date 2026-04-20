@@ -63,6 +63,7 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
   const {
     grid, score, combo, movesLeft, isProcessing,
     gameState, lastMatchPos, particles,
+    noMoreMoves, forceEnd,
     handleSwap, initBoard,
   } = useBreadEngine()
 
@@ -73,16 +74,23 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
   const [dragStart, setDragStart] = useState<{ r: number; c: number; x: number; y: number } | null>(null)
   const [swappingPair, setSwappingPair] = useState<{ from: { r: number; c: number }; to: { r: number; c: number } } | null>(null)
   const [currentRound, setCurrentRound] = useState(1)
-  const [bestScore, setBestScore] = useState(0)
+  const [bestScore, setBestScore] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0
+    return parseInt(localStorage.getItem('breadMatch3BestScore') || '0', 10)
+  })
   const [showFinal, setShowFinal] = useState(false) // 10판 완료 화면
 
   const scoreRef = useRef(0)
   scoreRef.current = score
 
-  // 게임 종료 시 최고점수 갱신
+  // 게임 종료 시 최고점수 갱신 (localStorage 누적)
   useEffect(() => {
     if (gameState !== 'playing') {
-      setBestScore(prev => Math.max(prev, scoreRef.current))
+      setBestScore(prev => {
+        const next = Math.max(prev, scoreRef.current)
+        if (next > prev) localStorage.setItem('breadMatch3BestScore', String(next))
+        return next
+      })
     }
   }, [gameState])
 
@@ -800,6 +808,56 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* ── 움직일 빵 없음 팝업 ─────────────────── */}
+      {noMoreMoves && (
+        <div
+          style={{
+            position: 'absolute', inset: 0, zIndex: 750,
+            background: 'rgba(0,0,0,0.78)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.7, opacity: 0, y: 30 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+            style={{
+              background: T.surface,
+              border: '1px solid rgba(251,191,36,0.35)',
+              borderRadius: 20, padding: '28px 26px 22px',
+              textAlign: 'center', width: 270,
+              boxShadow: '0 0 40px rgba(251,191,36,0.1), 0 30px 60px rgba(0,0,0,0.7)',
+            }}
+          >
+            <motion.div
+              animate={{ rotate: [0, -10, 10, -6, 6, 0] }}
+              transition={{ repeat: Infinity, duration: 1.8, repeatDelay: 0.5 }}
+              style={{ fontSize: 44, marginBottom: 10 }}
+            >
+              🍞
+            </motion.div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: T.text, marginBottom: 8 }}>
+              움직일 빵이 없습니다
+            </div>
+            <div style={{ fontSize: 12, color: T.text2, marginBottom: 22, lineHeight: 1.6 }}>
+              더 이상 맞출 수 있는 빵이 없어요.<br />결과 화면으로 이동합니다.
+            </div>
+            <button
+              onClick={forceEnd}
+              style={{
+                width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                background: T.gradient, color: '#fff',
+                fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit',
+                boxShadow: '0 4px 14px rgba(255,61,120,0.4)',
+              }}
+            >
+              확인
+            </button>
+          </motion.div>
+        </div>
+      )}
+
       {/* ── 종료 확인 다이얼로그 ─────────────────── */}
       {showExitConfirm && (
         <div

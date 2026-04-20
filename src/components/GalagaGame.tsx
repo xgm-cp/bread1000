@@ -239,8 +239,9 @@ export default function GalagaGame({
       itemsRef.current.push({ x, y, vy: 1.6, type: breadType, frame: 0 })
     }
 
-    // 희귀 파워업: 스테이지 오를수록 감소 (최소 0.5%)
+    // 희귀 파워업: 스테이지 오를수록 감소 (최소 0.5%), 바나나 활성 중엔 바나나(type=3) 미드롭
     for (let t = 0; t < 4; t++) {
+      if (t === 3 && bananaRef.current > 0) continue  // 2연발 중엔 바나나 드롭 안함
       const powerChance = Math.max(0.005, POWERUP_CHANCE[t] - (stage - 1) * 0.002)
       if (Math.random() < powerChance) {
         itemsRef.current.push({ x: x + (Math.random() - 0.5) * 20, y, vy: 1.4, type: t, frame: 0 })
@@ -618,26 +619,48 @@ export default function GalagaGame({
       })
     })
 
+    // 바나나 2연발 해제 헬퍼 (하트 감소 없이 2연발만 해제)
+    const breakBanana = () => {
+      bananaRef.current = 0
+      const active: number[] = []
+      if (shieldRef.current > 0) active.push(0)
+      if (jamRef.current    > 0) active.push(1)
+      if (milkRef.current   > 0) active.push(2)
+      setActiveItems(active)
+      invincRef.current = 120
+      burst(p.x, p.y, '#FFE135', 16)
+    }
+
     // 적 vs 플레이어 (실드 활성 시 무적)
     if (invincRef.current <= 0 && shieldRef.current <= 0) {
       ebulletsRef.current.forEach(b => {
         if (hitRect(b.x, b.y, 6, p.x, p.y, 12)) {
-          b.y = H + 999; burst(p.x, p.y, '#4af', 14)
-          livesRef.current--; updateHUD()
-          if (livesRef.current <= 0) {
-            gsRef.current = 'gameover'; setGstate('gameover')
-            saveScore(scoreRef.current, stageRef.current)
-          } else invincRef.current = 180
+          b.y = H + 999
+          if (bananaRef.current > 0) {
+            breakBanana()
+          } else {
+            burst(p.x, p.y, '#4af', 14)
+            livesRef.current--; updateHUD()
+            if (livesRef.current <= 0) {
+              gsRef.current = 'gameover'; setGstate('gameover')
+              saveScore(scoreRef.current, stageRef.current)
+            } else invincRef.current = 180
+          }
         }
       })
       enemiesRef.current.filter(e => e.alive && (e.state === 'diving' || e.state === 'returning')).forEach(e => {
         if (hitRect(e.x, e.y, 10, p.x, p.y, 12)) {
-          e.alive = false; burst(p.x, p.y, '#4af', 14)
-          livesRef.current--; updateHUD()
-          if (livesRef.current <= 0) {
-            gsRef.current = 'gameover'; setGstate('gameover')
-            saveScore(scoreRef.current, stageRef.current)
-          } else invincRef.current = 180
+          e.alive = false
+          if (bananaRef.current > 0) {
+            breakBanana()
+          } else {
+            burst(p.x, p.y, '#4af', 14)
+            livesRef.current--; updateHUD()
+            if (livesRef.current <= 0) {
+              gsRef.current = 'gameover'; setGstate('gameover')
+              saveScore(scoreRef.current, stageRef.current)
+            } else invincRef.current = 180
+          }
         }
       })
     }

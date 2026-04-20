@@ -405,7 +405,7 @@ export default function MypagePage() {
           <button className="btn-edit-profile" onClick={logout} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><LogOut size={15} /> 로그아웃</button>
           <button className="btn-edit-profile" onClick={() => setShowTetris(true)} style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, color: '#A000F0', borderColor: '#A000F0' }}>🎮 테트리스</button>
           <button className="btn-edit-profile" onClick={() => setShowMatch3(true)} style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, color: '#F97316', borderColor: '#F97316' }}>🍞 Bread Match-3</button>
-          <button className="btn-edit-profile" onClick={() => setShowGalaga(true)} style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, color: '#00FFFF', borderColor: '#00FFFF' }}>🚀 갤러그</button>
+          <button className="btn-edit-profile" onClick={() => setShowGalaga(true)} style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, color: '#00FFFF', borderColor: '#00FFFF' }}>🚀 갤러그레드</button>
         </div>
 
         {/* 예측 히스토리 */}

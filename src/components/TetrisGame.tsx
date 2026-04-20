@@ -106,6 +106,22 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const [level, setLevel]     = useState(1)
   const [gameOver, setGameOver] = useState(false)
   const [paused, setPaused]   = useState(false)
+  const [bestScore, setBestScore] = useState(0)
+  const [bestLevel, setBestLevel] = useState(1)
+  const [newBest, setNewBest] = useState(false)
+
+  const bestScoreRef = useRef(0)
+  const bestLevelRef = useRef(1)
+
+  // 최고기록 불러오기
+  useEffect(() => {
+    const savedScore = parseInt(localStorage.getItem('tetris_best') ?? '0', 10)
+    const savedLevel = parseInt(localStorage.getItem('tetris_best_level') ?? '1', 10)
+    bestScoreRef.current = savedScore
+    bestLevelRef.current = savedLevel
+    setBestScore(savedScore)
+    setBestLevel(savedLevel)
+  }, [])
 
   const pausedRef   = useRef(false)
   const gameOverRef = useRef(false)
@@ -238,7 +254,21 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     setScore(scoreRef.current); setLines(linesRef.current); setLevel(levelRef.current)
     pieceRef.current = { ...nextRef.current, x: Math.floor(COLS / 2) - Math.floor(nextRef.current.shape[0].length / 2), y: 0 }
     nextRef.current = randomPiece()
-    if (!isValid(boardRef.current, pieceRef.current)) { gameOverRef.current = true; setGameOver(true) }
+    if (!isValid(boardRef.current, pieceRef.current)) {
+      gameOverRef.current = true
+      setGameOver(true)
+      if (scoreRef.current > bestScoreRef.current) {
+        bestScoreRef.current = scoreRef.current
+        setBestScore(scoreRef.current)
+        setNewBest(true)
+        localStorage.setItem('tetris_best', String(scoreRef.current))
+      }
+      if (levelRef.current > bestLevelRef.current) {
+        bestLevelRef.current = levelRef.current
+        setBestLevel(levelRef.current)
+        localStorage.setItem('tetris_best_level', String(levelRef.current))
+      }
+    }
   }, [])
 
   const moveDown = useCallback(() => {
@@ -316,7 +346,7 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
     scoreRef.current = 0; linesRef.current = 0; levelRef.current = 1
     gameOverRef.current = false; pausedRef.current = false
     dropCounterRef.current = 0; lastTimeRef.current = 0
-    setScore(0); setLines(0); setLevel(1); setGameOver(false); setPaused(false)
+    setScore(0); setLines(0); setLevel(1); setGameOver(false); setPaused(false); setNewBest(false)
     cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(function loop(t) {
       if (!gameOverRef.current) rafRef.current = requestAnimationFrame(loop)
@@ -347,8 +377,13 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
 
     // 탭 (이동 8px 미만) → 회전
     if (adx < 8 && ady < 8) { doRotate(); render(); return }
-    // 빠른 아래 스와이프 → 하드드롭
-    if (ady > adx && dy > 30 && dt < 400) { hardDrop(); render(); return }
+    // 아래 스와이프 → 속도 기반 분기
+    if (ady > adx && dy > 20) {
+      const velocity = ady / dt  // px/ms
+      if (velocity > 0.5) { hardDrop(); render() }   // 빠름 → 하드드롭
+      else                { moveDown();  render() }   // 느림 → 소프트드롭 1칸
+      return
+    }
     // 좌우 스와이프 → 이동
     if (adx > ady && adx > 20) {
       if (dx < 0) { moveLeft(); render() }
@@ -393,13 +428,37 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
   const btnSz = Math.max(44, Math.min(58, Math.floor((cW - 60) / 5)))
   const bigSz = Math.max(52, Math.min(68, btnSz + 12))
 
+  // 정보 바(SCORE 영역)에서만 아래 스와이프 → 일시정지
+  const infoSwipeStartY = useRef<number | null>(null)
+
+  function onInfoTouchStart(e: React.TouchEvent) {
+    infoSwipeStartY.current = e.touches[0].clientY
+  }
+
+  function onInfoTouchMove(e: React.TouchEvent) {
+    if (infoSwipeStartY.current === null || pausedRef.current || gameOverRef.current) return
+    const dy = e.touches[0].clientY - infoSwipeStartY.current
+    if (dy > 40) {
+      infoSwipeStartY.current = null
+      pausedRef.current = true
+      setPaused(true)
+    }
+  }
+
+  function onInfoTouchEnd() {
+    infoSwipeStartY.current = null
+  }
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 500,
-      background: '#0A0C0F',
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      overflow: 'hidden', height: '100dvh',
-    }}>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        background: '#0A0C0F',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        overflow: 'hidden', height: '100dvh',
+        overscrollBehavior: 'none',
+      }}
+    >
 
       {/* ── 헤더 ── */}
       <div style={{
@@ -408,13 +467,19 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
         padding: '0 14px', boxSizing: 'border-box',
         borderBottom: '1px solid #1E2430',
       }}>
-        {/* 앱 로고와 같은 그라디언트 텍스트 */}
-        <span style={{
-          fontSize: 16, fontWeight: 800, letterSpacing: 4,
-          background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}>TETRIS</span>
+        {/* 앱 로고 + BEST */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            fontSize: 16, fontWeight: 800, letterSpacing: 4,
+            background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}>TETRIS</span>
+          <span style={{ fontSize: 10, color: '#4A5568', fontWeight: 600 }}>BEST</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#FFD700' }}>
+            {bestScore.toLocaleString()}<span style={{ fontSize: 10, color: '#B8860B', marginLeft: 4 }}>Lv.{bestLevel}</span>
+          </span>
+        </div>
 
         <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
           <button
@@ -437,11 +502,16 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* ── 정보 바 ── */}
-      <div style={{
-        width: '100%', flexShrink: 0, height: 44,
-        display: 'flex', gap: 5, padding: '4px 10px', boxSizing: 'border-box',
-        borderBottom: '1px solid #1E2430',
-      }}>
+      <div
+        style={{
+          width: '100%', flexShrink: 0, height: 44,
+          display: 'flex', gap: 5, padding: '4px 10px', boxSizing: 'border-box',
+          borderBottom: '1px solid #1E2430',
+        }}
+        onTouchStart={onInfoTouchStart}
+        onTouchMove={onInfoTouchMove}
+        onTouchEnd={onInfoTouchEnd}
+      >
         {([
           ['SCORE', score.toLocaleString(), '#FF3D78'],
           ['LINES', String(lines),          '#8892A0'],
@@ -571,8 +641,15 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
             boxShadow: '0 0 60px rgba(255,61,120,0.15)',
           }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#FF3D78', marginBottom: 10 }}>— GAME OVER —</div>
+            {newBest && (
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#FFD700', marginBottom: 6 }}>🏆 최고기록 갱신!</div>
+            )}
             <div style={{ fontSize: 32, fontWeight: 800, color: '#EEF0F4', marginBottom: 4 }}>{score.toLocaleString()}</div>
-            <div style={{ fontSize: 12, color: '#4A5568', marginBottom: 24 }}>{lines}줄 · 레벨 {level}</div>
+            <div style={{ fontSize: 12, color: '#4A5568', marginBottom: newBest ? 8 : 24 }}>{lines}줄 · 레벨 {level}</div>
+            {!newBest && bestScore > 0 && (
+              <div style={{ fontSize: 11, color: '#FFD700', marginBottom: 24 }}>최고 {bestScore.toLocaleString()}</div>
+            )}
+            {newBest && <div style={{ marginBottom: 24 }} />}
             <button onClick={restart} style={{
               padding: '12px 36px', borderRadius: 12, border: 'none',
               background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
@@ -587,19 +664,23 @@ export default function TetrisGame({ onClose }: { onClose: () => void }) {
 
       {/* ── 일시정지 ── */}
       {paused && !gameOver && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 10,
-          background: 'rgba(10,12,15,0.7)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backdropFilter: 'blur(3px)',
-        }}>
+        <div
+          style={{
+            position: 'absolute', inset: 0, zIndex: 10,
+            background: 'rgba(10,12,15,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(3px)',
+            cursor: 'pointer',
+          }}
+          onPointerDown={() => { pausedRef.current = false; setPaused(false) }}
+        >
           <div style={{ textAlign: 'center' }}>
             <div style={{
               fontSize: 22, fontWeight: 800, letterSpacing: 4,
               background: 'linear-gradient(135deg,#FF3D78,#9B2FC9)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             }}>PAUSED</div>
-            <div style={{ fontSize: 12, color: '#4A5568', marginTop: 6 }}>정지 버튼을 눌러 재개</div>
+            <div style={{ fontSize: 12, color: '#4A5568', marginTop: 6 }}>화면을 눌러 재개</div>
           </div>
         </div>
       )}

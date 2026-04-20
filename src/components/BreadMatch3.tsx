@@ -78,10 +78,7 @@ export default function BreadMatch3({ onClose, userId = '', userName = '' }: {
   const [dragStart, setDragStart] = useState<{ r: number; c: number; x: number; y: number } | null>(null)
   const [swappingPair, setSwappingPair] = useState<{ from: { r: number; c: number }; to: { r: number; c: number } } | null>(null)
   const [currentRound, setCurrentRound] = useState(1)
-  const [bestScore, setBestScore] = useState<number>(() => {
-    if (typeof window === 'undefined') return 0
-    return parseInt(localStorage.getItem('breadMatch3BestScore') || '0', 10)
-  })
+  const [bestScore, setBestScore] = useState(0)
   const [showFinal, setShowFinal] = useState(false) // 10판 완료 화면
   const [newBest, setNewBest] = useState(false)
   const [sessionTotal, setSessionTotal] = useState(0) // 현재 세션 누적 점수
@@ -96,6 +93,20 @@ export default function BreadMatch3({ onClose, userId = '', userName = '' }: {
   useEffect(() => { userIdRef.current = userId }, [userId])
   useEffect(() => { userNameRef.current = userName }, [userName])
 
+  // 내 최고기록 불러오기 (Supabase)
+  useEffect(() => {
+    if (!userId) return
+    fetch(`/api/game/score?game=match3&userId=${encodeURIComponent(userId)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.data) {
+          bestScoreRef.current = d.data.점수
+          setBestScore(d.data.점수)
+        }
+      })
+      .catch(() => {})
+  }, [userId])
+
   // 전체 1위 불러오기
   useEffect(() => {
     fetch('/api/game/leaderboard?game=match3')
@@ -104,7 +115,7 @@ export default function BreadMatch3({ onClose, userId = '', userName = '' }: {
       .catch(() => {})
   }, [])
 
-  // 게임 종료 시 최고점수 갱신 (localStorage 누적)
+  // 게임 종료 시 최고점수 갱신
   useEffect(() => {
     if (gameState !== 'playing') {
       const cur = scoreRef.current
@@ -117,7 +128,6 @@ export default function BreadMatch3({ onClose, userId = '', userName = '' }: {
         bestScoreRef.current = cur
         setBestScore(cur)
         setNewBest(true)
-        localStorage.setItem('breadMatch3BestScore', String(cur))
         // Supabase 저장
         if (userIdRef.current) {
           const payload = { 게임종류: 'match3', 사용자아이디: userIdRef.current, 사용자이름: userNameRef.current, 점수: cur }

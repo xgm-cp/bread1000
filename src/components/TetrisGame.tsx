@@ -122,15 +122,21 @@ export default function TetrisGame({ onClose, userId = '', userName = '' }: {
   useEffect(() => { userIdRef.current = userId }, [userId])
   useEffect(() => { userNameRef.current = userName }, [userName])
 
-  // 최고기록 불러오기
+  // 내 최고기록 불러오기 (Supabase)
   useEffect(() => {
-    const savedScore = parseInt(localStorage.getItem('tetris_best') ?? '0', 10)
-    const savedLevel = parseInt(localStorage.getItem('tetris_best_level') ?? '1', 10)
-    bestScoreRef.current = savedScore
-    bestLevelRef.current = savedLevel
-    setBestScore(savedScore)
-    setBestLevel(savedLevel)
-  }, [])
+    if (!userId) return
+    fetch(`/api/game/score?game=tetris&userId=${encodeURIComponent(userId)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.data) {
+          bestScoreRef.current = d.data.점수
+          bestLevelRef.current = d.data.레벨 ?? 1
+          setBestScore(d.data.점수)
+          setBestLevel(d.data.레벨 ?? 1)
+        }
+      })
+      .catch(() => {})
+  }, [userId])
 
   // 전체 1위 불러오기
   useEffect(() => {
@@ -278,12 +284,10 @@ export default function TetrisGame({ onClose, userId = '', userName = '' }: {
         bestScoreRef.current = scoreRef.current
         setBestScore(scoreRef.current)
         setNewBest(true)
-        localStorage.setItem('tetris_best', String(scoreRef.current))
       }
       if (levelRef.current > bestLevelRef.current) {
         bestLevelRef.current = levelRef.current
         setBestLevel(levelRef.current)
-        localStorage.setItem('tetris_best_level', String(levelRef.current))
       }
       // Supabase 저장
       if (userIdRef.current && scoreRef.current > 0) {

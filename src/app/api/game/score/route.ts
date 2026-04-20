@@ -8,6 +8,22 @@ function getSupabase() {
   )
 }
 
+export async function GET(req: NextRequest) {
+  const game = req.nextUrl.searchParams.get('game')
+  const userId = req.nextUrl.searchParams.get('userId')
+  if (!game || !userId) return NextResponse.json({ data: null }, { status: 400 })
+
+  const supabase = getSupabase()
+  const { data } = await supabase
+    .from('게임최고점수')
+    .select('점수, 레벨')
+    .eq('사용자아이디', userId)
+    .eq('게임종류', game)
+    .maybeSingle() as { data: { 점수: number; 레벨: number | null } | null; error: unknown }
+
+  return NextResponse.json({ data: data ?? null })
+}
+
 export async function POST(req: NextRequest) {
   const { 게임종류, 사용자아이디, 사용자이름, 점수, 레벨 } = await req.json()
 

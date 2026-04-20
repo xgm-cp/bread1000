@@ -46,13 +46,17 @@ interface Enemy {
   path: V2[]; pathIdx: number; frame: number; entryDelay: number
 }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; col: string }
-// 아이템 타입: 0=버터(실드) 1=잼(연사) 2=우유(2배점수) 3=바나나우유(2연발)
+// 아이템 타입:
+//  0=버터(실드) 1=잼(연사) 2=우유(2배점수) 3=바나나우유(2연발)
+//  4=흰빵 5=골드빵 6=베이글 7=스페셜빵
 interface Item { x: number; y: number; vy: number; type: number; frame: number }
-const ITEM_DURATION = 60 * 8  // 8초 (60fps 기준)
-const ITEM_COLORS   = ['#FFD700', '#FF3D78', '#FFFFFF', '#FFE135']
-const ITEM_LABELS   = ['🧈', '🍓', '🥛', '🍌']
-const ITEM_NAMES    = ['버터 실드', '딸기잼 연사', '우유 2배', '바나나 2연발']
-const ITEM_DROP_CHANCE = [0.18, 0.20, 0.15, 0.17]  // 타입별 드롭 확률
+const ITEM_DURATION = 60 * 8
+const ITEM_COLORS   = ['#FFD700','#FF3D78','#AADDFF','#FFE135','#F5DEB3','#FFD700','#C8A96E','#FF69B4']
+const ITEM_LABELS   = ['🧈','🍓','🥛','🍌','🍞','🍞','🥐','✨']
+const ITEM_NAMES    = ['버터 실드','딸기잼 연사','우유 2배','바나나 2연발','흰빵','골드빵','베이글','스페셜빵']
+const BREAD_POINTS  = [0,0,0,0, 100,200,350,600]  // 빵 타입별 획득 점수
+const POWERUP_CHANCE = [0.04, 0.04, 0.03, 0.04]   // 파워업 개별 드롭 확률 (희귀)
+const ENEMY_BREAD   = [4, 5, 6]  // 적 타입별 기본 빵: bee→흰빵, butterfly→골드빵, boss→베이글
 
 // ── 게임 로직 유틸 ────────────────────────────────────────────
 function makeStars(): Star[] {
@@ -154,6 +158,15 @@ export default function GalagaGame({
   const particlesRef = useRef<Particle[]>([])
   const starsRef     = useRef<Star[]>(makeStars())
   const itemsRef     = useRef<Item[]>([])
+  const breadImgsRef = useRef<HTMLImageElement[]>([])
+
+  useEffect(() => {
+    const srcs = ['/sample-a.png', '/sample-b.png', '/sample-c.png', '/sample-d.png']
+    breadImgsRef.current = srcs.map(src => {
+      const img = new window.Image(); img.src = src; return img
+    })
+  }, [])
+
   // 파워업 타이머 (남은 틱, 0=비활성)
   const shieldRef    = useRef(0)   // 버터 — 실드
   const jamRef       = useRef(0)   // 잼   — 연사
@@ -209,12 +222,16 @@ export default function GalagaGame({
 
   // ── 아이템 드롭 ───────────────────────────────────────────
   const spawnItem = useCallback((x: number, y: number, enemyType: number) => {
-    // 적 타입에 따라 드롭 확률 가중
-    const bonus = enemyType === 2 ? 0.15 : 0
+    // 항상 빵 드롭: boss는 베이글(6) 기본, 20% 확률로 스페셜빵(7)
+    let breadType = ENEMY_BREAD[enemyType] ?? 4
+    if (enemyType === 2 && Math.random() < 0.20) breadType = 7
+    itemsRef.current.push({ x, y, vy: 1.6, type: breadType, frame: 0 })
+
+    // 희귀 파워업 (최대 1개)
     for (let t = 0; t < 4; t++) {
-      if (Math.random() < ITEM_DROP_CHANCE[t] + bonus) {
-        itemsRef.current.push({ x, y, vy: 1.8, type: t, frame: 0 })
-        break  // 한 적에서 하나만
+      if (Math.random() < POWERUP_CHANCE[t]) {
+        itemsRef.current.push({ x: x + (Math.random() - 0.5) * 20, y, vy: 1.4, type: t, frame: 0 })
+        break
       }
     }
   }, [])
@@ -371,49 +388,52 @@ export default function GalagaGame({
     // ── 아이템 드롭 ──────────────────────────────────────────
     itemsRef.current.forEach(it => {
       const { x, y, type, frame } = it
-      const bob = Math.sin(frame * 0.12) * 2   // 위아래 흔들림
+      const bob = Math.sin(frame * 0.12) * 2
       ctx.save(); ctx.translate(x, y + bob)
 
-      if (type === 0) {
-        // 버터 — 노란 사각형
+      if (type >= 4) {
+        // 🍞 빵 아이템 — 실제 이미지 사용
+        const img = breadImgsRef.current[type - 4]
+        const sz = type === 7 ? 30 : 24   // 스페셜빵은 약간 크게
+        if (img?.complete && img.naturalWidth > 0) {
+          ctx.shadowColor = ITEM_COLORS[type]; ctx.shadowBlur = 10
+          ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz)
+          ctx.shadowBlur = 0
+        } else {
+          // 이미지 로드 전 폴백
+          ctx.fillStyle = ITEM_COLORS[type]
+          ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill()
+        }
+        // 점수 표시
+        ctx.fillStyle = '#fff'; ctx.font = `bold 8px sans-serif`; ctx.textAlign = 'center'
+        ctx.fillText(`+${BREAD_POINTS[type]}`, 0, sz / 2 + 9)
+      } else if (type === 0) {
+        // 버터
         ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 8
-        ctx.fillStyle = '#FFD700'
-        ctx.fillRect(-9, -7, 18, 14)
-        ctx.fillStyle = '#FFF176'
-        ctx.fillRect(-6, -4, 6, 4)
-        ctx.fillStyle = '#E6B800'
-        ctx.fillRect(-9, 5, 18, 2)
+        ctx.fillStyle = '#FFD700'; ctx.fillRect(-9, -7, 18, 14)
+        ctx.fillStyle = '#FFF176'; ctx.fillRect(-6, -4, 6, 4)
+        ctx.fillStyle = '#E6B800'; ctx.fillRect(-9, 5, 18, 2)
       } else if (type === 1) {
-        // 딸기잼 — 빨간 병
+        // 딸기잼
         ctx.shadowColor = '#FF3D78'; ctx.shadowBlur = 8
-        ctx.fillStyle = '#8B4513'
-        ctx.fillRect(-5, -10, 10, 4)      // 뚜껑
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(-5, -10, 10, 4)
         ctx.fillStyle = '#FF3D78'
         ctx.beginPath(); ctx.roundRect(-7, -6, 14, 16, 3); ctx.fill()
-        ctx.fillStyle = 'rgba(255,180,200,0.5)'
-        ctx.fillRect(-4, -3, 4, 6)
+        ctx.fillStyle = 'rgba(255,180,200,0.5)'; ctx.fillRect(-4, -3, 4, 6)
       } else if (type === 2) {
-        // 우유 — 흰 우유갑
+        // 우유
         ctx.shadowColor = '#AADDFF'; ctx.shadowBlur = 8
-        ctx.fillStyle = '#FFFFFF'
-        ctx.fillRect(-8, -10, 16, 18)
-        ctx.fillStyle = '#4A9EFF'
-        ctx.fillRect(-8, -10, 16, 6)
-        ctx.fillStyle = '#FFFFFF'
-        ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'
-        ctx.fillStyle = '#003080'
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(-8, -10, 16, 18)
+        ctx.fillStyle = '#4A9EFF'; ctx.fillRect(-8, -10, 16, 6)
+        ctx.fillStyle = '#003080'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'
         ctx.fillText('2x', 0, 4)
       } else {
-        // 바나나우유 — 노란 우유갑 + 바나나
+        // 바나나우유
         ctx.shadowColor = '#FFE135'; ctx.shadowBlur = 8
-        ctx.fillStyle = '#FFE135'
-        ctx.fillRect(-8, -10, 16, 18)
-        ctx.fillStyle = '#E6B800'
-        ctx.fillRect(-8, -10, 16, 5)
-        ctx.fillStyle = '#8B6914'
-        ctx.beginPath(); ctx.arc(0, -3, 5, Math.PI, 0); ctx.stroke()
+        ctx.fillStyle = '#FFE135'; ctx.fillRect(-8, -10, 16, 18)
+        ctx.fillStyle = '#E6B800'; ctx.fillRect(-8, -10, 16, 5)
         ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 2
-        ctx.beginPath(); ctx.arc(0, -3, 5, Math.PI, 0); ctx.stroke()
+        ctx.beginPath(); ctx.arc(0, -1, 5, Math.PI, 0); ctx.stroke()
         ctx.lineWidth = 1
       }
 
@@ -488,18 +508,25 @@ export default function GalagaGame({
       it.y += it.vy; it.frame++
       if (it.y > H + 20) return false
       if (hitRect(it.x, it.y, 10, p.x, p.y, 16)) {
-        // 획득
-        if (it.type === 0) shieldRef.current  = ITEM_DURATION
-        if (it.type === 1) jamRef.current     = ITEM_DURATION
-        if (it.type === 2) milkRef.current    = ITEM_DURATION
-        if (it.type === 3) bananaRef.current  = ITEM_DURATION
-        const active: number[] = []
-        if (shieldRef.current > 0) active.push(0)
-        if (jamRef.current    > 0) active.push(1)
-        if (milkRef.current   > 0) active.push(2)
-        if (bananaRef.current > 0) active.push(3)
-        setActiveItems(active)
-        burst(it.x, it.y, ITEM_COLORS[it.type], 16)
+        if (it.type >= 4) {
+          // 빵 수집 → 점수 (우유 활성시 2배)
+          const pts = BREAD_POINTS[it.type] * (milkRef.current > 0 ? 2 : 1)
+          scoreRef.current += pts
+          updateHUD()
+        } else {
+          // 파워업 수집
+          if (it.type === 0) shieldRef.current = ITEM_DURATION
+          if (it.type === 1) jamRef.current    = ITEM_DURATION
+          if (it.type === 2) milkRef.current   = ITEM_DURATION
+          if (it.type === 3) bananaRef.current = ITEM_DURATION
+          const active: number[] = []
+          if (shieldRef.current > 0) active.push(0)
+          if (jamRef.current    > 0) active.push(1)
+          if (milkRef.current   > 0) active.push(2)
+          if (bananaRef.current > 0) active.push(3)
+          setActiveItems(active)
+        }
+        burst(it.x, it.y, ITEM_COLORS[it.type], 14)
         return false
       }
       return true
@@ -553,8 +580,6 @@ export default function GalagaGame({
       enemiesRef.current.filter(e => e.alive).forEach(e => {
         if (hitRect(b.x, b.y, 6, e.x, e.y, 12)) {
           e.alive = false; b.y = -999
-          const mult = milkRef.current > 0 ? 2 : 1   // 우유: 2배 점수
-          scoreRef.current += TYPE_POINTS[e.type] * stageRef.current * mult
           burst(e.x, e.y, TYPE_COLORS[e.type], 12)
           spawnItem(e.x, e.y, e.type)
           updateHUD()

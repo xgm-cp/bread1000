@@ -79,18 +79,31 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
     return parseInt(localStorage.getItem('breadMatch3BestScore') || '0', 10)
   })
   const [showFinal, setShowFinal] = useState(false) // 10판 완료 화면
+  const [newBest, setNewBest] = useState(false)
+  const [sessionTotal, setSessionTotal] = useState(0) // 현재 세션 누적 점수
 
   const scoreRef = useRef(0)
   scoreRef.current = score
+  const bestScoreRef = useRef(bestScore)
+  const sessionTotalRef = useRef(0)
 
   // 게임 종료 시 최고점수 갱신 (localStorage 누적)
   useEffect(() => {
     if (gameState !== 'playing') {
-      setBestScore(prev => {
-        const next = Math.max(prev, scoreRef.current)
-        if (next > prev) localStorage.setItem('breadMatch3BestScore', String(next))
-        return next
-      })
+      const cur = scoreRef.current
+      // 세션 누적
+      const newTotal = sessionTotalRef.current + cur
+      sessionTotalRef.current = newTotal
+      setSessionTotal(newTotal)
+      // 최고점수 갱신
+      if (cur > bestScoreRef.current) {
+        bestScoreRef.current = cur
+        setBestScore(cur)
+        setNewBest(true)
+        localStorage.setItem('breadMatch3BestScore', String(cur))
+      } else {
+        setNewBest(false)
+      }
     }
   }, [gameState])
 
@@ -114,8 +127,10 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
 
   const resetAll = async () => {
     setCurrentRound(1)
-    setBestScore(0)
     setShowFinal(false)
+    setNewBest(false)
+    setSessionTotal(0)
+    sessionTotalRef.current = 0
     setSelectedCell(null)
     setSwappingPair(null)
     await initBoard()
@@ -128,6 +143,7 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
       return
     }
     setCurrentRound(next)
+    setNewBest(false)
     setSelectedCell(null)
     setSwappingPair(null)
     await initBoard()
@@ -203,6 +219,8 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
         backdropFilter: 'blur(6px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 12,
+        overscrollBehavior: 'none',
+        overflow: 'hidden',
       }}
     >
       <div
@@ -265,6 +283,24 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
                     {bestScore > 0 ? bestScore.toLocaleString() : '-'}
                   </span>
                 </div>
+
+                {/* 이번 세션 누적 점수 뱃지 */}
+                {sessionTotal > 0 && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 3,
+                    background: 'rgba(74,158,255,0.10)',
+                    border: '1px solid rgba(74,158,255,0.3)',
+                    borderRadius: 6, padding: '2px 7px',
+                  }}>
+                    <span style={{ fontSize: 9, color: '#4A9EFF', fontWeight: 700 }}>누적</span>
+                    <span style={{
+                      fontSize: 12, fontWeight: 900, lineHeight: 1,
+                      color: '#93C5FD',
+                    }}>
+                      {sessionTotal.toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div style={{ fontSize: 10, color: T.text3, marginTop: 3, letterSpacing: '0.07em' }}>
@@ -641,9 +677,18 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
               }}>
                 {gameState === 'won' ? '성공!' : '실패...'}
               </div>
-              <div style={{ fontSize: 11, color: T.text3, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: T.text3, marginBottom: newBest ? 6 : 14 }}>
                 {gameState === 'won' ? `${WIN_SCORE}점 돌파!` : `목표 ${WIN_SCORE}점 미달`}
               </div>
+              {newBest && (
+                <div style={{
+                  fontSize: 12, fontWeight: 800, color: T.neonO,
+                  textShadow: `0 0 10px ${T.neonO}88`,
+                  marginBottom: 10, letterSpacing: '0.04em',
+                }}>
+                  🏆 최고기록 갱신!
+                </div>
+              )}
 
               {/* 점수 */}
               <div style={{
@@ -659,13 +704,19 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
                   <span style={{ fontSize: 30, fontWeight: 900, color: T.neonY, textShadow: '0 0 16px rgba(255,215,0,0.5)', lineHeight: 1 }}>
                     {(score || 0).toLocaleString()}
                   </span>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: score >= bestScore ? T.neonY : T.text2, lineHeight: 1 }}>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: newBest ? T.neonY : T.text2, lineHeight: 1 }}>
                     {bestScore.toLocaleString()}
-                    {score > 0 && score >= bestScore && (
+                    {newBest && (
                       <span style={{ fontSize: 9, color: T.neonO, marginLeft: 4, verticalAlign: 'middle' }}>NEW!</span>
                     )}
                   </span>
                 </div>
+                {sessionTotal > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+                    <span style={{ fontSize: 9, color: T.text3, fontWeight: 700 }}>세션 누적</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#93C5FD' }}>{sessionTotal.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
 
               {/* 버튼 */}
@@ -765,12 +816,25 @@ export default function BreadMatch3({ onClose }: { onClose: () => void }) {
                 border: `1px solid ${T.border2}`,
               }}>
                 <div style={{ fontSize: 9, color: T.text3, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 10 }}>10판 최고 점수</div>
+                {newBest && (
+                  <div style={{
+                    fontSize: 11, fontWeight: 800, color: T.neonO,
+                    textShadow: `0 0 10px ${T.neonO}88`,
+                    marginBottom: 6, letterSpacing: '0.04em',
+                  }}>
+                    🏆 최고기록 갱신!
+                  </div>
+                )}
                 <div style={{
                   fontSize: 46, fontWeight: 900, lineHeight: 1,
                   color: T.neonY,
                   textShadow: '0 0 24px rgba(255,215,0,0.6)',
                 }}>
                   {bestScore.toLocaleString()}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+                  <span style={{ fontSize: 10, color: T.text3, fontWeight: 700 }}>10판 누적 합계</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: '#93C5FD' }}>{sessionTotal.toLocaleString()}</span>
                 </div>
                 <div style={{ fontSize: 11, color: T.text3, marginTop: 8 }}>
                   빵 환산&nbsp;

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { BarChart2, X } from 'lucide-react'
 
 type 종가Row = {
   기준일자: string
@@ -25,6 +26,8 @@ export default function PredictPage() {
   const [isWeekend, setIsWeekend] = useState(false)
   const [marketClosed, setMarketClosed] = useState(false)
   const [marketPreparing, setMarketPreparing] = useState(false)
+  const [showAnalysis, setShowAnalysis] = useState(false)
+  const [analysisData, setAnalysisData] = useState<{ date: string; reason: string; impact_factor: string; summary: string } | null | 'loading'>('loading')
 
   const checkTimeExpired = () => {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
@@ -55,6 +58,18 @@ export default function PredictPage() {
   }
 
   const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  async function openAnalysis() {
+    setShowAnalysis(true)
+    setAnalysisData('loading')
+    const kstToday = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const { data } = await getSupabase()
+      .from('market_analysis')
+      .select('date, reason, impact_factor, summary')
+      .eq('date', kstToday)
+      .maybeSingle()
+    setAnalysisData(data as typeof analysisData ?? null)
+  }
 
   const handleSubmit = async () => {
     if (!price) return
@@ -191,6 +206,7 @@ export default function PredictPage() {
   const daily = rows.length >= 2 ? [...rows].slice(0, 5).reverse() : []
 
   return (
+    <>
     <div className="page-predict">
       <div className="predict-body">
 
@@ -358,6 +374,13 @@ export default function PredictPage() {
           })()}
         </div>
 
+        <button
+          onClick={openAnalysis}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '13px', borderRadius: 12, border: '1px solid #F59E0B', background: 'rgba(245,158,11,0.06)', color: '#F59E0B', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12 }}
+        >
+          <BarChart2 size={15} /> 장마감이후 오늘의 증시 한입분석(17:00기준)
+        </button>
+
         <div className="prediction-panel">
           <h3 style={{ whiteSpace: 'nowrap' }}>종가 예측</h3>
           <p>예측 마감시간은 09시 30분 입니다. <br />
@@ -422,5 +445,54 @@ export default function PredictPage() {
         </div>
       </div>
     </div>
+
+    {showAnalysis && (
+      <div onClick={() => setShowAnalysis(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 400, display: 'flex', alignItems: 'flex-end' }}>
+        <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '28px 24px 44px', maxHeight: '80vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BarChart2 size={20} color="#F59E0B" />
+              <span style={{ fontSize: 17, fontWeight: 700 }}>장마감이후 오늘의 증시 한입분석(17:00기준)</span>
+            </div>
+            <button onClick={() => setShowAnalysis(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}><X size={20} /></button>
+          </div>
+
+          {analysisData === 'loading' && (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text3)', fontSize: 14 }}>불러오는 중...</div>
+          )}
+          {analysisData === null && (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
+              <div style={{ fontSize: 14, color: 'var(--text3)', lineHeight: 1.7 }}>오늘 분석 결과가 아직 없어요.<br />장 마감 후 자동으로 업데이트됩니다.</div>
+            </div>
+          )}
+          {analysisData && analysisData !== 'loading' && (
+            <>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20, fontWeight: 600 }}>
+                {analysisData.date} 마감 시황 분석
+              </div>
+              <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '16px 18px', marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', letterSpacing: '0.1em', marginBottom: 8 }}>📋 한줄 요약</div>
+                <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.7, fontWeight: 500 }}>{analysisData.summary}</div>
+              </div>
+              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 8 }}>📌 마감 주요 요인</div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>{analysisData.reason}</div>
+              </div>
+              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 8 }}>⚡ 시장 영향 요인</div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8 }}>
+                  {analysisData.impact_factor.split('|').map((item, idx) => (
+                    <div key={idx} style={{ paddingBottom: 4 }}>• {item.trim()}</div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   )
 }
+

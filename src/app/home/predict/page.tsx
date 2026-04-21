@@ -27,7 +27,7 @@ export default function PredictPage() {
   const [marketClosed, setMarketClosed] = useState(false)
   const [marketPreparing, setMarketPreparing] = useState(false)
   const [showAnalysis, setShowAnalysis] = useState(false)
-  const [analysisData, setAnalysisData] = useState<{ date: string; reason: string; impact_factor: string; summary: string } | null | 'loading'>('loading')
+  const [analysisData, setAnalysisData] = useState<{ date: string; reason: string; impact_factor: string; summary: string; sentiment?: number | null } | null | 'loading'>('loading')
 
   const checkTimeExpired = () => {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
@@ -65,7 +65,7 @@ export default function PredictPage() {
     const kstToday = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
     const { data } = await getSupabase()
       .from('market_analysis')
-      .select('date, reason, impact_factor, summary')
+      .select('date, reason, impact_factor, summary, sentiment')
       .eq('date', kstToday)
       .maybeSingle()
     setAnalysisData(data as typeof analysisData ?? null)
@@ -448,47 +448,104 @@ export default function PredictPage() {
 
     {showAnalysis && (
       <div onClick={() => setShowAnalysis(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 400, display: 'flex', alignItems: 'flex-end' }}>
-        <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '28px 24px 44px', maxHeight: '80vh', overflowY: 'auto', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--surface)', borderRadius: '20px 20px 0 0', maxHeight: '88vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+
+          {/* 헤더 */}
+          <div style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1, padding: '20px 24px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BarChart2 size={20} color="#F59E0B" />
-              <span style={{ fontSize: 17, fontWeight: 700 }}>장마감이후 오늘의 증시 한입분석(17:00기준)</span>
+              <BarChart2 size={18} color="#F59E0B" />
+              <span style={{ fontSize: 15, fontWeight: 700 }}>장마감이후 오늘의 증시 한입분석</span>
             </div>
             <button onClick={() => setShowAnalysis(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}><X size={20} /></button>
           </div>
 
-          {analysisData === 'loading' && (
-            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text3)', fontSize: 14 }}>불러오는 중...</div>
-          )}
-          {analysisData === null && (
-            <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-              <div style={{ fontSize: 14, color: 'var(--text3)', lineHeight: 1.7 }}>오늘 분석 결과가 아직 없어요.<br />장 마감 후 자동으로 업데이트됩니다.</div>
-            </div>
-          )}
-          {analysisData && analysisData !== 'loading' && (
-            <>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20, fontWeight: 600 }}>
-                {analysisData.date} 마감 시황 분석
+          <div style={{ padding: '20px 24px 36px' }}>
+            {analysisData === 'loading' && (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text3)', fontSize: 14 }}>분석 중...</div>
+            )}
+            {analysisData === null && (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+                <div style={{ fontSize: 14, color: 'var(--text3)', lineHeight: 1.7 }}>오늘 분석 결과가 아직 없어요.<br />장 마감(17:00) 후 자동으로 업데이트됩니다.</div>
               </div>
-              <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '16px 18px', marginBottom: 14 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', letterSpacing: '0.1em', marginBottom: 8 }}>📋 한줄 요약</div>
-                <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.7, fontWeight: 500 }}>{analysisData.summary}</div>
-              </div>
-              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', marginBottom: 14 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 8 }}>📌 마감 주요 요인</div>
-                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>{analysisData.reason}</div>
-              </div>
-              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 8 }}>⚡ 시장 영향 요인</div>
-                <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8 }}>
-                  {analysisData.impact_factor.split('|').map((item, idx) => (
-                    <div key={idx} style={{ paddingBottom: 4 }}>• {item.trim()}</div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
+            )}
+
+            {analysisData && analysisData !== 'loading' && (() => {
+              const score = analysisData.sentiment ?? 50
+              const isBull = score >= 50
+              const gaugeColor = score >= 70 ? '#22C55E' : score >= 50 ? '#EAB308' : score >= 30 ? '#F97316' : '#EF4444'
+              const gaugeLabel = score >= 70 ? '강세' : score >= 50 ? '중립' : score >= 30 ? '약세' : '하락'
+              const ARC_LEN = 251.33
+              const filled = (score / 100) * ARC_LEN
+
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 16, fontWeight: 600, textAlign: 'right' }}>{analysisData.date} 기준</div>
+
+                  {/* ── 상단: 감성 게이지 ── */}
+                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 18px', marginBottom: 14, textAlign: 'center' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 8 }}>📈 시장 감성 지수 (Sentiment Score)</div>
+                    <svg viewBox="0 0 200 115" style={{ width: 180, display: 'block', margin: '0 auto' }}>
+                      {/* 배경 호 */}
+                      <path d="M 20,100 A 80,80 0 0 1 180,100" fill="none" stroke="var(--border)" strokeWidth="16" strokeLinecap="round" />
+                      {/* 채워진 호 */}
+                      <path d="M 20,100 A 80,80 0 0 1 180,100" fill="none" stroke={gaugeColor} strokeWidth="16" strokeLinecap="round"
+                        strokeDasharray={`${filled} ${ARC_LEN}`} />
+                      {/* 점수 */}
+                      <text x="100" y="88" textAnchor="middle" fontSize="34" fontWeight="bold" fill={gaugeColor} fontFamily="inherit">{score}</text>
+                      <text x="100" y="108" textAnchor="middle" fontSize="13" fill="var(--text3)" fontFamily="inherit">{gaugeLabel} {isBull ? '🟢' : '🔴'}</text>
+                    </svg>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8, lineHeight: 1.6 }}>{analysisData.summary}</div>
+                  </div>
+
+                  {/* ── 중단: 핵심 인사이트 ── */}
+                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 18px', marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 12 }}>📌 핵심 분석 요인</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {analysisData.reason.split('|').map((item, idx) => {
+                        const raw = item.trim()
+                        const isPos = /^\[?POS\]?\s/i.test(raw)
+                        const isNeg = /^\[?NEG\]?\s/i.test(raw)
+                        const clean = raw.replace(/^\[?(POS|NEG)\]?\s*/i, '').trim()
+                        const [title, ...rest] = clean.split(':')
+                        const accentColor = isPos ? '#22C55E' : isNeg ? '#EF4444' : '#F59E0B'
+                        const icon = isPos ? '✅' : isNeg ? '⚠️' : '•'
+                        return (
+                          <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 10, background: isPos ? 'rgba(34,197,94,0.06)' : isNeg ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)', border: `1px solid ${isPos ? 'rgba(34,197,94,0.2)' : isNeg ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
+                            <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: accentColor, marginBottom: 2 }}>{title?.trim()}</div>
+                              {rest.length > 0 && <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>{rest.join(':').trim()}</div>}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── 하단: 결론 ── */}
+                  <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 16, padding: '16px 18px', marginBottom: 20 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', letterSpacing: '0.1em', marginBottom: 8 }}>💡 결론 및 시장 해석</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>{analysisData.impact_factor}</div>
+                  </div>
+
+                  {/* ── 다음 액션 ── */}
+                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px 20px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.7, marginBottom: 14 }}>
+                      오늘의 시장 분석을 보셨나요?<br />
+                      <span style={{ fontWeight: 700 }}>내일 KOSPI는 어떻게 될까요?</span>
+                    </div>
+                    <button
+                      onClick={() => setShowAnalysis(false)}
+                      style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(255,61,120,0.3)' }}
+                    >
+                      내일 종가 예측하기 →
+                    </button>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
         </div>
       </div>
     )}

@@ -946,7 +946,22 @@ export default function GalagaGame({
         ref={cvRef}
         width={W}
         height={H}
-        style={{ display: 'block', background: '#000', maxWidth: '100%', flex: 1, minHeight: 0 }}
+        style={{ display: 'block', background: '#000', maxWidth: '100%', flex: 1, minHeight: 0, touchAction: 'none' }}
+        onTouchStart={e => {
+          e.preventDefault()
+          if (gsRef.current !== 'play') { startGame(); return }
+          const t = e.touches[0]
+          swipeRef.current = { startX: t.clientX, lastX: t.clientX, startTime: Date.now() }
+        }}
+        onTouchMove={e => {
+          e.preventDefault()
+          if (!swipeRef.current || gsRef.current !== 'play') return
+          const rect = cvRef.current!.getBoundingClientRect()
+          const dx = (e.touches[0].clientX - swipeRef.current.lastX) * (W / rect.width) * 1.6
+          playerRef.current.x = Math.max(20, Math.min(W - 20, playerRef.current.x + dx))
+          swipeRef.current.lastX = e.touches[0].clientX
+        }}
+        onTouchEnd={() => { swipeRef.current = null }}
         onClick={() => { if (gsRef.current !== 'play') startGame() }}
       />
 

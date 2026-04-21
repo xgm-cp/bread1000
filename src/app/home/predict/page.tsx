@@ -31,6 +31,7 @@ export default function PredictPage() {
   type AnalysisData = {
     date: string
     raw_data: {
+      analyzed_at?: string
       sentiment: { score: number; label: string }
       market_summary: string
       factors: Factor[]
@@ -485,6 +486,13 @@ export default function PredictPage() {
             {analysisData && analysisData !== 'loading' && (() => {
               const rd        = analysisData.raw_data
               if (!rd) return <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text3)', fontSize: 14 }}>분석 데이터 형식이 올바르지 않습니다.</div>
+              const analyzedAt = rd.analyzed_at
+                ? (() => {
+                    const [datePart, timePart] = rd.analyzed_at!.split(' ')
+                    const [y, m, d] = datePart.split('-')
+                    return `${m}월 ${d}일 ${timePart} KST 기준`
+                  })()
+                : null
               const score     = rd.sentiment.score
               const label     = rd.sentiment.label
               const summary   = rd.market_summary
@@ -523,6 +531,9 @@ export default function PredictPage() {
                       <text x="100" y="88" textAnchor="middle" fontSize="34" fontWeight="bold" fill={gaugeColor} fontFamily="inherit">{score}</text>
                       <text x="100" y="108" textAnchor="middle" fontSize="13" fill="var(--text3)" fontFamily="inherit">{label} {score >= 50 ? '🟢' : '🔴'}</text>
                     </svg>
+                    {analyzedAt && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, fontWeight: 600 }}>🕐 {analyzedAt}</div>
+                    )}
                     <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8, lineHeight: 1.6 }}>{summary}</div>
                   </div>
 

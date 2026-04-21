@@ -290,8 +290,11 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
     const score = analysis.sentiment_score ?? 50
     const sentimentLabel = score >= 70 ? '강세' : score >= 50 ? '중립' : score >= 30 ? '약세' : '하락'
 
+    const analyzedAt = kst.toISOString().slice(0, 16).replace('T', ' ') // "YYYY-MM-DD HH:MM"
+
     const rawData = {
       date:           today,
+      analyzed_at:    analyzedAt,
       sentiment:      { score, label: sentimentLabel },
       market_summary: analysis.market_summary,
       factors:        analysis.factors ?? [],

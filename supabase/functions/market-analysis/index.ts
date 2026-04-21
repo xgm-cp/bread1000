@@ -270,7 +270,30 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? `\n   └ ${it
     }
 
     const groqJson = await groqRes.json()
-    const rawText  = groqJson.choices?.[0]?.message?.content ?? ''
+    let rawText    = groqJson.choices?.[0]?.message?.content ?? ''
+
+    // 한자·일본어 감지 시 교정 API 호출
+    const hasCJK = (s: string) => /[\u4e00-\u9fff\u3040-\u30ff]/.test(s)
+    if (hasCJK(rawText)) {
+      console.log('[market-analysis] 한자 감지 → 교정 호출')
+      const fixRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model:      'llama-3.3-70b-versatile',
+          max_tokens: 2000,
+          messages: [
+            { role: 'system', content: '아래 JSON에서 한자·중국어·일본어·베트남어·스페인어 단어를 모두 자연스러운 한국어로 교체하세요. JSON 구조와 나머지 내용은 절대 변경하지 마세요. 순수 JSON만 출력하세요. 마크다운 코드 블록 금지.' },
+            { role: 'user',   content: rawText },
+          ],
+        }),
+      })
+      if (fixRes.ok) {
+        const fixResJson = await fixRes.json()
+        const fixed = fixResJson.choices?.[0]?.message?.content ?? ''
+        if (fixed) rawText = fixed
+      }
+    }
 
     // JSON 문자열 내부 문제 문자 수정 (제어 문자 + 내부 따옴표)
     const fixJson = (s: string): string => {

@@ -76,12 +76,23 @@ export default function PredictPage() {
     setShowAnalysis(true)
     setAnalysisData('loading')
     const kstToday = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const { data } = await getSupabase()
+    // 오늘 데이터 우선 조회, 없으면 가장 최근 데이터 fallback
+    const { data: todayData } = await getSupabase()
       .from('market_analysis')
       .select('date, raw_data')
       .eq('date', kstToday)
       .maybeSingle()
-    setAnalysisData(data as typeof analysisData ?? null)
+    if (todayData) {
+      setAnalysisData(todayData as typeof analysisData)
+      return
+    }
+    const { data: latestData } = await getSupabase()
+      .from('market_analysis')
+      .select('date, raw_data')
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    setAnalysisData(latestData as typeof analysisData ?? null)
   }
 
   const handleSubmit = async () => {

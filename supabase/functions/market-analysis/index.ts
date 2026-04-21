@@ -155,10 +155,10 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
   "sentiment_score": 60,
   "market_summary": "KOSPI 실측값 포함 1문장 요약",
   "factors": [
-    { "type": "POSITIVE", "title": "요인명 (10자 이내)", "desc": "1문장 해석" },
-    { "type": "NEGATIVE", "title": "요인명 (10자 이내)", "desc": "1문장 해석" }
+    { "type": "POSITIVE", "title": "요인명 (10자 이내)", "desc": "이 요인이 왜 주가 상승에 기여했는지 금융 논리로 상세히 설명. 인과관계를 화살표(→)로 연결하고, 시장 참여자(외국인/기관/개인) 반응, 관련 섹터 영향까지 포함해 5~10줄로 서술" },
+    { "type": "NEGATIVE", "title": "요인명 (10자 이내)", "desc": "이 요인이 왜 주가 하락 또는 부담으로 작용했는지 금융 논리로 상세히 설명. 인과관계를 화살표(→)로 연결하고, 리스크 전파 경로와 투자심리 위축 과정까지 포함해 5~10줄로 서술" }
   ],
-  "conclusion": "2문장 이내 결론"
+  "conclusion": "오늘 시장 전체를 한 줄로 정의한 뒤, 상승/하락 요인들이 어떻게 충돌하거나 균형을 이뤘는지, 그리고 향후 주목할 변수는 무엇인지 종합해서 서술"
 }`
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -169,7 +169,7 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       },
       body: JSON.stringify({
         model:      'llama-3.1-8b-instant',
-        max_tokens: 1200,
+        max_tokens: 2000,
         messages:   [{ role: 'user', content: prompt }],
       }),
     })

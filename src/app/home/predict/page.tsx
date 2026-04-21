@@ -540,11 +540,11 @@ export default function PredictPage() {
                   <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px 20px', textAlign: 'center' }}>
                     <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.7, marginBottom: 14 }}>
                       오늘의 시장 분석을 보셨나요?<br />
-                      <span style={{ fontWeight: 700 }}>내일 KOSPI는 어떻게 될까요?</span>
+                      <span style={{ fontWeight: 700 }}>다음 KOSPI는 어떻게 될까요?</span>
                     </div>
                     <button onClick={() => setShowAnalysis(false)}
                       style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(255,61,120,0.3)' }}>
-                      내일 종가 예측하기 →
+                      다음 종가 예측하기 →
                     </button>
                   </div>
                 </>

@@ -108,13 +108,18 @@ Deno.serve(async () => {
       .limit(2)
 
     const closes = closeData as { 종가: number; 기준일자: string }[] | null
-    const todayClose = closes?.[0]?.기준일자 === today ? closes[0].종가 : null
-    const prevClose  = todayClose !== null ? closes?.[1]?.종가 : closes?.[0]?.종가
-    const changeVal  = todayClose !== null && prevClose ? (todayClose - prevClose) : null
-    const changeRate = changeVal !== null && prevClose ? ((changeVal / prevClose) * 100).toFixed(2) : null
+    // 오늘 데이터 없으면 가장 최근 데이터 사용
+    const latestClose = closes?.[0] ?? null
+    const prevCloseRow = closes?.[1] ?? null
+    const isToday = latestClose?.기준일자 === today
+    const latestPrice = latestClose?.종가 ?? null
+    const prevClose   = prevCloseRow?.종가 ?? null
+    const changeVal   = latestPrice !== null && prevClose ? (latestPrice - prevClose) : null
+    const changeRate  = changeVal !== null && prevClose ? ((changeVal / prevClose) * 100).toFixed(2) : null
+    const dateLabel   = isToday ? '' : ` (${latestClose?.기준일자} 기준)`
 
-    const kospiLine = todayClose !== null && changeVal !== null
-      ? `KOSPI ${todayClose.toLocaleString('ko-KR', { minimumFractionDigits: 2 })} (${changeVal > 0 ? '+' : ''}${changeVal.toFixed(2)}, ${changeVal > 0 ? '+' : ''}${changeRate}%)`
+    const kospiLine = latestPrice !== null && changeVal !== null
+      ? `KOSPI ${latestPrice.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}${dateLabel} (${changeVal > 0 ? '+' : ''}${changeVal.toFixed(2)}, ${changeVal > 0 ? '+' : ''}${changeRate}%)`
       : 'KOSPI 데이터 없음'
 
     // ── 3. 국외 시장 데이터 (Yahoo Finance) ──────────────────

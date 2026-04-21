@@ -7,11 +7,24 @@ const RSS_SOURCES = [
   { url: 'https://finance.naver.com/news/rss.naver?category=mainnews', encoding: 'euc-kr' },
 ]
 
-// 시장과 무관한 노이즈 키워드 — 이 단어가 포함된 기사는 AI에 전달하지 않음
-const NOISE_KEYWORDS = [
-  '노조', '이사', '견적', '전산장애', '창업', '제보', '민원', '채용', '인사', '부동산',
-  '아파트', '청약', '가상자산', '코인', '비트코인', '이더리움', '이사회', '대표이사',
-  '소송', '검찰', '경찰', '사건', '사고', '날씨', '스포츠', '연예', '복지', '교육',
+// 1단계 DENY: 이 단어가 포함된 기사는 즉시 제거
+const DENY_KEYWORDS = [
+  '노조', '파업', '채용', '이사회', '부동산', '아파트', '청약', '전세', '월세', '분양',
+  '가상자산', '코인', '비트코인', '이더리움', 'NFT',
+  '소송', '검찰', '경찰', '수사', '사건', '사고', '범죄',
+  '지자체', '관광', '축제', '행사', '지방', '군청', '시청', '구청',
+  '날씨', '스포츠', '연예', '복지', '교육', '창업', '제보', '민원', '전산장애', '견적',
+  '음식', '용기', '단순지역', '문화재', '복지관',
+]
+
+// 1단계 ALLOW: 이 단어 중 하나라도 포함된 기사만 통과
+const ALLOW_KEYWORDS = [
+  '금리', '환율', '수출', '수입', '물가', '인플레', '실적', '정책', '반도체', '자동차',
+  '연준', 'Fed', '금통위', '기준금리', '국채', '주가', '증시', '코스피', 'KOSPI',
+  '코스닥', '외국인', '기관', '매수', '매도', '상승', '하락', '경기', '성장률',
+  '무역', '관세', '달러', '원화', '유가', '원유', 'WTI', '나스닥', 'S&P',
+  '반등', '급등', '급락', '조정', 'GDP', 'CPI', 'PPI', '고용', '실업',
+  '수출입', '경상수지', '기업', '실적', '영업이익', '매출', '투자', '채권',
 ]
 
 Deno.serve(async () => {
@@ -70,10 +83,11 @@ Deno.serve(async () => {
 
     if (titles.length === 0) throw new Error('RSS 파싱 결과 없음 (소스: ' + sourceUsed + ')')
 
-    // 노이즈 키워드 포함 기사 필터링 후 최대 20개
-    const filtered = titles.filter(t => !NOISE_KEYWORDS.some(kw => t.includes(kw))).slice(0, 20)
-    console.log(`[market-analysis] 헤드라인 ${titles.length}개 → 필터링 후 ${filtered.length}개`)
-    if (filtered.length === 0) throw new Error('필터링 후 유효한 헤드라인 없음')
+    // 1단계: DENY 제거 → ALLOW 통과 → 최대 20개
+    const denied   = titles.filter(t => !DENY_KEYWORDS.some(kw => t.includes(kw)))
+    const filtered = denied.filter(t => ALLOW_KEYWORDS.some(kw => t.includes(kw))).slice(0, 20)
+    console.log(`[market-analysis] 헤드라인 ${titles.length}개 → DENY 후 ${denied.length}개 → ALLOW 후 ${filtered.length}개`)
+    if (filtered.length === 0) throw new Error('필터링 후 유효한 헤드라인 없음 (시장 관련 뉴스 부족)')
 
     // ── 2. 오늘 KOSPI 종가 조회 ───────────────────────────
     const { data: closeData } = await supabase
@@ -122,25 +136,29 @@ Deno.serve(async () => {
     const fmtYahoo = (label: string, d: YahooData, unit = '') =>
       d ? `${label} ${d.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}${unit} (${d.change >= 0 ? '+' : ''}${d.change.toFixed(2)}, ${d.change >= 0 ? '+' : ''}${d.changeRate}%)` : `${label} 데이터 없음`
 
-    const globalLines = [
-      fmtYahoo('S&P500', sp500),
-      fmtYahoo('NASDAQ', nasdaq),
-      fmtYahoo('WTI유가', wti, '$'),
-      fmtYahoo('USD/KRW', usdkrw, '원'),
-    ].join('\n')
+    // 데이터가 있는 항목만 포함
+    const globalParts: string[] = []
+    if (sp500)   globalParts.push(fmtYahoo('S&P500', sp500))
+    if (nasdaq)  globalParts.push(fmtYahoo('NASDAQ', nasdaq))
+    if (wti)     globalParts.push(fmtYahoo('WTI유가', wti, '$'))
+    if (usdkrw)  globalParts.push(fmtYahoo('USD/KRW', usdkrw, '원'))
+    const globalLines = globalParts.join('\n') || '국외 데이터 없음'
 
     console.log('[market-analysis] 국외 데이터:', globalLines.replace(/\n/g, ' | '))
 
     // ── 4. Groq API 분석 요청 ─────────────────────────────
-    const prompt = `당신은 한국 증시 전문 금융 애널리스트입니다.
-아래 데이터를 바탕으로 오늘 마감 시황을 분석하세요.
+    const systemPrompt = `당신은 엄격한 한국 증시 전문 금융 애널리스트입니다.
 
-[규칙]
-1. [지수 현황]의 수치는 실측값입니다. 반드시 이 수치를 그대로 사용하고 절대 다른 숫자를 만들어내지 마세요.
-2. 국외 지수(S&P500, NASDAQ), 환율(USD/KRW), 유가(WTI)는 제공된 실측값을 분석에 활용하세요.
-3. 뉴스에 근거 없는 내용은 추가하지 마세요. 데이터 부족 시 해당 항목을 생략하세요.
-4. 주가와 무관한 사회/일반 뉴스는 무시하세요.
+[핵심 원칙]
+1. 제공된 실측 수치는 절대 변경하거나 다른 숫자를 만들어내지 마세요.
+2. 뉴스에 근거 없는 내용을 추가하지 마세요.
+3. 순환 논리 금지: '긍정적 뉴스→긍정적 영향' 같은 동어반복 금지. 반드시 금리·수급·환율·밸류에이션 등 구체적 금융 메커니즘으로 인과관계를 설명하세요.
+4. 경제·금융·거시경제·기업실적·수출입·통화정책과 직접 관련된 뉴스만 분석하세요. 지역행사·복지·사회면 뉴스는 완전히 무시하세요.
 5. 문자열 내 큰따옴표 절대 사용금지 (작은따옴표 사용).
+6. confidence가 50 미만인 요인은 factors 배열에서 완전히 생략하세요.
+7. 반드시 순수 JSON만 출력하세요. 마크다운 코드 블록(\`\`\`) 금지.`
+
+    const userPrompt = `아래 데이터를 바탕으로 오늘 마감 시황을 분석하세요.
 
 [지수 현황 - 실측값]
 국내: ${kospiLine}
@@ -150,16 +168,52 @@ ${globalLines}
 [뉴스 데이터 ${filtered.length}개]
 ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
 
-[출력 형식 - 반드시 아래 JSON만 출력, 마크다운 금지]
+[출력 형식 - 반드시 아래 JSON만 출력]
 {
   "sentiment_score": 60,
   "market_summary": "KOSPI 실측값 포함 1문장 요약",
   "factors": [
-    { "type": "POSITIVE", "title": "요인명 (10자 이내)", "desc": "이 요인이 왜 주가 상승에 기여했는지 금융 논리로 상세히 설명. 인과관계를 화살표(→)로 연결하고, 시장 참여자(외국인/기관/개인) 반응, 관련 섹터 영향까지 포함해 5~10줄로 서술" },
-    { "type": "NEGATIVE", "title": "요인명 (10자 이내)", "desc": "이 요인이 왜 주가 하락 또는 부담으로 작용했는지 금융 논리로 상세히 설명. 인과관계를 화살표(→)로 연결하고, 리스크 전파 경로와 투자심리 위축 과정까지 포함해 5~10줄로 서술" }
+    {
+      "type": "POSITIVE or NEGATIVE",
+      "category": "국내뉴스",
+      "title": "요인명 (10자 이내)",
+      "mechanism": "원인 → 시장반응 → 주가영향 (1~2문장 인과 경로, 순환 표현 금지)",
+      "confidence": 85,
+      "desc": "뉴스에서 도출한 국내 요인. 밸류에이션 확장/유동성 공급/규제 불확실성 해소/수출 모멘텀 등 프레임워크로 인과 경로 5~10줄 서술."
+    },
+    {
+      "type": "POSITIVE or NEGATIVE",
+      "category": "해외지수",
+      "title": "S&P500 or NASDAQ",
+      "mechanism": "미국 증시 방향성 → 외국인 투자심리 → KOSPI 수급 (1~2문장)",
+      "confidence": 80,
+      "desc": "S&P500/NASDAQ 등락이 KOSPI에 미치는 영향. 실측 수치 반드시 인용. 5~10줄 서술."
+    },
+    {
+      "type": "POSITIVE or NEGATIVE",
+      "category": "환율",
+      "title": "USD/KRW 환율",
+      "mechanism": "원화 강세/약세 → 외국인 수익률 → 자금 유출입 → 수출기업 실적 (1~2문장)",
+      "confidence": 80,
+      "desc": "원달러 환율 변동이 KOSPI에 미치는 영향. 실측 수치 반드시 인용. 5~10줄 서술."
+    },
+    {
+      "type": "POSITIVE or NEGATIVE",
+      "category": "유가",
+      "title": "WTI 유가",
+      "mechanism": "유가 상승/하락 → 에너지 비용 → 제조업·항공·화학 수익성 → 시장 전반 (1~2문장)",
+      "confidence": 75,
+      "desc": "WTI 유가 변동이 한국 경제/KOSPI에 미치는 영향. 실측 수치 반드시 인용. 5~10줄 서술."
+    }
   ],
-  "conclusion": "오늘 시장 전체를 한 줄로 정의한 뒤, 상승/하락 요인들이 어떻게 충돌하거나 균형을 이뤘는지, 그리고 향후 주목할 변수는 무엇인지 종합해서 서술"
-}`
+  "conclusion": "국내 뉴스 요인, 해외 지수, 환율, 유가를 종합해 오늘 KOSPI의 핵심 구도를 하나의 테마로 정의하고, 각 요인의 상호작용과 향후 주시해야 할 변수를 구체적으로 서술"
+}
+
+[confidence 기준]
+- 90~100: 실측 데이터와 뉴스 근거 모두 있고 인과관계 명확
+- 70~89: 실측 데이터 있고 뉴스 근거 있음
+- 50~69: 간접 근거만 있음
+- 50 미만: factors에서 생략`
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -170,7 +224,10 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       body: JSON.stringify({
         model:      'llama-3.1-8b-instant',
         max_tokens: 2000,
-        messages:   [{ role: 'user', content: prompt }],
+        messages:   [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: userPrompt },
+        ],
       }),
     })
 
@@ -212,7 +269,7 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       return result
     }
 
-    type Factor = { type: string; title: string; desc: string }
+    type Factor = { type: string; category?: string; title: string; mechanism?: string; confidence?: number; desc: string }
     type Analysis = { sentiment_score: number; market_summary: string; factors: Factor[]; conclusion: string }
 
     let analysis: Analysis
@@ -235,16 +292,27 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       conclusion:     analysis.conclusion,
     }
 
-    // ── 5. TRUNCATE 후 INSERT (항상 1건 유지) ────────────────
-    const { error: truncErr } = await supabase.rpc('truncate_market_analysis')
-    if (truncErr) throw new Error('TRUNCATE 실패: ' + truncErr.message)
+    // ── 5. 1년 이전 데이터 삭제 후 INSERT ────────────────────
+    const cutoff = new Date(kst)
+    cutoff.setFullYear(cutoff.getFullYear() - 1)
+    const cutoffDate = cutoff.toISOString().slice(0, 10)
 
-    const { error: insertErr } = await supabase
+    const { error: deleteErr } = await supabase
       .from('market_analysis')
-      .insert({
-        date:     today,
-        raw_data: rawData,
-      })
+      .delete()
+      .lt('date', cutoffDate)
+    if (deleteErr) console.warn('[market-analysis] 오래된 데이터 삭제 실패:', deleteErr.message)
+
+    // 오늘 날짜 데이터가 이미 있으면 업데이트, 없으면 삽입
+    const { data: existing } = await supabase
+      .from('market_analysis')
+      .select('id')
+      .eq('date', today)
+      .maybeSingle()
+
+    const { error: insertErr } = existing
+      ? await supabase.from('market_analysis').update({ raw_data: rawData }).eq('date', today)
+      : await supabase.from('market_analysis').insert({ date: today, raw_data: rawData })
 
     if (insertErr) throw new Error('INSERT 실패: ' + insertErr.message)
 

@@ -26,7 +26,7 @@ export default function PredictPage() {
   const [isWeekend, setIsWeekend] = useState(false)
   const [marketClosed, setMarketClosed] = useState(false)
   const [marketPreparing, setMarketPreparing] = useState(false)
-  type Factor = { type: string; title: string; desc: string }
+  type Factor = { type: string; category?: string; title: string; mechanism?: string; confidence?: number; desc: string }
   type AnalysisData = {
     date: string
     raw_data: {
@@ -486,7 +486,8 @@ export default function PredictPage() {
               const score     = rd.sentiment.score
               const label     = rd.sentiment.label
               const summary   = rd.market_summary
-              const factors   = rd.factors ?? []
+              const allFactors = rd.factors ?? []
+              const factors   = allFactors.filter(f => (f.confidence ?? 100) >= 50)
               const conclusion= rd.conclusion
               const ARC_LEN   = 251.33
               const gaugeColor= score >= 70 ? '#22C55E' : score >= 50 ? '#EAB308' : score >= 30 ? '#F97316' : '#EF4444'
@@ -513,15 +514,31 @@ export default function PredictPage() {
                     <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 18px', marginBottom: 14 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 12 }}>📌 핵심 분석 요인</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {factors.length === 0 && (
+                          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text3)', padding: '12px 0' }}>데이터 부족 — 신뢰도 높은 요인이 없습니다.</div>
+                        )}
                         {factors.map((f, idx) => {
                           const isPos = f.type === 'POSITIVE'
                           const accentColor = isPos ? '#22C55E' : '#EF4444'
+                          const conf = f.confidence
+                          const confColor = conf !== undefined ? (conf >= 80 ? '#22C55E' : conf >= 60 ? '#EAB308' : '#F97316') : undefined
                           return (
                             <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 10, background: isPos ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)', border: `1px solid ${isPos ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
                               <span style={{ fontSize: 16, flexShrink: 0 }}>{isPos ? '✅' : '⚠️'}</span>
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: accentColor, marginBottom: 2 }}>{f.title}</div>
-                                <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>{f.desc}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                                  {f.category && (
+                                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: 'rgba(99,102,241,0.12)', color: '#818CF8', border: '1px solid rgba(99,102,241,0.2)' }}>{f.category}</span>
+                                  )}
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: accentColor }}>{f.title}</span>
+                                  {conf !== undefined && (
+                                    <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: 'rgba(0,0,0,0.15)', color: confColor }}>신뢰도 {conf}</span>
+                                  )}
+                                </div>
+                                {f.mechanism && (
+                                  <div style={{ fontSize: 11, color: accentColor, fontWeight: 600, marginBottom: 5, lineHeight: 1.5, opacity: 0.85 }}>{f.mechanism}</div>
+                                )}
+                                <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>{f.desc}</div>
                               </div>
                             </div>
                           )

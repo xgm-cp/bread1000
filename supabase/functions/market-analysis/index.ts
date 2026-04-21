@@ -296,6 +296,12 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       market_summary: analysis.market_summary,
       factors:        analysis.factors ?? [],
       conclusion:     analysis.conclusion,
+      global: {
+        sp500:  sp500  ? { price: sp500.price,   change: sp500.change,   changeRate: sp500.changeRate }  : null,
+        nasdaq: nasdaq ? { price: nasdaq.price,  change: nasdaq.change,  changeRate: nasdaq.changeRate } : null,
+        wti:    wti    ? { price: wti.price,     change: wti.change,     changeRate: wti.changeRate }    : null,
+        usdkrw: usdkrw ? { price: usdkrw.price, change: usdkrw.change,  changeRate: usdkrw.changeRate } : null,
+      },
     }
 
     // ── 5. 1년 이전 데이터 삭제 후 INSERT ────────────────────

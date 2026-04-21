@@ -27,6 +27,7 @@ export default function PredictPage() {
   const [marketClosed, setMarketClosed] = useState(false)
   const [marketPreparing, setMarketPreparing] = useState(false)
   type Factor = { type: string; category?: string; title: string; mechanism?: string; confidence?: number; desc: string }
+  type GlobalItem = { price: number; change: number; changeRate: string } | null
   type AnalysisData = {
     date: string
     raw_data: {
@@ -34,6 +35,7 @@ export default function PredictPage() {
       market_summary: string
       factors: Factor[]
       conclusion: string
+      global?: { sp500: GlobalItem; nasdaq: GlobalItem; wti: GlobalItem; usdkrw: GlobalItem }
     } | null
   }
   const [showAnalysis, setShowAnalysis] = useState(false)
@@ -488,6 +490,21 @@ export default function PredictPage() {
               const summary   = rd.market_summary
               const allFactors = rd.factors ?? []
               const factors   = allFactors.filter(f => (f.confidence ?? 100) >= 50)
+              const global    = rd.global
+
+              const getGlobalValue = (f: Factor): string | null => {
+                if (!global) return null
+                const fmt = (v: number, decimals = 2) => v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+                const fmtChg = (chg: number, rate: string) => `${chg >= 0 ? '+' : ''}${fmt(chg)} (${chg >= 0 ? '+' : ''}${rate}%)`
+                if (f.category === '해외지수') {
+                  const t = f.title?.toUpperCase() ?? ''
+                  if (t.includes('NASDAQ') && global.nasdaq) return `${fmt(global.nasdaq.price)} ${fmtChg(global.nasdaq.change, global.nasdaq.changeRate)}`
+                  if (global.sp500) return `${fmt(global.sp500.price)} ${fmtChg(global.sp500.change, global.sp500.changeRate)}`
+                }
+                if (f.category === '환율' && global.usdkrw) return `${fmt(global.usdkrw.price, 2)}원 ${fmtChg(global.usdkrw.change, global.usdkrw.changeRate)}`
+                if (f.category === '유가' && global.wti) return `$${fmt(global.wti.price)} ${fmtChg(global.wti.change, global.wti.changeRate)}`
+                return null
+              }
               const conclusion= rd.conclusion
               const ARC_LEN   = 251.33
               const gaugeColor= score >= 70 ? '#22C55E' : score >= 50 ? '#EAB308' : score >= 30 ? '#F97316' : '#EF4444'
@@ -522,6 +539,7 @@ export default function PredictPage() {
                           const accentColor = isPos ? '#22C55E' : '#EF4444'
                           const conf = f.confidence
                           const confColor = conf !== undefined ? (conf >= 80 ? '#22C55E' : conf >= 60 ? '#EAB308' : '#F97316') : undefined
+                          const globalVal = getGlobalValue(f)
                           return (
                             <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 10, background: isPos ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)', border: `1px solid ${isPos ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
                               <span style={{ fontSize: 16, flexShrink: 0 }}>{isPos ? '✅' : '⚠️'}</span>
@@ -531,6 +549,9 @@ export default function PredictPage() {
                                     <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: 'rgba(99,102,241,0.12)', color: '#818CF8', border: '1px solid rgba(99,102,241,0.2)' }}>{f.category}</span>
                                   )}
                                   <span style={{ fontSize: 12, fontWeight: 700, color: accentColor }}>{f.title}</span>
+                                  {globalVal && (
+                                    <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: 'rgba(255,255,255,0.06)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{globalVal}</span>
+                                  )}
                                   {conf !== undefined && (
                                     <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: 'rgba(0,0,0,0.15)', color: confColor }}>신뢰도 {conf}</span>
                                   )}

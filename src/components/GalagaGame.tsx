@@ -500,12 +500,12 @@ export default function GalagaGame({
     if ((keysRef.current['ArrowRight'] || tRightRef.current) && p.x < W - 20) p.x += p.speed
     if (invincRef.current > 0) invincRef.current--
 
-    // ── 파워업 타이머 카운트다운 ────────────────────────────
+    // ── 파워업 타이머 카운트다운 (바나나는 시간제한 없이 피격 시에만 해제) ──
     let powerChanged = false
-    if (shieldRef.current  > 0) { shieldRef.current--;  if (shieldRef.current  === 0) powerChanged = true }
-    if (jamRef.current     > 0) { jamRef.current--;     if (jamRef.current     === 0) powerChanged = true }
-    if (milkRef.current    > 0) { milkRef.current--;    if (milkRef.current    === 0) powerChanged = true }
-    if (bananaRef.current  > 0) { bananaRef.current--;  if (bananaRef.current  === 0) powerChanged = true }
+    if (shieldRef.current > 0) { shieldRef.current--; if (shieldRef.current === 0) powerChanged = true }
+    if (jamRef.current    > 0) { jamRef.current--;    if (jamRef.current    === 0) powerChanged = true }
+    if (milkRef.current   > 0) { milkRef.current--;   if (milkRef.current   === 0) powerChanged = true }
+    // bananaRef는 카운트다운하지 않음 — breakBanana()에서만 0으로 설정
     if (powerChanged) {
       const active: number[] = []
       if (shieldRef.current > 0) active.push(0)
@@ -946,18 +946,32 @@ export default function GalagaGame({
         ref={cvRef}
         width={W}
         height={H}
-        style={{ display: 'block', background: '#000', maxWidth: '100%', flex: 1, minHeight: 0, touchAction: 'none' }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        style={{ display: 'block', background: '#000', maxWidth: '100%', flex: 1, minHeight: 0 }}
         onClick={() => { if (gsRef.current !== 'play') startGame() }}
       />
 
-      {/* ── 모바일 조작 ──────────────────────────────────── */}
-      <div style={{
-        width: '100%', display: 'flex', flexShrink: 0,
-        background: T.surface, borderTop: `1px solid ${T.border}`,
-      }}>
+      {/* ── 모바일 조작 (하단 전체 영역에서 스와이프) ──────── */}
+      <div
+        style={{
+          width: '100%', display: 'flex', flexShrink: 0,
+          background: T.surface, borderTop: `1px solid ${T.border}`,
+          touchAction: 'none',
+        }}
+        onTouchStart={e => {
+          e.preventDefault()
+          if (gsRef.current !== 'play') { startGame(); return }
+          const t = e.touches[0]
+          swipeRef.current = { startX: t.clientX, lastX: t.clientX, startTime: Date.now() }
+        }}
+        onTouchMove={e => {
+          e.preventDefault()
+          if (!swipeRef.current || gsRef.current !== 'play') return
+          const dx = (e.touches[0].clientX - swipeRef.current.lastX) * 2.2
+          playerRef.current.x = Math.max(20, Math.min(W - 20, playerRef.current.x + dx))
+          swipeRef.current.lastX = e.touches[0].clientX
+        }}
+        onTouchEnd={() => { swipeRef.current = null }}
+      >
         <button
           onPointerDown={e => { e.preventDefault(); tLeftRef.current = true }}
           onPointerUp={() => tLeftRef.current = false}

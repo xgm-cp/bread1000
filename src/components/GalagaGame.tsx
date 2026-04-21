@@ -123,6 +123,81 @@ export default function GalagaGame({
 
   const cvRef = useRef<HTMLCanvasElement>(null)
 
+  // ── 사운드 ───────────────────────────────────────────────
+  const [soundOn, setSoundOn] = useState(true)
+  const snd = useRef({
+    on: true,
+    ctx: null as AudioContext | null,
+    getCtx() {
+      if (!this.ctx) this.ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      if (this.ctx.state === 'suspended') this.ctx.resume()
+      return this.ctx
+    },
+    shoot() {
+      if (!this.on) return
+      const c = this.getCtx(), o = c.createOscillator(), g = c.createGain()
+      o.connect(g); g.connect(c.destination)
+      o.frequency.setValueAtTime(1200, c.currentTime)
+      o.frequency.exponentialRampToValueAtTime(600, c.currentTime + 0.08)
+      g.gain.setValueAtTime(0.12, c.currentTime)
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.08)
+      o.start(c.currentTime); o.stop(c.currentTime + 0.08)
+    },
+    explode(type: number) {
+      if (!this.on) return
+      const c = this.getCtx()
+      const dur = type === 2 ? 0.5 : type === 1 ? 0.32 : 0.22
+      const vol = type === 2 ? 0.5 : type === 1 ? 0.35 : 0.25
+      const cutoff = type === 2 ? 300 : type === 1 ? 600 : 900
+      const sz = Math.floor(c.sampleRate * dur)
+      const buf = c.createBuffer(1, sz, c.sampleRate)
+      const d = buf.getChannelData(0)
+      for (let i = 0; i < sz; i++) d[i] = Math.random() * 2 - 1
+      const src = c.createBufferSource(); src.buffer = buf
+      const flt = c.createBiquadFilter(); flt.type = 'lowpass'
+      flt.frequency.setValueAtTime(cutoff * 4, c.currentTime)
+      flt.frequency.exponentialRampToValueAtTime(cutoff, c.currentTime + dur)
+      const g = c.createGain()
+      g.gain.setValueAtTime(vol, c.currentTime)
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur)
+      src.connect(flt); flt.connect(g); g.connect(c.destination)
+      src.start(c.currentTime)
+    },
+    death() {
+      if (!this.on) return
+      const c = this.getCtx(), o = c.createOscillator(), g = c.createGain()
+      o.type = 'sawtooth'; o.connect(g); g.connect(c.destination)
+      o.frequency.setValueAtTime(500, c.currentTime)
+      o.frequency.exponentialRampToValueAtTime(40, c.currentTime + 0.9)
+      g.gain.setValueAtTime(0.35, c.currentTime)
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.9)
+      o.start(c.currentTime); o.stop(c.currentTime + 0.9)
+    },
+    item(type: number) {
+      if (!this.on) return
+      const c = this.getCtx()
+      const freqs = type >= 4 ? [660, 880] : [523, 659, 784, 1047]
+      freqs.forEach((f, i) => {
+        const o = c.createOscillator(), g = c.createGain()
+        o.connect(g); g.connect(c.destination); o.frequency.value = f
+        const t = c.currentTime + i * 0.07
+        g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.14)
+        o.start(t); o.stop(t + 0.14)
+      })
+    },
+    stageClear() {
+      if (!this.on) return
+      const c = this.getCtx()
+      ;[523, 659, 784, 1047, 1319].forEach((f, i) => {
+        const o = c.createOscillator(), g = c.createGain()
+        o.connect(g); g.connect(c.destination); o.frequency.value = f
+        const t = c.currentTime + i * 0.1
+        g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+        o.start(t); o.stop(t + 0.18)
+      })
+    },
+  })
+
   // HUD state
   const [hudScore, setHudScore]   = useState(0)
   const [hudStage, setHudStage]   = useState(1)
@@ -522,12 +597,12 @@ export default function GalagaGame({
       autoFireTickRef.current = 0
       const px = playerRef.current.x, py = playerRef.current.y - 14
       if (bananaRef.current > 0) {
-        // 바나나우유: 좌우 2연발
         bulletsRef.current.push({ x: px - 7, y: py, vy: -11, h: 12 })
         bulletsRef.current.push({ x: px + 7, y: py, vy: -11, h: 12 })
       } else {
         bulletsRef.current.push({ x: px, y: py, vy: -11, h: 12 })
       }
+      snd.current.shoot()
     }
 
     // ── 아이템 이동 & 수집 ──────────────────────────────────
@@ -554,6 +629,7 @@ export default function GalagaGame({
           setActiveItems(active)
         }
         burst(it.x, it.y, ITEM_COLORS[it.type], 14)
+        snd.current.item(it.type)
         return false
       }
       return true
@@ -618,6 +694,7 @@ export default function GalagaGame({
         if (hitRect(b.x, b.y, 6, e.x, e.y, 12)) {
           e.alive = false; b.y = -999
           burst(e.x, e.y, TYPE_COLORS[e.type], 12)
+          snd.current.explode(e.type)
           spawnItem(e.x, e.y, e.type)
           updateHUD()
         }
@@ -645,6 +722,7 @@ export default function GalagaGame({
             breakBanana()
           } else {
             burst(p.x, p.y, '#4af', 14)
+            snd.current.death()
             livesRef.current--; updateHUD()
             if (livesRef.current <= 0) {
               gsRef.current = 'gameover'; setGstate('gameover')
@@ -660,6 +738,7 @@ export default function GalagaGame({
             breakBanana()
           } else {
             burst(p.x, p.y, '#4af', 14)
+            snd.current.death()
             livesRef.current--; updateHUD()
             if (livesRef.current <= 0) {
               gsRef.current = 'gameover'; setGstate('gameover')
@@ -678,6 +757,7 @@ export default function GalagaGame({
       const { enemies: ne, interval } = spawnFormation(stageRef.current)
       enemiesRef.current = ne; waveIntervalRef.current = interval; waveTimerRef.current = 0
       setStageMsg(`STAGE ${stageRef.current}`); setTimeout(() => setStageMsg(''), 1600)
+      snd.current.stageClear()
       updateHUD()
     }
 
@@ -859,6 +939,23 @@ export default function GalagaGame({
 
         {/* 스탯 행 */}
         <div style={{ display: 'flex', gap: 8 }}>
+          {/* 소리 토글 */}
+          <button
+            onPointerDown={e => {
+              e.preventDefault()
+              const next = !snd.current.on
+              snd.current.on = next
+              setSoundOn(next)
+              if (next) snd.current.shoot()
+            }}
+            style={{
+              flexShrink: 0, background: T.surface2, border: `1px solid ${T.border2}`,
+              borderRadius: 10, padding: '7px 10px', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+            }}
+          >
+            <span style={{ fontSize: 15 }}>{soundOn ? '🔊' : '🔇'}</span>
+          </button>
           {/* SCORE */}
           <div style={{
             flex: 2, background: T.surface2, borderRadius: 10, padding: '7px 12px',

@@ -90,32 +90,75 @@ Deno.serve(async () => {
     const changeRate = changeVal !== null && prevClose ? ((changeVal / prevClose) * 100).toFixed(2) : null
 
     const kospiLine = todayClose !== null && changeVal !== null
-      ? `오늘 KOSPI 종가: ${todayClose.toLocaleString('ko-KR', { minimumFractionDigits: 2 })} (전일 대비 ${changeVal > 0 ? '+' : ''}${changeVal?.toFixed(2)}, ${changeVal > 0 ? '+' : ''}${changeRate}%)`
-      : '오늘 KOSPI 종가: 데이터 없음 (뉴스 기반으로 분석)'
+      ? `KOSPI ${todayClose.toLocaleString('ko-KR', { minimumFractionDigits: 2 })} (${changeVal > 0 ? '+' : ''}${changeVal.toFixed(2)}, ${changeVal > 0 ? '+' : ''}${changeRate}%)`
+      : 'KOSPI 데이터 없음'
 
-    // ── 3. Groq API 분석 요청 ─────────────────────────────
+    // ── 3. 국외 시장 데이터 (Yahoo Finance) ──────────────────
+    type YahooData = { price: number; change: number; changeRate: string } | null
+    const fetchYahoo = async (symbol: string): Promise<YahooData> => {
+      try {
+        const res = await fetch(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
+          { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(6000) }
+        )
+        if (!res.ok) return null
+        const json = await res.json()
+        const meta = json?.chart?.result?.[0]?.meta
+        if (!meta?.regularMarketPrice) return null
+        const price = meta.regularMarketPrice as number
+        const prev  = meta.previousClose as number
+        const chg   = price - prev
+        return { price, change: chg, changeRate: ((chg / prev) * 100).toFixed(2) }
+      } catch { return null }
+    }
+
+    const [sp500, nasdaq, wti, usdkrw] = await Promise.all([
+      fetchYahoo('^GSPC'),
+      fetchYahoo('^IXIC'),
+      fetchYahoo('CL=F'),
+      fetchYahoo('USDKRW=X'),
+    ])
+
+    const fmtYahoo = (label: string, d: YahooData, unit = '') =>
+      d ? `${label} ${d.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}${unit} (${d.change >= 0 ? '+' : ''}${d.change.toFixed(2)}, ${d.change >= 0 ? '+' : ''}${d.changeRate}%)` : `${label} 데이터 없음`
+
+    const globalLines = [
+      fmtYahoo('S&P500', sp500),
+      fmtYahoo('NASDAQ', nasdaq),
+      fmtYahoo('WTI유가', wti, '$'),
+      fmtYahoo('USD/KRW', usdkrw, '원'),
+    ].join('\n')
+
+    console.log('[market-analysis] 국외 데이터:', globalLines.replace(/\n/g, ' | '))
+
+    // ── 4. Groq API 분석 요청 ─────────────────────────────
     const prompt = `당신은 한국 증시 전문 금융 애널리스트입니다.
-아래 [지수 현황]과 [뉴스 데이터]를 바탕으로 오늘 마감 시황을 분석하세요.
+아래 데이터를 바탕으로 오늘 마감 시황을 분석하세요.
 
 [규칙]
-1. [지수 현황]의 수치는 DB 실측값입니다. 반드시 이 수치를 그대로 사용하고 절대 다른 숫자를 만들어내지 마세요.
-2. 뉴스에 등장하는 경제 키워드(금리, 환율, 수급 등)는 금융 논리에 따라 주가에 미치는 영향을 해석하세요.
-3. 뉴스에 전혀 근거가 없는 내용은 추가하지 마세요. 데이터 부족 시 "뉴스 데이터 부족"으로 명시하세요.
+1. [지수 현황]의 수치는 실측값입니다. 반드시 이 수치를 그대로 사용하고 절대 다른 숫자를 만들어내지 마세요.
+2. 국외 지수(S&P500, NASDAQ), 환율(USD/KRW), 유가(WTI)는 제공된 실측값을 분석에 활용하세요.
+3. 뉴스에 근거 없는 내용은 추가하지 마세요. 데이터 부족 시 해당 항목을 생략하세요.
 4. 주가와 무관한 사회/일반 뉴스는 무시하세요.
-5. sentiment는 오늘 시장 전체 분위기를 0(매우 부정적)~100(매우 긍정적) 정수로 평가하세요.
+5. 문자열 내 큰따옴표 절대 사용금지 (작은따옴표 사용).
 
-[지수 현황 - DB 실측값]
-${kospiLine}
+[지수 현황 - 실측값]
+국내: ${kospiLine}
+국외:
+${globalLines}
 
 [뉴스 데이터 ${filtered.length}개]
 ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
 
-[출력 형식 - JSON만 출력, 마크다운 금지]
+[출력 형식 - 반드시 아래 JSON만 출력, 마크다운 금지]
 {
-  "summary": "지수 실측값 포함 시장 요약 1~2문장 (등락폭, 등락률 명시)",
-  "reason": "핵심 요인 최대 3가지. 형식: 'POS 요인명: 해석1문장' 또는 'NEG 요인명: 해석1문장'. 긍정은 POS, 부정/위험은 NEG로 시작. '|'로 구분. 문자열 내 큰따옴표 절대 사용금지(작은따옴표 사용)",
-  "impact_factor": "결론 및 시장 해석 2~3문장. 지수 수치 포함. 불확실한 부분은 '~로 해석됨' 표현",
-  "sentiment": 0
+  "sentiment_score": 60,
+  "market_summary": "KOSPI 실측값 포함 1문장 요약",
+  "factors": [
+    { "type": "POSITIVE", "title": "요인명 (10자 이내)", "desc": "1문장 해석" },
+    { "type": "NEGATIVE", "title": "요인명 (10자 이내)", "desc": "1문장 해석" }
+  ],
+  "conclusion": "2문장 이내 결론"
 }`
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -126,7 +169,7 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       },
       body: JSON.stringify({
         model:      'llama-3.1-8b-instant',
-        max_tokens: 800,
+        max_tokens: 1200,
         messages:   [{ role: 'user', content: prompt }],
       }),
     })
@@ -169,7 +212,10 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       return result
     }
 
-    let analysis: { reason: string; impact_factor: string; summary: string; sentiment?: number }
+    type Factor = { type: string; title: string; desc: string }
+    type Analysis = { sentiment_score: number; market_summary: string; factors: Factor[]; conclusion: string }
+
+    let analysis: Analysis
     try {
       const match = rawText.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('JSON 블록 없음: ' + rawText)
@@ -178,24 +224,32 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       throw new Error('Groq 응답 JSON 파싱 실패: ' + rawText)
     }
 
-    // ── 3. TRUNCATE 후 INSERT (항상 1건 유지) ────────────────
+    const score = analysis.sentiment_score ?? 50
+    const sentimentLabel = score >= 70 ? '강세' : score >= 50 ? '중립' : score >= 30 ? '약세' : '하락'
+
+    const rawData = {
+      date:           today,
+      sentiment:      { score, label: sentimentLabel },
+      market_summary: analysis.market_summary,
+      factors:        analysis.factors ?? [],
+      conclusion:     analysis.conclusion,
+    }
+
+    // ── 5. TRUNCATE 후 INSERT (항상 1건 유지) ────────────────
     const { error: truncErr } = await supabase.rpc('truncate_market_analysis')
     if (truncErr) throw new Error('TRUNCATE 실패: ' + truncErr.message)
 
     const { error: insertErr } = await supabase
       .from('market_analysis')
       .insert({
-        date:          today,
-        reason:        analysis.reason,
-        impact_factor: analysis.impact_factor,
-        summary:       analysis.summary,
-        sentiment:     analysis.sentiment ?? null,
+        date:     today,
+        raw_data: rawData,
       })
 
     if (insertErr) throw new Error('INSERT 실패: ' + insertErr.message)
 
     return new Response(
-      JSON.stringify({ ok: true, date: today, summary: analysis.summary }),
+      JSON.stringify({ ok: true, date: today, summary: analysis.market_summary }),
       { status: 200, headers: { 'content-type': 'application/json' } }
     )
 

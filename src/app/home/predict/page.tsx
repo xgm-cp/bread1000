@@ -26,8 +26,18 @@ export default function PredictPage() {
   const [isWeekend, setIsWeekend] = useState(false)
   const [marketClosed, setMarketClosed] = useState(false)
   const [marketPreparing, setMarketPreparing] = useState(false)
+  type Factor = { type: string; title: string; desc: string }
+  type AnalysisData = {
+    date: string
+    raw_data: {
+      sentiment: { score: number; label: string }
+      market_summary: string
+      factors: Factor[]
+      conclusion: string
+    } | null
+  }
   const [showAnalysis, setShowAnalysis] = useState(false)
-  const [analysisData, setAnalysisData] = useState<{ date: string; reason: string; impact_factor: string; summary: string; sentiment?: number | null } | null | 'loading'>('loading')
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null | 'loading'>('loading')
 
   const checkTimeExpired = () => {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
@@ -65,7 +75,7 @@ export default function PredictPage() {
     const kstToday = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
     const { data } = await getSupabase()
       .from('market_analysis')
-      .select('date, reason, impact_factor, summary, sentiment')
+      .select('date, raw_data')
       .eq('date', kstToday)
       .maybeSingle()
     setAnalysisData(data as typeof analysisData ?? null)
@@ -471,62 +481,59 @@ export default function PredictPage() {
             )}
 
             {analysisData && analysisData !== 'loading' && (() => {
-              const score = analysisData.sentiment ?? 50
-              const isBull = score >= 50
-              const gaugeColor = score >= 70 ? '#22C55E' : score >= 50 ? '#EAB308' : score >= 30 ? '#F97316' : '#EF4444'
-              const gaugeLabel = score >= 70 ? '강세' : score >= 50 ? '중립' : score >= 30 ? '약세' : '하락'
-              const ARC_LEN = 251.33
-              const filled = (score / 100) * ARC_LEN
+              const rd        = analysisData.raw_data
+              if (!rd) return <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text3)', fontSize: 14 }}>분석 데이터 형식이 올바르지 않습니다.</div>
+              const score     = rd.sentiment.score
+              const label     = rd.sentiment.label
+              const summary   = rd.market_summary
+              const factors   = rd.factors ?? []
+              const conclusion= rd.conclusion
+              const ARC_LEN   = 251.33
+              const gaugeColor= score >= 70 ? '#22C55E' : score >= 50 ? '#EAB308' : score >= 30 ? '#F97316' : '#EF4444'
 
               return (
                 <>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 16, fontWeight: 600, textAlign: 'right' }}>{analysisData.date} 기준</div>
 
-                  {/* ── 상단: 감성 게이지 ── */}
+                  {/* ── 감성 게이지 ── */}
                   <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 18px', marginBottom: 14, textAlign: 'center' }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 8 }}>📈 시장 감성 지수 (Sentiment Score)</div>
                     <svg viewBox="0 0 200 115" style={{ width: 180, display: 'block', margin: '0 auto' }}>
-                      {/* 배경 호 */}
                       <path d="M 20,100 A 80,80 0 0 1 180,100" fill="none" stroke="var(--border)" strokeWidth="16" strokeLinecap="round" />
-                      {/* 채워진 호 */}
                       <path d="M 20,100 A 80,80 0 0 1 180,100" fill="none" stroke={gaugeColor} strokeWidth="16" strokeLinecap="round"
-                        strokeDasharray={`${filled} ${ARC_LEN}`} />
-                      {/* 점수 */}
+                        strokeDasharray={`${(score / 100) * ARC_LEN} ${ARC_LEN}`} />
                       <text x="100" y="88" textAnchor="middle" fontSize="34" fontWeight="bold" fill={gaugeColor} fontFamily="inherit">{score}</text>
-                      <text x="100" y="108" textAnchor="middle" fontSize="13" fill="var(--text3)" fontFamily="inherit">{gaugeLabel} {isBull ? '🟢' : '🔴'}</text>
+                      <text x="100" y="108" textAnchor="middle" fontSize="13" fill="var(--text3)" fontFamily="inherit">{label} {score >= 50 ? '🟢' : '🔴'}</text>
                     </svg>
-                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8, lineHeight: 1.6 }}>{analysisData.summary}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8, lineHeight: 1.6 }}>{summary}</div>
                   </div>
 
-                  {/* ── 중단: 핵심 인사이트 ── */}
-                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 18px', marginBottom: 14 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 12 }}>📌 핵심 분석 요인</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {analysisData.reason.split('|').map((item, idx) => {
-                        const raw = item.trim()
-                        const isPos = /^\[?POS\]?\s/i.test(raw)
-                        const isNeg = /^\[?NEG\]?\s/i.test(raw)
-                        const clean = raw.replace(/^\[?(POS|NEG)\]?\s*/i, '').trim()
-                        const [title, ...rest] = clean.split(':')
-                        const accentColor = isPos ? '#22C55E' : isNeg ? '#EF4444' : '#F59E0B'
-                        const icon = isPos ? '✅' : isNeg ? '⚠️' : '•'
-                        return (
-                          <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 10, background: isPos ? 'rgba(34,197,94,0.06)' : isNeg ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)', border: `1px solid ${isPos ? 'rgba(34,197,94,0.2)' : isNeg ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
-                            <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
-                            <div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: accentColor, marginBottom: 2 }}>{title?.trim()}</div>
-                              {rest.length > 0 && <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>{rest.join(':').trim()}</div>}
+                  {/* ── 핵심 요인 ── */}
+                  {factors.length > 0 && (
+                    <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 18px', marginBottom: 14 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.1em', marginBottom: 12 }}>📌 핵심 분석 요인</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {factors.map((f, idx) => {
+                          const isPos = f.type === 'POSITIVE'
+                          const accentColor = isPos ? '#22C55E' : '#EF4444'
+                          return (
+                            <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 10, background: isPos ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)', border: `1px solid ${isPos ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+                              <span style={{ fontSize: 16, flexShrink: 0 }}>{isPos ? '✅' : '⚠️'}</span>
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: accentColor, marginBottom: 2 }}>{f.title}</div>
+                                <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>{f.desc}</div>
+                              </div>
                             </div>
-                          </div>
-                        )
-                      })}
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* ── 하단: 결론 ── */}
+                  {/* ── 결론 ── */}
                   <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 16, padding: '16px 18px', marginBottom: 20 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', letterSpacing: '0.1em', marginBottom: 8 }}>💡 결론 및 시장 해석</div>
-                    <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>{analysisData.impact_factor}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8 }}>{conclusion}</div>
                   </div>
 
                   {/* ── 다음 액션 ── */}
@@ -535,10 +542,8 @@ export default function PredictPage() {
                       오늘의 시장 분석을 보셨나요?<br />
                       <span style={{ fontWeight: 700 }}>내일 KOSPI는 어떻게 될까요?</span>
                     </div>
-                    <button
-                      onClick={() => setShowAnalysis(false)}
-                      style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(255,61,120,0.3)' }}
-                    >
+                    <button onClick={() => setShowAnalysis(false)}
+                      style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'var(--primary-gradient)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(255,61,120,0.3)' }}>
                       내일 종가 예측하기 →
                     </button>
                   </div>

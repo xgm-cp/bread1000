@@ -124,9 +124,9 @@ export default function GalagaGame({
   const cvRef = useRef<HTMLCanvasElement>(null)
 
   // ── 사운드 ───────────────────────────────────────────────
-  const [soundOn, setSoundOn] = useState(true)
+  const [soundOn, setSoundOn] = useState(false)
   const snd = useRef({
-    on: true,
+    on: false,
     ctx: null as AudioContext | null,
     getCtx() {
       if (!this.ctx) this.ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()

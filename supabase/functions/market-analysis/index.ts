@@ -120,8 +120,9 @@ Deno.serve(async () => {
         const meta = json?.chart?.result?.[0]?.meta
         if (!meta?.regularMarketPrice) return null
         const price = meta.regularMarketPrice as number
-        const prev  = meta.previousClose as number
-        const chg   = price - prev
+        const prev: number | undefined = meta.chartPreviousClose ?? meta.previousClose ?? meta.regularMarketPreviousClose
+        if (!prev) return { price, change: 0, changeRate: '0.00' }
+        const chg = price - prev
         return { price, change: chg, changeRate: ((chg / prev) * 100).toFixed(2) }
       } catch { return null }
     }

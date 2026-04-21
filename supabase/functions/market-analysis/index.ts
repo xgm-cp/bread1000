@@ -266,7 +266,12 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? `\n   └ ${it
 
     if (!groqRes.ok) {
       const err = await groqRes.text()
-      throw new Error(`Groq API 오류: ${groqRes.status} - ${err}`)
+      console.warn(`[market-analysis] Groq API 오류: ${groqRes.status} - ${err}`)
+      // 기존 DB 데이터 유지 (덮어쓰지 않음)
+      return new Response(
+        JSON.stringify({ skipped: true, reason: `Groq API 오류 ${groqRes.status}`, existing_data: 'preserved' }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     }
 
     const groqJson = await groqRes.json()
@@ -280,7 +285,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? `\n   └ ${it
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
         body: JSON.stringify({
-          model:      'llama-3.3-70b-versatile',
+          model:      'llama-3.1-8b-instant',
           max_tokens: 2000,
           messages: [
             { role: 'system', content: '아래 JSON에서 한자·중국어·일본어·베트남어·스페인어 단어를 모두 자연스러운 한국어로 교체하세요. JSON 구조와 나머지 내용은 절대 변경하지 마세요. 순수 JSON만 출력하세요. 마크다운 코드 블록 금지.' },

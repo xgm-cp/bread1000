@@ -2,9 +2,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // 시장 마감시황 위주의 소스 (파싱 검증된 순)
 const RSS_SOURCES = [
-  { url: 'https://www.yna.co.kr/rss/economy.xml',           encoding: 'utf-8' },
-  { url: 'https://rss.hankyung.com/economy.xml',            encoding: 'utf-8' },
+  { url: 'https://www.yna.co.kr/rss/economy.xml',                      encoding: 'utf-8' },
+  { url: 'https://rss.hankyung.com/economy.xml',                       encoding: 'utf-8' },
   { url: 'https://finance.naver.com/news/rss.naver?category=mainnews', encoding: 'euc-kr' },
+  { url: 'https://rss.mk.co.kr/rss/30000001/',                         encoding: 'euc-kr' },
+  { url: 'https://rss.hankyung.com/stock.xml',                         encoding: 'utf-8' },
 ]
 
 // 1단계 DENY: 이 단어가 포함된 기사는 즉시 제거
@@ -47,46 +49,54 @@ Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
   try {
-    // ── 1. RSS 수집 (여러 소스 순서대로 시도) ────────────────
-    let xml = ''
-    let sourceUsed = ''
-    const errors: string[] = []
+    // ── 1. RSS 수집 (모든 소스 병렬 수집 후 합산) ────────────────
+    type NewsItem = { title: string; desc: string }
 
-    for (const src of RSS_SOURCES) {
-      try {
+    const extractItems = (xml: string): NewsItem[] =>
+      [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
+        .map(m => {
+          const block = m[1]
+          const t = block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/)
+          const d = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>|<description>([\s\S]*?)<\/description>/)
+          const title = (t?.[1] ?? t?.[2] ?? '').trim()
+          const desc  = (d?.[1] ?? d?.[2] ?? '')
+            .replace(/<[^>]+>/g, '') // HTML 태그 제거
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 200)           // 최대 200자
+          return { title, desc }
+        })
+        .filter(item => item.title)
+
+    const results = await Promise.allSettled(
+      RSS_SOURCES.map(async src => {
         const res = await fetch(src.url, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MarketBot/1.0)' },
           signal: AbortSignal.timeout(8000),
         })
-        if (!res.ok) { errors.push(`${src.url} → ${res.status}`); continue }
+        if (!res.ok) throw new Error(`${src.url} → ${res.status}`)
         const buf = await res.arrayBuffer()
-        xml = new TextDecoder(src.encoding).decode(buf)
-        sourceUsed = src.url
-        break
-      } catch (e) {
-        errors.push(`${src.url} → ${String(e)}`)
-      }
-    }
-
-    if (!xml) throw new Error('모든 RSS 소스 실패: ' + errors.join(' | '))
-    console.log('[market-analysis] RSS 소스:', sourceUsed)
-
-    // <item> 블록에서 제목만 추출 (CDATA 포함)
-    const items  = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
-    const titles = items
-      .map(m => {
-        const t = m[1].match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/)
-        return (t?.[1] ?? t?.[2] ?? '').trim()
+        const xml = new TextDecoder(src.encoding).decode(buf)
+        return extractItems(xml)
       })
-      .filter(Boolean)
-      .slice(0, 20)
+    )
 
-    if (titles.length === 0) throw new Error('RSS 파싱 결과 없음 (소스: ' + sourceUsed + ')')
+    const successSources = results.filter(r => r.status === 'fulfilled').length
+    if (successSources === 0) throw new Error('모든 RSS 소스 실패')
+    console.log(`[market-analysis] RSS 소스 ${successSources}/${RSS_SOURCES.length}개 성공`)
 
-    // 1단계: DENY 제거 → ALLOW 통과 → 최대 20개
-    const denied   = titles.filter(t => !DENY_KEYWORDS.some(kw => t.includes(kw)))
-    const filtered = denied.filter(t => ALLOW_KEYWORDS.some(kw => t.includes(kw))).slice(0, 20)
-    console.log(`[market-analysis] 헤드라인 ${titles.length}개 → DENY 후 ${denied.length}개 → ALLOW 후 ${filtered.length}개`)
+    // 중복 제거 후 합산 (제목 기준)
+    const seen = new Set<string>()
+    const allItems: NewsItem[] = results
+      .flatMap(r => r.status === 'fulfilled' ? r.value : [])
+      .filter(item => { if (seen.has(item.title)) return false; seen.add(item.title); return true })
+
+    if (allItems.length === 0) throw new Error('RSS 파싱 결과 없음')
+
+    // 1단계: DENY 제거 → ALLOW 통과 → 최대 30개
+    const denied   = allItems.filter(item => !DENY_KEYWORDS.some(kw => item.title.includes(kw)))
+    const filtered = denied.filter(item => ALLOW_KEYWORDS.some(kw => item.title.includes(kw) || item.desc.includes(kw))).slice(0, 30)
+    console.log(`[market-analysis] 헤드라인 ${allItems.length}개 → DENY 후 ${denied.length}개 → ALLOW 후 ${filtered.length}개`)
     if (filtered.length === 0) throw new Error('필터링 후 유효한 헤드라인 없음 (시장 관련 뉴스 부족)')
 
     // ── 2. 오늘 KOSPI 종가 조회 ───────────────────────────
@@ -155,6 +165,7 @@ Deno.serve(async () => {
 
     // ── 4. Groq API 분석 요청 ─────────────────────────────
     const systemPrompt = `당신은 엄격한 한국 증시 전문 금융 애널리스트입니다.
+【언어 규칙 - 절대 준수】 모든 출력은 반드시 순수 한국어(한글)만 사용하세요. 株·超过·海外·今日 등 한자, 중국어, 일본어, 베트남어, 스페인어 단어를 단 한 글자도 섞지 마세요. 위반 시 응답 전체가 무효입니다.
 
 [핵심 원칙]
 1. 제공된 실측 수치는 절대 변경하거나 다른 숫자를 만들어내지 마세요.
@@ -171,7 +182,12 @@ Deno.serve(async () => {
 6. 경제·금융·거시경제·기업실적·수출입·통화정책과 직접 관련된 뉴스만 분석하세요. 지역행사·복지·사회면 뉴스는 완전히 무시하세요.
 7. 문자열 내 큰따옴표 절대 사용금지 (작은따옴표 사용).
 8. confidence가 50 미만인 요인은 factors 배열에서 완전히 생략하세요.
-9. 반드시 순수 JSON만 출력하세요. 마크다운 코드 블록(\`\`\`) 금지.`
+9. 반드시 순수 JSON만 출력하세요. 마크다운 코드 블록(\`\`\`) 금지.
+
+[금융 분석 추가 규칙]
+10. 환율 용어 엄수: 환율 상승(원화 가치 하락) = '원화 약세' / 환율 하락(원화 가치 상승) = '원화 강세'. 원화 약세는 수출 기업의 수익성 개선 요인으로 분석할 것.
+11. 감성 지수 산출: 상승 요인 개수와 하락 요인 개수를 기반으로 sentiment_score를 산출할 것. 예: 상승 1개·하락 3개 → 50점 이하(중립/약세). 상승 요인이 많아야 높은 점수를 줄 것.
+12. 결론 일관성: market_summary와 conclusion은 반드시 factors의 팩트와 일치해야 함. 상승 요인이 적은데 결론이 강세일 수 없음. 요인 비중을 정직하게 반영할 것.`
 
     const userPrompt = `아래 데이터를 바탕으로 오늘 마감 시황을 분석하세요.
 
@@ -181,7 +197,7 @@ Deno.serve(async () => {
 ${globalLines}
 
 [뉴스 데이터 ${filtered.length}개]
-${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? `\n   └ ${item.desc}` : ''}`).join('\n')}
 
 [출력 형식 - 반드시 아래 JSON만 출력]
 {
@@ -228,7 +244,9 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
 - 90~100: 실측 데이터와 뉴스 근거 모두 있고 인과관계 명확
 - 70~89: 실측 데이터 있고 뉴스 근거 있음
 - 50~69: 간접 근거만 있음
-- 50 미만: factors에서 생략`
+- 50 미만: factors에서 생략
+
+【최종 확인】 출력 전 반드시 검토: 한자·중국어·일본어·베트남어·스페인어 단어가 하나라도 있으면 해당 단어를 순수 한국어로 교체 후 출력하세요.`
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',

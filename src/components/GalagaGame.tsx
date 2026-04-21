@@ -880,7 +880,6 @@ export default function GalagaGame({
               background: TITLE_GRADIENT,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             }}>Galag-Bread</span>
-            <span style={{ fontSize: 10, color: '#9B2FC9', fontWeight: 700, flexShrink: 0 }}>갤러그레드</span>
 
             {/* 전체 1위 마퀴 */}
             {topPlayer && (

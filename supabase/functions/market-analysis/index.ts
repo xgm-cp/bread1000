@@ -303,16 +303,9 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       .lt('date', cutoffDate)
     if (deleteErr) console.warn('[market-analysis] 오래된 데이터 삭제 실패:', deleteErr.message)
 
-    // 오늘 날짜 데이터가 이미 있으면 업데이트, 없으면 삽입
-    const { data: existing } = await supabase
+    const { error: insertErr } = await supabase
       .from('market_analysis')
-      .select('id')
-      .eq('date', today)
-      .maybeSingle()
-
-    const { error: insertErr } = existing
-      ? await supabase.from('market_analysis').update({ raw_data: rawData }).eq('date', today)
-      : await supabase.from('market_analysis').insert({ date: today, raw_data: rawData })
+      .upsert({ date: today, raw_data: rawData }, { onConflict: 'date' })
 
     if (insertErr) throw new Error('INSERT 실패: ' + insertErr.message)
 

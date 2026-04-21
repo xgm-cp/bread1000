@@ -166,6 +166,7 @@ Deno.serve(async () => {
     // ── 4. Groq API 분석 요청 ─────────────────────────────
     const systemPrompt = `당신은 엄격한 한국 증시 전문 금융 애널리스트입니다.
 【언어 규칙 - 절대 준수】 모든 출력은 반드시 순수 한국어(한글)만 사용하세요. 株·超过·海外·今日 등 한자, 중국어, 일본어, 베트남어, 스페인어 단어를 단 한 글자도 섞지 마세요. 위반 시 응답 전체가 무효입니다.
+【고유명사 번역 금지】 S&P500, NASDAQ, KOSPI, KOSDAQ, WTI, VIX, Fed, GDP, CPI, PPI, DXY 등 금융 고유명사는 절대 번역하거나 변형하지 마세요. 항상 원래 표기 그대로 사용하세요.
 
 [핵심 원칙]
 1. 제공된 실측 수치는 절대 변경하거나 다른 숫자를 만들어내지 마세요.
@@ -197,7 +198,7 @@ Deno.serve(async () => {
 ${globalLines}
 
 [뉴스 데이터 ${filtered.length}개]
-${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? `\n   └ ${item.desc}` : ''}`).join('\n')}
+${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.desc}` : ''}`).join('\n')}
 
 [출력 형식 - 반드시 아래 JSON만 출력]
 {
@@ -340,6 +341,15 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? `\n   └ ${it
       analysis = JSON.parse(fixJson(match[0]))
     } catch {
       throw new Error('Groq 응답 JSON 파싱 실패: ' + rawText)
+    }
+
+    // 필수 필드 유효성 검사 — 빈 데이터로 기존 DB 덮어쓰기 방지
+    if (!analysis.market_summary || !analysis.factors?.length || !analysis.conclusion) {
+      console.warn('[market-analysis] 분석 결과 필수 필드 누락 — DB 업데이트 생략')
+      return new Response(
+        JSON.stringify({ skipped: true, reason: '분석 결과 불완전', existing_data: 'preserved' }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     }
 
     const score = analysis.sentiment_score ?? 50

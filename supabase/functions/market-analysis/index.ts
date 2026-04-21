@@ -337,7 +337,13 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
 
     let analysis: Analysis
     try {
-      const match = rawText.match(/\{[\s\S]*\}/)
+      // 마크다운 코드 블록 제거
+      const stripped = rawText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '')
+      // 잘못된 이스케이프(\& 등) 및 trailing comma 제거
+      const cleaned = stripped
+        .replace(/\\([^"\\/bfnrtu])/g, '$1')   // \& → &, 유효하지 않은 이스케이프 제거
+        .replace(/,\s*([}\]])/g, '$1')           // trailing comma 제거
+      const match = cleaned.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('JSON 블록 없음: ' + rawText)
       analysis = JSON.parse(fixJson(match[0]))
     } catch {

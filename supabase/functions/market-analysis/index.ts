@@ -297,7 +297,8 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       if (fixRes.ok) {
         const fixResJson = await fixRes.json()
         const fixed = fixResJson.choices?.[0]?.message?.content ?? ''
-        if (fixed) rawText = fixed
+        // 교정 결과가 유효한 JSON 블록을 포함할 때만 교체 (손상 방지)
+        if (fixed && /\{[\s\S]*\}/.test(fixed)) rawText = fixed
       }
     }
 

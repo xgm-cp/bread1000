@@ -20,6 +20,7 @@ export default function PredictPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [alreadyPredicted, setAlreadyPredicted] = useState(false)
+  const [myPredictions, setMyPredictions] = useState<Record<string, number>>({}) // 날짜 → 예측종가
   const [timeExpired, setTimeExpired] = useState(false)
   const [isWeekend, setIsWeekend] = useState(false)
   const [marketClosed, setMarketClosed] = useState(false)
@@ -153,18 +154,26 @@ export default function PredictPage() {
     fetchRows()
     const user = JSON.parse(localStorage.getItem('user') || '{}')
     if (!user.아이디) return
+    // 5일치 예측 전체 조회
+    const since = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    since.setDate(since.getDate() - 7) // 7일 전부터 (주말 포함해서 여유)
+    const sinceStr = since.toISOString().slice(0, 10)
     getSupabase()
       .from('종가예측내역')
-      .select('종가증감구분, 종가증감값')
-      .eq('기준일자', today)
+      .select('종가증감구분, 종가증감값, 예측종가, 기준일자')
+      .gte('기준일자', sinceStr)
       .eq('아이디', user.아이디)
-      .maybeSingle()
       .then(({ data }) => {
-        const row = data as unknown as { 종가증감구분: string; 종가증감값: number } | null
-        if (row) {
+        const rows = data as unknown as { 종가증감구분: string; 종가증감값: number; 예측종가: number | null; 기준일자: string }[] | null
+        if (!rows) return
+        const map: Record<string, number> = {}
+        rows.forEach(r => { if (r.예측종가) map[r.기준일자] = r.예측종가 })
+        setMyPredictions(map)
+        const todayRow = rows.find(r => r.기준일자 === today)
+        if (todayRow) {
           setAlreadyPredicted(true)
-          setSign(row.종가증감구분 === 'U' ? '+' : '-')
-          setPrice(String(row.종가증감값))
+          setSign(todayRow.종가증감구분 === 'U' ? '+' : '-')
+          setPrice(String(todayRow.종가증감값))
         }
       })
     return () => clearInterval(timer)
@@ -227,44 +236,119 @@ export default function PredictPage() {
 
         <div className="chart-area">
           {(() => {
-            if (daily.length < 2) {
+            if (daily.length === 0) {
               return <div className="chart-label"><span>5일 종가 흐름</span><span>로딩 중...</span></div>
             }
-            const closes = daily.map(d => d.종가)
-            const minV = Math.min(...closes)
-            const maxV = Math.max(...closes)
-            const W = 680, H = 130, PAD = 20, LABEL_H = 40, SIDE = 30
-            const chartH = H - LABEL_H
-            const x = (i: number) => SIDE + (i / (closes.length - 1)) * (W - SIDE * 2)
-            const y = (v: number) => PAD + (1 - (v - minV) / (maxV - minV || 1)) * (chartH - PAD * 2)
-            const pts = closes.map((v, i) => `${x(i)},${y(v)}`).join(' L')
-            const areaPath = `M${pts} L${x(closes.length - 1)},${chartH} L${x(0)},${chartH} Z`
-            const linePath = `M${pts}`
-            const fmt = (d: string) => {
-              const s = d.replace(/-/g, '')
-              return `${s.slice(4, 6)}.${s.slice(6, 8)}`
+            const fmt = (d: string) => { const s = d.replace(/-/g, ''); return `${s.slice(4, 6)}.${s.slice(6, 8)}` }
+
+            // ── 5-slot 구성: 데이터가 5개 미만이면 앞 날짜를 null로 패딩 ──
+            type Slot = { date: string; value: number | null }
+            const slots: Slot[] = daily.map(d => ({ date: d.기준일자, value: d.종가 }))
+            while (slots.length < 5) {
+              const prev = new Date(slots[0].date)
+              prev.setDate(prev.getDate() - 1)
+              slots.unshift({ date: prev.toISOString().slice(0, 10), value: null })
             }
-            const dateLabel = `${fmt(daily[0].기준일자)} — ${fmt(daily[daily.length - 1].기준일자)}`
+
+            const N = slots.length
+            const predValues = Object.values(myPredictions)
+            const realVals = [...slots.map(s => s.value).filter(v => v !== null) as number[], ...predValues]
+            if (realVals.length === 0) return <div className="chart-label"><span>5일 종가 흐름</span><span>데이터 없음</span></div>
+
+            const minV = Math.min(...realVals)
+            const maxV = Math.max(...realVals)
+            const CW = 680, CH = 240, PAD = 30, LABEL_H = 70, SIDE = 40
+            const dataH = CH - LABEL_H
+            const BOTTOM_Y = dataH - 6
+
+            const x = (i: number) => SIDE + (i / (N - 1)) * (CW - SIDE * 2)
+            const y = (v: number) => PAD + (1 - (v - minV) / (maxV - minV || 1)) * (dataH - PAD * 2)
+
+            // ── 경로 포인트 계산 ──
+            // 시작 null → BOTTOM_Y, 중간 null → 건너뜀(이전·이후 직결), 끝 null → 건너뜀
+            const firstRealIdx = slots.findIndex(s => s.value !== null)
+            type Pt = { i: number; cy: number }
+            const pathPts: Pt[] = []
+            slots.forEach((s, i) => {
+              if (s.value !== null) {
+                pathPts.push({ i, cy: y(s.value) })
+              } else if (i < firstRealIdx) {
+                pathPts.push({ i, cy: BOTTOM_Y }) // 시작 null → 바닥
+              }
+              // 중간·끝 null은 건너뜀 → 자동으로 이전·이후 직결
+            })
+
+            const linePath = pathPts.map((p, j) => `${j === 0 ? 'M' : 'L'}${x(p.i)},${p.cy}`).join(' ')
+            // area fill: 실제 데이터 포인트만 (null 패딩 제외)
+            const realPts = slots.map((s, i) => s.value !== null ? { i, cy: y(s.value) } : null).filter(Boolean) as Pt[]
+            const areaPath = realPts.length >= 2
+              ? `M${realPts.map(p => `${x(p.i)},${p.cy}`).join(' L')} L${x(realPts[realPts.length-1].i)},${dataH} L${x(realPts[0].i)},${dataH} Z`
+              : ''
+
+            const lastSlotDate = slots[Math.min(4, slots.length - 1)].date
+            const firstSlotDate = slots[0].date
+            const dateLabel = `${fmt(firstSlotDate)} — ${fmt(lastSlotDate)}`
+
             return (
               <>
                 <div className="chart-label"><span>5일 종가 흐름</span><span>{dateLabel}</span></div>
-                <svg className="mini-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+                <svg className="mini-chart" viewBox={`0 0 ${CW} ${CH}`} preserveAspectRatio="xMidYMid meet">
                   <defs>
                     <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#FF3D78" stopOpacity="0.25" />
+                      <stop offset="0%" stopColor="#FF3D78" stopOpacity="0.28" />
                       <stop offset="100%" stopColor="#FF3D78" stopOpacity="0" />
                     </linearGradient>
                   </defs>
-                  <path className="chart-area-fill" d={areaPath} />
-                  <path className="chart-line" d={linePath} />
-                  {closes.map((v, i) => {
-                    const cx = x(i), cy = y(v)
-                    const isLast = i === closes.length - 1
+
+                  {areaPath && <path className="chart-area-fill" d={areaPath} />}
+                  {linePath && <path className="chart-line" d={linePath} />}
+
+                  {/* 실제 종가 점 + 값 */}
+                  {slots.map((s, i) => {
+                    if (s.value === null) return null
+                    const cx = x(i), cy = y(s.value)
+                    const isLast = i === realPts[realPts.length - 1]?.i
+                    const pv = myPredictions[s.date]
+                    // 예측 점이 종가 점보다 위에 있으면(값이 크면) 종가 텍스트를 점 아래로
+                    const predAbove = pv !== undefined && y(pv) < cy - 10
+                    // 예측 점이 종가 점보다 아래 있으면(값이 작으면) 종가 텍스트를 점 위로 (기본)
+                    const labelY = predAbove ? cy + 20 : cy - 10
                     return (
                       <g key={i}>
-                        <circle cx={cx} cy={cy} r={isLast ? 4 : 3} fill="#FF3D78" opacity={isLast ? 1 : 0.7} />
-                        <text x={cx} y={cy - 8} textAnchor="middle" fontSize="10" fill="#FF3D78" fontFamily="inherit">{v.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}</text>
-                        <text x={cx} y={chartH + 14} textAnchor="middle" fontSize="11" fill="#8892A0" fontFamily="inherit">{fmt(daily[i].기준일자)}</text>
+                        <circle cx={cx} cy={cy} r={isLast ? 5 : 4} fill="#FF3D78" opacity={isLast ? 1 : 0.75} />
+                        <text x={cx} y={labelY} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#FF3D78" fontFamily="inherit">
+                          {s.value.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
+                        </text>
+                      </g>
+                    )
+                  })}
+
+                  {/* 예측 점 (차트 영역) — 종가보다 위면 위에, 아래면 아래에 점 표시 */}
+                  {slots.map((s, i) => {
+                    const pv = myPredictions[s.date]
+                    if (pv === undefined) return null
+                    return (
+                      <circle key={`pred-dot-${i}`} cx={x(i)} cy={y(pv)} r={6} fill="#FFD700" stroke="#fff" strokeWidth="2" />
+                    )
+                  })}
+
+                  {/* 날짜 + 예측값 레이블 (하단 고정 영역) */}
+                  {slots.map((s, i) => {
+                    const pv = myPredictions[s.date]
+                    const hasDate = i < N
+                    return (
+                      <g key={`label-${i}`}>
+                        {/* 날짜 */}
+                        <text x={x(i)} y={dataH + 18} textAnchor="middle" fontSize="13"
+                          fill={pv !== undefined ? '#FFD700' : s.value !== null ? '#8892A0' : '#4A5568'}
+                          fontFamily="inherit">{fmt(s.date)}</text>
+                        {/* 예측값 — 날짜 바로 아래 */}
+                        {pv !== undefined && (
+                          <text x={x(i)} y={dataH + 36} textAnchor="middle" fontSize="12" fontWeight="bold"
+                            fill="#FFD700" fontFamily="inherit">
+                            {pv.toLocaleString('ko-KR', { minimumFractionDigits: 2 })}
+                          </text>
+                        )}
                       </g>
                     )
                   })}

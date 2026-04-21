@@ -557,7 +557,7 @@ export default function PredictPage() {
                           <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text3)', padding: '12px 0' }}>데이터 부족 — 신뢰도 높은 요인이 없습니다.</div>
                         )}
                         {factors.map((f, idx) => {
-                          const isPos = f.type === 'POSITIVE'
+                          const isPos = f.type?.toUpperCase() === 'POSITIVE'
                           const accentColor = isPos ? '#22C55E' : '#EF4444'
                           const conf = f.confidence
                           const confColor = conf !== undefined ? (conf >= 80 ? '#22C55E' : conf >= 60 ? '#EAB308' : '#F97316') : undefined

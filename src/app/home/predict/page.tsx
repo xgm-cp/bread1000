@@ -36,7 +36,7 @@ export default function PredictPage() {
       market_summary: string
       factors: Factor[]
       conclusion: string
-      global?: { sp500: GlobalItem; nasdaq: GlobalItem; wti: GlobalItem; usdkrw: GlobalItem }
+      global?: { sp500: GlobalItem; nasdaq: GlobalItem; wti: GlobalItem; usdkrw: GlobalItem; vix: GlobalItem; tnx: GlobalItem; dxy: GlobalItem }
     } | null
   }
   const [showAnalysis, setShowAnalysis] = useState(false)

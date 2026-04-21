@@ -127,11 +127,14 @@ Deno.serve(async () => {
       } catch { return null }
     }
 
-    const [sp500, nasdaq, wti, usdkrw] = await Promise.all([
+    const [sp500, nasdaq, wti, usdkrw, vix, tnx, dxy] = await Promise.all([
       fetchYahoo('^GSPC'),
       fetchYahoo('^IXIC'),
       fetchYahoo('CL=F'),
       fetchYahoo('USDKRW=X'),
+      fetchYahoo('^VIX'),
+      fetchYahoo('^TNX'),
+      fetchYahoo('DX-Y.NYB'),
     ])
 
     const fmtYahoo = (label: string, d: YahooData, unit = '') =>
@@ -143,6 +146,9 @@ Deno.serve(async () => {
     if (nasdaq)  globalParts.push(fmtYahoo('NASDAQ', nasdaq))
     if (wti)     globalParts.push(fmtYahoo('WTI유가', wti, '$'))
     if (usdkrw)  globalParts.push(fmtYahoo('USD/KRW', usdkrw, '원'))
+    if (vix)     globalParts.push(fmtYahoo('VIX공포지수', vix))
+    if (tnx)     globalParts.push(fmtYahoo('미국10년국채', tnx, '%'))
+    if (dxy)     globalParts.push(fmtYahoo('달러인덱스DXY', dxy))
     const globalLines = globalParts.join('\n') || '국외 데이터 없음'
 
     console.log('[market-analysis] 국외 데이터:', globalLines.replace(/\n/g, ' | '))
@@ -155,6 +161,9 @@ Deno.serve(async () => {
 2. 뉴스에 근거 없는 내용을 추가하지 마세요.
 3. 순환 논리 금지: '긍정적 뉴스→긍정적 영향' 같은 동어반복 금지. 반드시 금리·수급·환율·밸류에이션 등 구체적 금융 메커니즘으로 인과관계를 설명하세요.
 4. 환율 원칙 (반드시 준수): 원화 강세(환율 하락) = 수출기업 수익성 약화 / 원화 약세(환율 상승) = 수출기업 수익성 강화. 이 방향을 절대 반대로 서술하지 마세요.
+   - VIX 원칙: VIX↑ = 글로벌 공포심리 → 외국인 매도 → KOSPI 하락 압력
+   - TNX 원칙: 미국 10년 국채금리↑ = 신흥국 자금 이탈 → 원화 약세 → KOSPI 수급 악화
+   - DXY 원칙: 달러인덱스↑ = 달러 강세 → 원화 약세 → 외국인 환차손 → 매도 압력
 5. 요인 우선순위 (반드시 이 순서로 factors 배열 구성):
    - 1순위 (거시경제): 환율·금리·유가·미국지수 — 지수를 크게 움직인 핵심 원인
    - 2순위 (정책·기업): 정부 정책, 기업 실적, 산업 뉴스 — 상승/하락세를 지속시킨 감성 요인
@@ -304,6 +313,9 @@ ${filtered.map((t, i) => `${i + 1}. ${t}`).join('\n')}
         nasdaq: nasdaq ? { price: nasdaq.price,  change: nasdaq.change,  changeRate: nasdaq.changeRate } : null,
         wti:    wti    ? { price: wti.price,     change: wti.change,     changeRate: wti.changeRate }    : null,
         usdkrw: usdkrw ? { price: usdkrw.price, change: usdkrw.change,  changeRate: usdkrw.changeRate } : null,
+        vix:    vix    ? { price: vix.price,     change: vix.change,     changeRate: vix.changeRate }    : null,
+        tnx:    tnx    ? { price: tnx.price,     change: tnx.change,     changeRate: tnx.changeRate }    : null,
+        dxy:    dxy    ? { price: dxy.price,     change: dxy.change,     changeRate: dxy.changeRate }    : null,
       },
     }
 

@@ -291,7 +291,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
         body: JSON.stringify({
-          model:      'llama-3.1-8b-instant',
+          model:      'llama-3.3-70b-versatile',
           max_tokens: 2000,
           messages: [
             { role: 'system', content: '아래 JSON에서 한자·중국어·일본어·베트남어·스페인어 단어를 모두 자연스러운 한국어로 교체하세요. JSON 구조와 나머지 내용은 절대 변경하지 마세요. 순수 JSON만 출력하세요. 마크다운 코드 블록 금지.' },
@@ -304,6 +304,14 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
         const fixed = fixResJson.choices?.[0]?.message?.content ?? ''
         // 교정 결과가 유효한 JSON 블록을 포함할 때만 교체 (손상 방지)
         if (fixed && /\{[\s\S]*\}/.test(fixed)) rawText = fixed
+      }
+      // 교정 후에도 CJK 문자가 남아있으면 DB 저장 생략 (기존 데이터 보존)
+      if (hasCJK(rawText)) {
+        console.warn('[market-analysis] 교정 후에도 한자/중국어 잔존 → DB 업데이트 생략')
+        return new Response(
+          JSON.stringify({ skipped: true, reason: '한자/중국어 교정 실패', existing_data: 'preserved' }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
       }
     }
 

@@ -210,10 +210,11 @@ ${globalLines}
 [뉴스 데이터 ${filtered.length}개]
 ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.desc}` : ''}`).join('\n')}
 
-[출력 형식 - 반드시 아래 JSON만 출력]
+[출력 형식 - 반드시 아래 JSON만 출력, 이 순서대로]
 {
   "sentiment_score": 60,
   "market_summary": "KOSPI 실측값 포함 1문장 요약",
+  "conclusion": "거시경제 요인과 국내 뉴스를 종합해 오늘 KOSPI 흐름의 핵심 구도를 3~5문장으로 서술",
   "factors": [
     {
       "type": "POSITIVE or NEGATIVE",
@@ -221,7 +222,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       "title": "요인명 (10자 이내)",
       "mechanism": "원인 → 시장반응 → 주가영향 (1~2문장 인과 경로, 순환 표현 금지)",
       "confidence": 85,
-      "desc": "인과 경로 중심으로 3~4문장 서술. 실측 수치 인용 필수."
+      "desc": "인과 경로 중심 2~3문장. 실측 수치 인용 필수."
     },
     {
       "type": "POSITIVE or NEGATIVE",
@@ -229,7 +230,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       "title": "S&P500 or NASDAQ",
       "mechanism": "미국 증시 방향성 → 외국인 투자심리 → KOSPI 수급 (1문장)",
       "confidence": 80,
-      "desc": "S&P500/NASDAQ 등락이 KOSPI에 미치는 영향. 실측 수치 인용. 3~4문장."
+      "desc": "실측 수치 인용. 2~3문장."
     },
     {
       "type": "POSITIVE or NEGATIVE",
@@ -237,18 +238,17 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       "title": "USD/KRW 환율",
       "mechanism": "원화 강세/약세 → 외국인 수익률 → 자금 유출입 (1문장)",
       "confidence": 80,
-      "desc": "환율 변동이 KOSPI에 미치는 영향. 실측 수치 인용. 3~4문장."
+      "desc": "실측 수치 인용. 2~3문장."
     },
     {
       "type": "POSITIVE or NEGATIVE",
       "category": "유가",
       "title": "WTI 유가",
-      "mechanism": "유가 상승/하락 → 에너지 비용 → 제조업·항공·화학 수익성 (1문장)",
+      "mechanism": "유가 상승/하락 → 에너지 비용 → 제조업·화학 수익성 (1문장)",
       "confidence": 75,
-      "desc": "WTI 유가 변동이 KOSPI에 미치는 영향. 실측 수치 인용. 3~4문장."
+      "desc": "실측 수치 인용. 2~3문장."
     }
-  ],
-  "conclusion": "거시경제 요인과 국내 뉴스를 종합해 오늘 KOSPI 흐름의 핵심 구도를 3~5문장으로 서술"
+  ]
 }
 
 [confidence 기준]

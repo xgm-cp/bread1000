@@ -275,19 +275,46 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       }),
     })
 
-    if (!groqRes.ok) {
-      const err = await groqRes.text()
-      console.warn(`[market-analysis] Groq API 오류: ${groqRes.status} - ${err}`)
-      // 기존 DB 데이터 유지 (덮어쓰지 않음)
-      return new Response(
-        JSON.stringify({ skipped: true, reason: `Groq API 오류 ${groqRes.status}`, existing_data: 'preserved' }),
-        { status: 200, headers: { 'content-type': 'application/json' } }
+    // Gemini fallback 함수
+    const callGemini = async (): Promise<string> => {
+      const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY')
+      if (!GEMINI_KEY) throw new Error('GEMINI_API_KEY 미설정')
+      console.log('[market-analysis] Gemini fallback 호출')
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            generationConfig: { maxOutputTokens: 4000, temperature: 0.3 },
+          }),
+        }
       )
+      if (!res.ok) throw new Error(`Gemini API 오류: ${res.status}`)
+      const json = await res.json()
+      return json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     }
 
-    const groqJson = await groqRes.json()
-    let rawText    = groqJson.choices?.[0]?.message?.content ?? ''
-    const finishReason = groqJson.choices?.[0]?.finish_reason ?? ''
+    let rawText = ''
+    if (!groqRes.ok) {
+      const err = await groqRes.text()
+      console.warn(`[market-analysis] Groq API 오류: ${groqRes.status} - ${err.slice(0, 100)}`)
+      try {
+        rawText = await callGemini()
+      } catch (geminiErr) {
+        return new Response(
+          JSON.stringify({ skipped: true, reason: `Groq ${groqRes.status} + Gemini 실패: ${String(geminiErr)}`, existing_data: 'preserved' }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      }
+    } else {
+      const groqJson = await groqRes.json()
+      rawText = groqJson.choices?.[0]?.message?.content ?? ''
+    }
+
+    const finishReason = ''
     if (finishReason === 'length') {
       console.warn('[market-analysis] 응답 토큰 한도 초과로 잘림 → 복구 시도')
       // 잘린 JSON 끝에 닫는 괄호 추가 시도

@@ -58,12 +58,15 @@ Deno.serve(async () => {
           const block = m[1]
           const t = block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/)
           const d = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>|<description>([\s\S]*?)<\/description>/)
-          const title = (t?.[1] ?? t?.[2] ?? '').trim()
-          const desc  = (d?.[1] ?? d?.[2] ?? '')
-            .replace(/<[^>]+>/g, '') // HTML 태그 제거
+          const decodeHtml = (s: string) => s
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+          const title = decodeHtml((t?.[1] ?? t?.[2] ?? '').trim())
+          const desc  = decodeHtml((d?.[1] ?? d?.[2] ?? '')
+            .replace(/<[^>]+>/g, '')
             .replace(/\s+/g, ' ')
             .trim()
-            .slice(0, 200)           // 최대 200자
+            .slice(0, 200))
           return { title, desc }
         })
         .filter(item => item.title)
@@ -313,50 +316,19 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       }
     }
 
-    // JSON 문자열 내부 문제 문자 수정 (제어 문자 + 내부 따옴표)
-    const fixJson = (s: string): string => {
-      let result = ''
-      let inString = false
-      let escaped = false
-      for (let i = 0; i < s.length; i++) {
-        const c = s[i]
-        if (escaped) { result += c; escaped = false; continue }
-        if (c === '\\') { result += c; escaped = true; continue }
-        if (c === '\n' && inString) { result += '\\n'; continue }
-        if (c === '\r' && inString) { result += '\\r'; continue }
-        if (c === '\t' && inString) { result += '\\t'; continue }
-        if (c === '"') {
-          if (!inString) { inString = true; result += c; continue }
-          // 닫는 따옴표인지 확인: 뒤에 공백 제거 후 :,}] 가 오면 닫는 따옴표
-          let j = i + 1
-          while (j < s.length && ' \t\r\n'.includes(s[j])) j++
-          const next = s[j]
-          if (next === ':' || next === ',' || next === '}' || next === ']' || j >= s.length) {
-            inString = false; result += c
-          } else {
-            result += '\\"' // 내부 따옴표 → 이스케이프
-          }
-          continue
-        }
-        result += c
-      }
-      return result
-    }
-
     type Factor = { type: string; category?: string; title: string; mechanism?: string; confidence?: number; desc: string }
     type Analysis = { sentiment_score: number; market_summary: string; factors: Factor[]; conclusion: string }
 
     let analysis: Analysis
     try {
-      // 마크다운 코드 블록 제거
+      // 마크다운 코드 블록 제거 → JSON 블록 추출
       const stripped = rawText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '')
-      // 잘못된 이스케이프(\& 등) 및 trailing comma 제거
-      const cleaned = stripped
-        .replace(/\\([^"\\/bfnrtu])/g, '$1')   // \& → &, 유효하지 않은 이스케이프 제거
-        .replace(/,\s*([}\]])/g, '$1')           // trailing comma 제거
-      const match = cleaned.match(/\{[\s\S]*\}/)
+      const match = stripped.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('JSON 블록 없음: ' + rawText)
-      analysis = JSON.parse(fixJson(match[0]))
+      const cleaned = match[0]
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '') // 제어문자 제거
+        .replace(/,\s*([}\]])/g, '$1')                              // trailing comma 제거
+      analysis = JSON.parse(cleaned)
     } catch {
       throw new Error('Groq 응답 JSON 파싱 실패: ' + rawText)
     }

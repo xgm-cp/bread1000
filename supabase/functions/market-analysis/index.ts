@@ -259,28 +259,11 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
 
 【최종 확인】 출력 전 반드시 검토: 한자·중국어·일본어·베트남어·스페인어 단어가 하나라도 있으면 해당 단어를 순수 한국어로 교체 후 출력하세요.`
 
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${GROQ_KEY}`,
-      },
-      body: JSON.stringify({
-        model:           'llama-3.3-70b-versatile',
-        max_tokens:      6000,
-        response_format: { type: 'json_object' },
-        messages:        [
-          { role: 'system', content: systemPrompt },
-          { role: 'user',   content: userPrompt },
-        ],
-      }),
-    })
-
-    // Gemini fallback 함수
+    // ── 1순위: Gemini 2.5 Flash ───────────────────────────
     const callGemini = async (): Promise<string> => {
       const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY')
       if (!GEMINI_KEY) throw new Error('GEMINI_API_KEY 미설정')
-      console.log('[market-analysis] Gemini fallback 호출')
+      console.log('[market-analysis] Gemini 호출')
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
         {
@@ -289,49 +272,53 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            generationConfig: { maxOutputTokens: 4000, temperature: 0.3 },
+            generationConfig: { maxOutputTokens: 8000, temperature: 0.3, responseMimeType: 'application/json' },
           }),
         }
       )
       if (!res.ok) {
         const errBody = await res.text()
         console.error(`[market-analysis] Gemini 오류 ${res.status}:`, errBody.slice(0, 300))
-        throw new Error(`Gemini API 오류: ${res.status} - ${errBody.slice(0, 100)}`)
+        throw new Error(`Gemini API 오류: ${res.status}`)
       }
       const json = await res.json()
       return json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     }
 
+    // ── 2순위: Groq fallback ──────────────────────────────
+    const callGroq = async (): Promise<string> => {
+      console.log('[market-analysis] Groq fallback 호출')
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model:           'llama-3.3-70b-versatile',
+          max_tokens:      6000,
+          response_format: { type: 'json_object' },
+          messages:        [
+            { role: 'system', content: systemPrompt },
+            { role: 'user',   content: userPrompt },
+          ],
+        }),
+      })
+      if (!res.ok) throw new Error(`Groq API 오류: ${res.status}`)
+      const json = await res.json()
+      return json.choices?.[0]?.message?.content ?? ''
+    }
+
     let rawText = ''
-    if (!groqRes.ok) {
-      const err = await groqRes.text()
-      console.warn(`[market-analysis] Groq API 오류: ${groqRes.status} - ${err.slice(0, 100)}`)
+    try {
+      rawText = await callGemini()
+    } catch (geminiErr) {
+      console.warn('[market-analysis] Gemini 실패 → Groq fallback:', String(geminiErr))
       try {
-        rawText = await callGemini()
-      } catch (geminiErr) {
+        rawText = await callGroq()
+      } catch (groqErr) {
         return new Response(
-          JSON.stringify({ skipped: true, reason: `Groq ${groqRes.status} + Gemini 실패: ${String(geminiErr)}`, existing_data: 'preserved' }),
+          JSON.stringify({ skipped: true, reason: `Gemini + Groq 모두 실패: ${String(groqErr)}`, existing_data: 'preserved' }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
       }
-    } else {
-      const groqJson = await groqRes.json()
-      rawText = groqJson.choices?.[0]?.message?.content ?? ''
-    }
-
-    const finishReason = ''
-    if (finishReason === 'length') {
-      console.warn('[market-analysis] 응답 토큰 한도 초과로 잘림 → 복구 시도')
-      // 열린 문자열 닫기 (이스케이프되지 않은 " 홀수 개수면 문자열 미닫힘)
-      const unescapedQuotes = (rawText.match(/(?<!\\)"/g) ?? []).length
-      if (unescapedQuotes % 2 !== 0) rawText += '"'
-      // 열린 배열/객체 닫기
-      const openBraces   = (rawText.match(/\{/g) ?? []).length
-      const closeBraces  = (rawText.match(/\}/g) ?? []).length
-      const openBrackets = (rawText.match(/\[/g) ?? []).length
-      const closeBrackets= (rawText.match(/\]/g) ?? []).length
-      rawText += ']'.repeat(Math.max(0, openBrackets - closeBrackets))
-      rawText += '}'.repeat(Math.max(0, openBraces - closeBraces))
     }
 
     // 한자·일본어 감지 시 교정 API 호출

@@ -200,7 +200,17 @@ Deno.serve(async () => {
 11. 감성 지수 산출: 상승 요인 개수와 하락 요인 개수를 기반으로 sentiment_score를 산출할 것. 예: 상승 1개·하락 3개 → 50점 이하(중립/약세). 상승 요인이 많아야 높은 점수를 줄 것.
 12. 결론 일관성: market_summary와 conclusion은 반드시 factors의 팩트와 일치해야 함. 상승 요인이 적은데 결론이 강세일 수 없음. 요인 비중을 정직하게 반영할 것.`
 
-    const userPrompt = `아래 데이터를 바탕으로 오늘 마감 시황을 분석하세요.
+    // 한국시간 09:00~15:30은 장중, 그 외는 장외(마감 후 또는 개장 전)
+    const kstH = kst.getUTCHours()
+    const kstM = kst.getUTCMinutes()
+    const kstTotalMin = kstH * 60 + kstM
+    const isMarketOpen = kstTotalMin >= 9 * 60 && kstTotalMin < 15 * 60 + 30
+    const marketContext = isMarketOpen
+      ? `현재 시각은 KST ${String(kstH).padStart(2,'0')}:${String(kstM).padStart(2,'0')}으로 KOSPI 장중입니다. market_summary와 conclusion에 '마감', '마감했습니다' 등 장 마감을 의미하는 표현을 절대 쓰지 마세요. 대신 '거래 중', '현재 기준', '장중 흐름' 등의 표현을 사용하세요.`
+      : `현재 시각은 KST ${String(kstH).padStart(2,'0')}:${String(kstM).padStart(2,'0')}으로 KOSPI 장 마감 이후입니다.`
+
+    const userPrompt = `아래 데이터를 바탕으로 오늘 시황을 분석하세요.
+${marketContext}
 
 [지수 현황 - 실측값]
 국내: ${kospiLine}
@@ -213,7 +223,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
 [출력 형식 - 반드시 아래 JSON만 출력, 이 순서대로]
 {
   "sentiment_score": 60,
-  "market_summary": "KOSPI 실측값 포함 1문장 요약",
+  "market_summary": "${isMarketOpen ? 'KOSPI 실측값 포함 1문장 요약 (장중 표현 사용, 마감 표현 금지)' : 'KOSPI 실측값 포함 1문장 요약'}",
   "conclusion": "오늘 KOSPI 흐름의 핵심 원인과 향후 주시 변수를 2문장으로 서술",
   "factors": [
     {

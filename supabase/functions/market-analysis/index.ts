@@ -394,9 +394,12 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       .lt('date', cutoffDate)
     if (deleteErr) console.warn('[market-analysis] 오래된 데이터 삭제 실패:', deleteErr.message)
 
+    // JSON 직렬화 검증 후 삽입
+    const rawDataStr = JSON.stringify(rawData)
+    console.log('[market-analysis] rawData 길이:', rawDataStr.length, '샘플:', rawDataStr.slice(0, 100))
     const { error: insertErr } = await supabase
       .from('market_analysis')
-      .upsert({ date: today, raw_data: rawData }, { onConflict: 'date' })
+      .upsert({ date: today, raw_data: JSON.parse(rawDataStr) }, { onConflict: 'date' })
 
     if (insertErr) throw new Error('INSERT 실패: ' + insertErr.message)
 

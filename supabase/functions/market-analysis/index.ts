@@ -292,7 +292,11 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
           }),
         }
       )
-      if (!res.ok) throw new Error(`Gemini API 오류: ${res.status}`)
+      if (!res.ok) {
+        const errBody = await res.text()
+        console.error(`[market-analysis] Gemini 오류 ${res.status}:`, errBody.slice(0, 300))
+        throw new Error(`Gemini API 오류: ${res.status} - ${errBody.slice(0, 100)}`)
+      }
       const json = await res.json()
       return json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     }

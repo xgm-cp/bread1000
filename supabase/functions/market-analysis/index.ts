@@ -267,7 +267,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       },
       body: JSON.stringify({
         model:      'llama-3.3-70b-versatile',
-        max_tokens: 4000,
+        max_tokens: 6000,
         messages:   [
           { role: 'system', content: systemPrompt },
           { role: 'user',   content: userPrompt },
@@ -321,11 +321,14 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
     const finishReason = ''
     if (finishReason === 'length') {
       console.warn('[market-analysis] 응답 토큰 한도 초과로 잘림 → 복구 시도')
-      // 잘린 JSON 끝에 닫는 괄호 추가 시도
-      const openBraces = (rawText.match(/\{/g) ?? []).length
-      const closeBraces = (rawText.match(/\}/g) ?? []).length
+      // 열린 문자열 닫기 (이스케이프되지 않은 " 홀수 개수면 문자열 미닫힘)
+      const unescapedQuotes = (rawText.match(/(?<!\\)"/g) ?? []).length
+      if (unescapedQuotes % 2 !== 0) rawText += '"'
+      // 열린 배열/객체 닫기
+      const openBraces   = (rawText.match(/\{/g) ?? []).length
+      const closeBraces  = (rawText.match(/\}/g) ?? []).length
       const openBrackets = (rawText.match(/\[/g) ?? []).length
-      const closeBrackets = (rawText.match(/\]/g) ?? []).length
+      const closeBrackets= (rawText.match(/\]/g) ?? []).length
       rawText += ']'.repeat(Math.max(0, openBrackets - closeBrackets))
       rawText += '}'.repeat(Math.max(0, openBraces - closeBraces))
     }

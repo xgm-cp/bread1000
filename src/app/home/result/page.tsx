@@ -58,9 +58,11 @@ export default function ResultPage() {
     const prevYYYYMM = prevMonthNum === 0 ? `${Number(sy) - 1}12` : `${sy}${String(prevMonthNum).padStart(2, '0')}`
     const currentYYYYMM = `${sy}${sm}`
 
-    // 이달 나의 1위 횟수
+    // 이달 나의 1위 횟수 (KST 16:05 이후면 오늘 포함)
     setMyRank1Count(null)
-    getSupabase()
+    const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const calcDone = kstNow.getUTCHours() * 60 + kstNow.getUTCMinutes() >= 16 * 60 + 5
+    let rank1Query = getSupabase()
       .from('종가예측내역')
       .select('기준일자', { count: 'exact', head: true })
       .eq('아이디', user.아이디)
@@ -68,8 +70,8 @@ export default function ResultPage() {
       .eq('순위', 1)
       .gte('기준일자', firstDay)
       .lte('기준일자', lastDay)
-      .neq('기준일자', todayStr)
-      .then(({ count }) => setMyRank1Count(count ?? 0))
+    if (!calcDone) rank1Query = rank1Query.neq('기준일자', todayStr)
+    rank1Query.then(({ count }) => setMyRank1Count(count ?? 0))
 
     // 전체 회원 + 해당월 예측 데이터 + 빵보유기본 + 계좌거래내역 + 월빵보유기본(전월/해당월)
     Promise.all([

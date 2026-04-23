@@ -221,34 +221,34 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       "title": "요인명 (10자 이내)",
       "mechanism": "원인 → 시장반응 → 주가영향 (1~2문장 인과 경로, 순환 표현 금지)",
       "confidence": 85,
-      "desc": "뉴스에서 도출한 국내 요인. 밸류에이션 확장/유동성 공급/규제 불확실성 해소/수출 모멘텀 등 프레임워크로 인과 경로 5~10줄 서술."
+      "desc": "인과 경로 중심으로 3~4문장 서술. 실측 수치 인용 필수."
     },
     {
       "type": "POSITIVE or NEGATIVE",
       "category": "해외지수",
       "title": "S&P500 or NASDAQ",
-      "mechanism": "미국 증시 방향성 → 외국인 투자심리 → KOSPI 수급 (1~2문장)",
+      "mechanism": "미국 증시 방향성 → 외국인 투자심리 → KOSPI 수급 (1문장)",
       "confidence": 80,
-      "desc": "S&P500/NASDAQ 등락이 KOSPI에 미치는 영향. 실측 수치 반드시 인용. 5~10줄 서술."
+      "desc": "S&P500/NASDAQ 등락이 KOSPI에 미치는 영향. 실측 수치 인용. 3~4문장."
     },
     {
       "type": "POSITIVE or NEGATIVE",
       "category": "환율",
       "title": "USD/KRW 환율",
-      "mechanism": "원화 강세/약세 → 외국인 수익률 → 자금 유출입 → 수출기업 실적 (1~2문장)",
+      "mechanism": "원화 강세/약세 → 외국인 수익률 → 자금 유출입 (1문장)",
       "confidence": 80,
-      "desc": "원달러 환율 변동이 KOSPI에 미치는 영향. 실측 수치 반드시 인용. 5~10줄 서술."
+      "desc": "환율 변동이 KOSPI에 미치는 영향. 실측 수치 인용. 3~4문장."
     },
     {
       "type": "POSITIVE or NEGATIVE",
       "category": "유가",
       "title": "WTI 유가",
-      "mechanism": "유가 상승/하락 → 에너지 비용 → 제조업·항공·화학 수익성 → 시장 전반 (1~2문장)",
+      "mechanism": "유가 상승/하락 → 에너지 비용 → 제조업·항공·화학 수익성 (1문장)",
       "confidence": 75,
-      "desc": "WTI 유가 변동이 한국 경제/KOSPI에 미치는 영향. 실측 수치 반드시 인용. 5~10줄 서술."
+      "desc": "WTI 유가 변동이 KOSPI에 미치는 영향. 실측 수치 인용. 3~4문장."
     }
   ],
-  "conclusion": "국내 뉴스 요인, 해외 지수, 환율, 유가를 종합해 오늘 KOSPI의 핵심 구도를 하나의 테마로 정의하고, 각 요인의 상호작용과 향후 주시해야 할 변수를 구체적으로 서술"
+  "conclusion": "거시경제 요인과 국내 뉴스를 종합해 오늘 KOSPI 흐름의 핵심 구도를 3~5문장으로 서술"
 }
 
 [confidence 기준]
@@ -345,6 +345,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
     }
 
     // 필수 필드 유효성 검사 — market_summary, conclusion만 필수 (factors 비어도 허용)
+    console.log('[market-analysis] 분석 결과:', JSON.stringify({ summary: analysis.market_summary?.slice(0,30), factorsCount: analysis.factors?.length, hasConclusion: !!analysis.conclusion }))
     if (!analysis.market_summary || !analysis.conclusion) {
       console.warn('[market-analysis] 분석 결과 필수 필드 누락 — DB 업데이트 생략')
       return new Response(

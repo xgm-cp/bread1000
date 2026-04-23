@@ -214,7 +214,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
 {
   "sentiment_score": 60,
   "market_summary": "KOSPI 실측값 포함 1문장 요약",
-  "conclusion": "거시경제 요인과 국내 뉴스를 종합해 오늘 KOSPI 흐름의 핵심 구도를 3~5문장으로 서술",
+  "conclusion": "오늘 KOSPI 흐름의 핵심 원인과 향후 주시 변수를 2문장으로 서술",
   "factors": [
     {
       "type": "POSITIVE or NEGATIVE",
@@ -266,9 +266,10 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
         'Authorization': `Bearer ${GROQ_KEY}`,
       },
       body: JSON.stringify({
-        model:      'llama-3.3-70b-versatile',
-        max_tokens: 6000,
-        messages:   [
+        model:           'llama-3.3-70b-versatile',
+        max_tokens:      6000,
+        response_format: { type: 'json_object' },
+        messages:        [
           { role: 'system', content: systemPrompt },
           { role: 'user',   content: userPrompt },
         ],

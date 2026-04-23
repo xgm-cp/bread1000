@@ -478,7 +478,7 @@ export default function PredictPage() {
           <div style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1, padding: '20px 24px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BarChart2 size={18} color="#F59E0B" />
-              <span style={{ fontSize: 15, fontWeight: 700 }}>장마감이후 오늘의 증시 한입분석</span>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>오늘의 증시 한입분석</span>
             </div>
             <button onClick={() => setShowAnalysis(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}><X size={20} /></button>
           </div>

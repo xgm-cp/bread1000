@@ -262,7 +262,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       },
       body: JSON.stringify({
         model:      'llama-3.3-70b-versatile',
-        max_tokens: 2000,
+        max_tokens: 3000,
         messages:   [
           { role: 'system', content: systemPrompt },
           { role: 'user',   content: userPrompt },
@@ -359,8 +359,8 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       throw new Error('Groq 응답 JSON 파싱 실패: ' + rawText)
     }
 
-    // 필수 필드 유효성 검사 — 빈 데이터로 기존 DB 덮어쓰기 방지
-    if (!analysis.market_summary || !analysis.factors?.length || !analysis.conclusion) {
+    // 필수 필드 유효성 검사 — market_summary, conclusion만 필수 (factors 비어도 허용)
+    if (!analysis.market_summary || !analysis.conclusion) {
       console.warn('[market-analysis] 분석 결과 필수 필드 누락 — DB 업데이트 생략')
       return new Response(
         JSON.stringify({ skipped: true, reason: '분석 결과 불완전', existing_data: 'preserved' }),

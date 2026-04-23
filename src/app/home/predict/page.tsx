@@ -402,7 +402,7 @@ export default function PredictPage() {
           onClick={openAnalysis}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '13px', borderRadius: 12, border: '1px solid #F59E0B', background: 'rgba(245,158,11,0.06)', color: '#F59E0B', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12 }}
         >
-          <BarChart2 size={15} /> 장마감이후 오늘의 증시 한입분석(17:00~08:00)
+          <BarChart2 size={15} /> 오늘의 증시 한입분석
         </button>
 
         <div className="prediction-panel">

@@ -305,7 +305,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
         body: JSON.stringify({
           model:           'llama-3.3-70b-versatile',
-          max_tokens:      6000,
+          max_tokens:      8000,
           response_format: { type: 'json_object' },
           messages:        [
             { role: 'system', content: systemPrompt },

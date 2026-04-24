@@ -370,6 +370,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       if (!match) throw new Error('JSON 블록 없음: ' + rawText)
       const cleaned = match[0]
         .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '') // 제어문자 제거
+        .replace(/,(\s*,)+/g, ',')                                  // 이중 콤마 제거
         .replace(/,\s*([}\]])/g, '$1')                              // trailing comma 제거
       analysis = JSON.parse(cleaned)
     } catch {
@@ -386,11 +387,14 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       )
     }
 
-    // type 필드 정규화 (POSITIVE/NEGATIVE 외 값 보정)
-    analysis.factors = (analysis.factors ?? []).map(f => ({
-      ...f,
-      type: /pos|긍정|상승|호재/i.test(f.type ?? '') ? 'POSITIVE' : 'NEGATIVE'
-    }))
+    // type 필드 정규화 + 유효하지 않은 category 필터링 (깨진 한국어 제거)
+    const VALID_CATEGORIES = ['국내뉴스', '해외지수', '환율', '유가']
+    analysis.factors = (analysis.factors ?? [])
+      .filter(f => !f.category || VALID_CATEGORIES.includes(f.category))
+      .map(f => ({
+        ...f,
+        type: /pos|긍정|상승|호재/i.test(f.type ?? '') ? 'POSITIVE' : 'NEGATIVE'
+      }))
 
     const score = analysis.sentiment_score ?? 50
     const sentimentLabel = score >= 70 ? '강세' : score >= 50 ? '중립' : score >= 30 ? '약세' : '하락'

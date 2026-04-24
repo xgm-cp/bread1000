@@ -36,7 +36,7 @@ export default function PredictPage() {
       market_summary: string
       factors: Factor[]
       conclusion: string
-      global?: { sp500: GlobalItem; nasdaq: GlobalItem; wti: GlobalItem; usdkrw: GlobalItem; vix: GlobalItem; tnx: GlobalItem; dxy: GlobalItem }
+      global?: { sp500: GlobalItem; nasdaq: GlobalItem; wti: GlobalItem; usdkrw: GlobalItem; vix: GlobalItem; tnx: GlobalItem; dxy: GlobalItem; ewy: GlobalItem }
     } | null
   }
   const [showAnalysis, setShowAnalysis] = useState(false)
@@ -522,6 +522,7 @@ export default function PredictPage() {
                 }
                 if (f.category === '환율' && global.usdkrw) return `${fmt(global.usdkrw.price, 2)}원 ${fmtChg(global.usdkrw.change, global.usdkrw.changeRate)}`
                 if (f.category === '유가' && global.wti) return `$${fmt(global.wti.price)} ${fmtChg(global.wti.change, global.wti.changeRate)}`
+                if (f.category === 'EWY' && global.ewy) return `$${fmt(global.ewy.price)} ${fmtChg(global.ewy.change, global.ewy.changeRate)}`
                 return null
               }
               const conclusion= rd.conclusion

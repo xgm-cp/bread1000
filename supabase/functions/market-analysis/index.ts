@@ -145,7 +145,7 @@ Deno.serve(async () => {
       } catch { return null }
     }
 
-    const [sp500, nasdaq, wti, usdkrw, vix, tnx, dxy] = await Promise.all([
+    const [sp500, nasdaq, wti, usdkrw, vix, tnx, dxy, ewy] = await Promise.all([
       fetchYahoo('^GSPC'),
       fetchYahoo('^IXIC'),
       fetchYahoo('CL=F'),
@@ -153,6 +153,7 @@ Deno.serve(async () => {
       fetchYahoo('^VIX'),
       fetchYahoo('^TNX'),
       fetchYahoo('DX-Y.NYB'),
+      fetchYahoo('EWY'),
     ])
 
     const fmtYahoo = (label: string, d: YahooData, unit = '') =>
@@ -162,6 +163,7 @@ Deno.serve(async () => {
     const globalParts: string[] = []
     if (sp500)   globalParts.push(fmtYahoo('S&P500', sp500))
     if (nasdaq)  globalParts.push(fmtYahoo('NASDAQ', nasdaq))
+    if (ewy)     globalParts.push(fmtYahoo('EWY(한국ETF)', ewy, '$'))
     if (wti)     globalParts.push(fmtYahoo('WTI유가', wti, '$'))
     if (usdkrw)  globalParts.push(fmtYahoo('USD/KRW', usdkrw, '원'))
     if (vix)     globalParts.push(fmtYahoo('VIX공포지수', vix))
@@ -188,7 +190,8 @@ Deno.serve(async () => {
    - 1순위 (거시경제): 환율·금리·유가·미국지수 — 지수를 크게 움직인 핵심 원인
    - 2순위 (정책·기업): 정부 정책, 기업 실적, 산업 뉴스 — 상승/하락세를 지속시킨 감성 요인
    이 논리 구조(거시경제가 방향을 결정 → 정책·뉴스가 지속성 부여)를 conclusion에도 반드시 반영하세요.
-   - category는 반드시 '국내뉴스', '해외지수', '환율', '유가' 중 하나만 사용하세요. VIX·TNX·DXY는 별도 category 금지, '해외지수' 항목의 desc 안에서 언급하세요.
+   - category는 반드시 '국내뉴스', '해외지수', '환율', '유가', 'EWY' 중 하나만 사용하세요. VIX·TNX·DXY는 별도 category 금지, '해외지수' 항목의 desc 안에서 언급하세요.
+   - EWY(iShares MSCI South Korea ETF) 원칙: EWY↑ = 외국인의 한국 주식 선호 → 외국인 순매수 → KOSPI 상승 압력. EWY는 미국 시장에서 거래되므로 전일 종가 기준으로 분석하세요.
    - '국내뉴스' category는 반드시 1개 이상 포함하세요. 뉴스 데이터가 있는 한 confidence 50 미만으로 생략하지 마세요.
 6. 경제·금융·거시경제·기업실적·수출입·통화정책과 직접 관련된 뉴스만 분석하세요. 지역행사·복지·사회면 뉴스는 완전히 무시하세요.
 7. 문자열 내 큰따옴표 절대 사용금지 (작은따옴표 사용).
@@ -392,7 +395,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
     }
 
     // type 필드 정규화 + 유효하지 않은 category 필터링 (깨진 한국어 제거)
-    const VALID_CATEGORIES = ['국내뉴스', '해외지수', '환율', '유가']
+    const VALID_CATEGORIES = ['국내뉴스', '해외지수', '환율', '유가', 'EWY']
     analysis.factors = (analysis.factors ?? [])
       .filter(f => !f.category || VALID_CATEGORIES.includes(f.category))
       .map(f => ({
@@ -420,6 +423,7 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
         vix:    vix    ? { price: vix.price,     change: vix.change,     changeRate: vix.changeRate }    : null,
         tnx:    tnx    ? { price: tnx.price,     change: tnx.change,     changeRate: tnx.changeRate }    : null,
         dxy:    dxy    ? { price: dxy.price,     change: dxy.change,     changeRate: dxy.changeRate }    : null,
+        ewy:    ewy    ? { price: ewy.price,     change: ewy.change,     changeRate: ewy.changeRate }    : null,
       },
     }
 

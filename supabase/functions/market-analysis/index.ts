@@ -260,6 +260,14 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       "mechanism": "유가 상승/하락 → 에너지 비용 → 제조업·화학 수익성 (1문장)",
       "confidence": 75,
       "desc": "실측 수치 인용. 2~3문장."
+    },
+    {
+      "type": "POSITIVE or NEGATIVE",
+      "category": "EWY",
+      "title": "EWY 한국ETF",
+      "mechanism": "EWY 상승/하락 → 외국인의 한국 주식 선호도 → KOSPI 외국인 수급 (1문장)",
+      "confidence": 80,
+      "desc": "실측 수치 인용. EWY는 미국 시장 전일 종가 기준. 2~3문장."
     }
   ]
 }

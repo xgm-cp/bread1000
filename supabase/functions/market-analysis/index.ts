@@ -269,13 +269,12 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
 
 【최종 확인】 출력 전 반드시 검토: 한자·중국어·일본어·베트남어·스페인어 단어가 하나라도 있으면 해당 단어를 순수 한국어로 교체 후 출력하세요.`
 
-    // ── 1순위: Gemini 2.5 Flash ───────────────────────────
-    const callGemini = async (): Promise<string> => {
-      const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY')
+    const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY')
+    const callGeminiModel = async (model: string): Promise<string> => {
       if (!GEMINI_KEY) throw new Error('GEMINI_API_KEY 미설정')
-      console.log('[market-analysis] Gemini 호출')
+      console.log(`[market-analysis] Gemini 호출: ${model}`)
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -288,14 +287,14 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
       )
       if (!res.ok) {
         const errBody = await res.text()
-        console.error(`[market-analysis] Gemini 오류 ${res.status}:`, errBody.slice(0, 300))
-        throw new Error(`Gemini API 오류: ${res.status}`)
+        console.error(`[market-analysis] ${model} 오류 ${res.status}:`, errBody.slice(0, 200))
+        throw new Error(`Gemini API 오류 ${model}: ${res.status}`)
       }
       const json = await res.json()
       return json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     }
 
-    // ── 2순위: Groq fallback ──────────────────────────────
+    // ── 3순위: Groq fallback ──────────────────────────────
     const callGroq = async (): Promise<string> => {
       console.log('[market-analysis] Groq fallback 호출')
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -318,16 +317,21 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
 
     let rawText = ''
     try {
-      rawText = await callGemini()
-    } catch (geminiErr) {
-      console.warn('[market-analysis] Gemini 실패 → Groq fallback:', String(geminiErr))
+      rawText = await callGeminiModel('gemini-3.1-flash-lite')   // 1순위: RPD 500
+    } catch (e1) {
+      console.warn('[market-analysis] gemini-3.1-flash-lite 실패 → gemini-2.5-flash 시도:', String(e1))
       try {
-        rawText = await callGroq()
-      } catch (groqErr) {
-        return new Response(
-          JSON.stringify({ skipped: true, reason: `Gemini + Groq 모두 실패: ${String(groqErr)}`, existing_data: 'preserved' }),
-          { status: 200, headers: { 'content-type': 'application/json' } }
-        )
+        rawText = await callGeminiModel('gemini-2.5-flash')       // 2순위: RPD 20
+      } catch (e2) {
+        console.warn('[market-analysis] gemini-2.5-flash 실패 → Groq fallback:', String(e2))
+        try {
+          rawText = await callGroq()                              // 3순위: Groq
+        } catch (groqErr) {
+          return new Response(
+            JSON.stringify({ skipped: true, reason: `모든 AI 실패: ${String(groqErr)}`, existing_data: 'preserved' }),
+            { status: 200, headers: { 'content-type': 'application/json' } }
+          )
+        }
       }
     }
 

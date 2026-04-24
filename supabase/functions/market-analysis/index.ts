@@ -317,9 +317,9 @@ ${filtered.map((item, i) => `${i + 1}. ${item.title}${item.desc ? ` / ${item.des
 
     let rawText = ''
     try {
-      rawText = await callGeminiModel('gemini-3.1-flash-lite')   // 1순위: RPD 500
+      rawText = await callGeminiModel('gemini-3.1-flash-lite-preview')   // 1순위: RPD 500
     } catch (e1) {
-      console.warn('[market-analysis] gemini-3.1-flash-lite 실패 → gemini-2.5-flash 시도:', String(e1))
+      console.warn('[market-analysis] gemini-3.1-flash-lite-preview 실패 → gemini-2.5-flash 시도:', String(e1))
       try {
         rawText = await callGeminiModel('gemini-2.5-flash')       // 2순위: RPD 20
       } catch (e2) {

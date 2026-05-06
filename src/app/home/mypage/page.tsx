@@ -41,6 +41,7 @@ export default function MypagePage() {
   const [amount, setAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [modalError, setModalError] = useState('')
+  const [copied, setCopied] = useState(false)
   const [showTetris, setShowTetris] = useState(false)
   const [showMatch3, setShowMatch3] = useState(false)
   const [showGalaga, setShowGalaga] = useState(false)
@@ -304,7 +305,7 @@ export default function MypagePage() {
   }
 
   function openModal(type: ModalType) {
-    setModal(type); setAmount(''); setModalError('')
+    setModal(type); setAmount(''); setModalError(''); setCopied(false)
   }
 
   async function submitRequest() {
@@ -693,6 +694,24 @@ export default function MypagePage() {
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
             {modal === 'charge' ? <><Wallet size={20} /> 충전 신청</> : <><ArrowDownToLine size={20} /> 출금 신청</>}
           </div>
+          {modal === 'charge' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: copied ? 6 : 10, padding: '10px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>입금-카카오뱅크: 7942-26-62091</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText('79422662091')
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}
+                  style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border2)', background: copied ? 'rgba(46,204,138,0.15)' : 'var(--surface2)', color: copied ? '#2ECC8A' : 'var(--text2)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                >
+                  복사
+                </button>
+              </div>
+              {copied && <div style={{ fontSize: 12, color: '#2ECC8A', marginBottom: 10 }}>계좌복사했습니다.</div>}
+            </>
+          )}
           <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 24 }}>
             {modal === 'charge' ? '충전할 빵 개수를 입력하세요. (1빵 = 1,000원)' : `출금할 빵 개수를 입력하세요. (잔액: ${bread ?? 0}빵)`}
           </div>

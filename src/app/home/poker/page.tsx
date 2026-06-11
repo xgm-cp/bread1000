@@ -345,16 +345,25 @@ export default function PokerPage() {
                 )}
                 {rooms.map(room => (
                   <div key={room.roomCode} className="poker-table-card">
-                    <div>
-                      <div className="poker-table-card-title">{room.label}</div>
-                      <div className="poker-table-card-meta">
-                        {room.players}/{room.maxPlayers}명 · {roomStatus(room.street)}
-                        {room.hostName ? ` · 방장 ${room.hostName}` : ''}
+                    <div className="poker-table-felt">
+                      <div className="poker-seat s1" />
+                      <div className="poker-seat s2" />
+                      <div className="poker-seat s3" />
+                      <div className="poker-seat s4" />
+                      <div className="poker-table-center">
+                        <div className="poker-table-card-title">{room.label}</div>
+                        <div className={`poker-table-status ${room.street}`}>{roomStatus(room.street)}</div>
                       </div>
                     </div>
-                    <button onClick={() => enterTable(room.roomCode)} disabled={loading || room.players >= room.maxPlayers || room.street !== 'waiting'}>
-                      입장
-                    </button>
+                    <div className="poker-table-card-side">
+                      <div className="poker-table-card-meta">
+                        <strong>{room.players}/{room.maxPlayers}</strong>
+                        <span>{room.hostName ? `방장 ${room.hostName}` : '빈 테이블'}</span>
+                      </div>
+                      <button onClick={() => enterTable(room.roomCode)} disabled={loading || room.players >= room.maxPlayers || room.street !== 'waiting'}>
+                        입장
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

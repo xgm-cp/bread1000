@@ -57,6 +57,7 @@ export type PublicPokerState = Omit<PokerState, 'deck' | 'players'> & {
 
 export type PokerAction =
   | 'create'
+  | 'rooms'
   | 'join'
   | 'start'
   | 'state'

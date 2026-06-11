@@ -18,7 +18,7 @@ import {
 import { maskState } from '@/lib/poker/maskState'
 import type { PokerAction, PokerState } from '@/lib/poker/types'
 
-const ROOM_CODES = ['1001', '1002', '1003', '1004']
+const ROOM_CODES = ['1001', '1002']
 
 type PokerRoomRow = {
   room_code: string
@@ -83,6 +83,32 @@ export async function POST(req: NextRequest) {
 
   try {
     const supabase = getSupabase()
+
+    if (action === 'rooms') {
+      const { data, error } = await supabase
+        .from('poker_rooms')
+        .select('room_code, state_json, version, updated_at, expires_at')
+        .in('room_code', ROOM_CODES)
+        .order('room_code', { ascending: true })
+
+      if (error) throw new Error(error.message)
+
+      const rooms = ((data ?? []) as PokerRoomRow[]).map(row => {
+        const state = isExpired(row.updated_at, row.expires_at)
+          ? createEmptyState(row.room_code)
+          : normalizeState(row.room_code, row.state_json)
+        return {
+          roomCode: row.room_code,
+          label: row.room_code === '1001' ? '1번 테이블' : '2번 테이블',
+          players: state.players.length,
+          maxPlayers: 4,
+          street: state.street,
+          hostName: state.players.find(player => player.id === state.hostId)?.name ?? null,
+        }
+      })
+
+      return NextResponse.json({ rooms })
+    }
 
     if (action === 'create') {
       const { data, error } = await supabase

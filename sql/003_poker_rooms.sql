@@ -13,9 +13,7 @@ create table if not exists public.poker_rooms (
 insert into public.poker_rooms (room_code, state_json, expires_at)
 values
   ('1001', '{"roomCode":"1001","players":[],"street":"waiting"}', now() + interval '30 minutes'),
-  ('1002', '{"roomCode":"1002","players":[],"street":"waiting"}', now() + interval '30 minutes'),
-  ('1003', '{"roomCode":"1003","players":[],"street":"waiting"}', now() + interval '30 minutes'),
-  ('1004', '{"roomCode":"1004","players":[],"street":"waiting"}', now() + interval '30 minutes')
+  ('1002', '{"roomCode":"1002","players":[],"street":"waiting"}', now() + interval '30 minutes')
 on conflict (room_code) do nothing;
 
 create or replace function public.update_poker_rooms_updated_at()

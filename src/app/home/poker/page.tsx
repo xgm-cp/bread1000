@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Bot, Check, Copy, Play, RefreshCw, RotateCcw, Spade, Users } from 'lucide-react'
+import { ArrowLeft, Bot, Check, Crown, Play, RefreshCw, RotateCcw, Spade, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import {
   bet,
@@ -23,8 +23,18 @@ type UserInfo = {
 type ApiResult = {
   state?: PublicPokerState
   roomCode?: string
+  rooms?: PokerRoomSummary[]
   error?: string
   conflict?: boolean
+}
+
+type PokerRoomSummary = {
+  roomCode: string
+  label: string
+  players: number
+  maxPlayers: number
+  street: string
+  hostName: string | null
 }
 
 type FlyingChip = {
@@ -47,7 +57,7 @@ export default function PokerPage() {
   const [practiceState, setPracticeState] = useState<PokerState | null>(null)
   const [remoteState, setRemoteState] = useState<PublicPokerState | null>(null)
   const [roomCode, setRoomCode] = useState('')
-  const [joinCode, setJoinCode] = useState('')
+  const [rooms, setRooms] = useState<PokerRoomSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [copied, setCopied] = useState(false)
@@ -168,12 +178,18 @@ export default function PokerPage() {
 
   useEffect(() => {
     if (mode !== 'multi' || !roomCode || !remoteState) return
-    if (remoteState.street === 'showdown') return
-    const delay = document.visibilityState === 'hidden' ? 12000 : remoteState.actorId === user?.id ? 5000 : 3500
+    if (document.visibilityState === 'hidden') return
+    const delay = remoteState.street === 'waiting'
+      ? 5000
+      : remoteState.street === 'showdown'
+        ? 5000
+      : remoteState.actorId === user?.id
+        ? 5000
+        : 1800
     const timer = setTimeout(() => refreshRoom(), delay)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, roomCode, remoteState?.actorId, remoteState?.street, user?.id])
+  }, [mode, roomCode, remoteState, user?.id])
 
   async function callPoker(body: Record<string, unknown>) {
     setLoading(true)
@@ -192,26 +208,19 @@ export default function PokerPage() {
       if (data.state) setRemoteState(data.state)
       if (data.roomCode) {
         setRoomCode(data.roomCode)
-        setJoinCode(data.roomCode)
       }
+      if (data.rooms) setRooms(data.rooms)
       return data
     } finally {
       setLoading(false)
     }
   }
 
-  async function createRoom() {
-    setMode('multi')
-    setPracticeState(null)
-    await callPoker({ action: 'create' })
+  async function loadRooms() {
+    await callPoker({ action: 'rooms' })
   }
 
-  async function joinRoom() {
-    const code = joinCode.trim()
-    if (!code) {
-      setMessage('방 코드를 입력해주세요.')
-      return
-    }
+  async function enterTable(code: string) {
     setMode('multi')
     setPracticeState(null)
     await callPoker({ action: 'join', roomCode: code })
@@ -294,6 +303,12 @@ export default function PokerPage() {
     router.push('/home/mypage')
   }
 
+  useEffect(() => {
+    if (mode !== 'multi' || roomCode) return
+    loadRooms()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, roomCode])
+
   return (
     <div className="page-poker">
       <div className="poker-body">
@@ -305,7 +320,7 @@ export default function PokerPage() {
             <div className="poker-title">포커</div>
             <div className="poker-subtitle">7포커 테스트</div>
           </div>
-          <button className="poker-icon-btn" onClick={mode === 'multi' ? refreshRoom : startPractice} title="새로고침">
+          <button className="poker-icon-btn" onClick={mode === 'multi' ? (roomCode ? refreshRoom : loadRooms) : startPractice} title="새로고침">
             <RefreshCw size={18} className={loading ? 'icon-spin' : ''} />
           </button>
         </div>
@@ -321,24 +336,33 @@ export default function PokerPage() {
 
         {mode === 'multi' && (
           <div className="poker-panel">
-            <div className="poker-room-row">
-              <button className="poker-primary" onClick={createRoom} disabled={loading}>
-                <Play size={16} /> 방 만들기
-              </button>
-              <div className="poker-join">
-                <input
-                  value={joinCode}
-                  onChange={e => setJoinCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="1001"
-                  inputMode="numeric"
-                />
-                <button onClick={joinRoom} disabled={loading}>참가</button>
+            {!roomCode && (
+              <div className="poker-table-list">
+                {rooms.length === 0 && (
+                  <button className="poker-primary" onClick={loadRooms} disabled={loading}>
+                    <RefreshCw size={16} /> 테이블 불러오기
+                  </button>
+                )}
+                {rooms.map(room => (
+                  <div key={room.roomCode} className="poker-table-card">
+                    <div>
+                      <div className="poker-table-card-title">{room.label}</div>
+                      <div className="poker-table-card-meta">
+                        {room.players}/{room.maxPlayers}명 · {roomStatus(room.street)}
+                        {room.hostName ? ` · 방장 ${room.hostName}` : ''}
+                      </div>
+                    </div>
+                    <button onClick={() => enterTable(room.roomCode)} disabled={loading || room.players >= room.maxPlayers || room.street !== 'waiting'}>
+                      입장
+                    </button>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
             {roomCode && (
-              <button className="poker-code" onClick={copyRoomCode}>
-                방 코드 {roomCode} <Copy size={14} /> {copied ? '복사됨' : ''}
-              </button>
+              <div className="poker-code">
+                {roomCode === '1001' ? '1번 테이블' : '2번 테이블'} · {copied ? '복사됨' : '멀티'}
+              </div>
             )}
             {roomCode && (
               <button className="poker-leave-room" onClick={leavePoker} disabled={loading}>
@@ -388,7 +412,10 @@ export default function PokerPage() {
               >
                 <div className="poker-player-head">
                   <div>
-                    <div className="poker-player-name">{player.name}{player.id === user?.id ? ' · 나' : ''}</div>
+                    <div className="poker-player-name">
+                      {player.name}{player.id === user?.id ? ' · 나' : ''}
+                      {state.hostId === player.id && <span className="poker-host-badge"><Crown size={11} /> 방장</span>}
+                    </div>
                     <div className="poker-stack-row">
                       <ChipStack amount={player.stack} tone="stack" label="보유" />
                       <ChipStack amount={contributions[player.id] ?? 0} tone="bet" label="베팅" />
@@ -508,6 +535,12 @@ function stageLabel(street?: string) {
   if (street === 'select_upcard') return '공개 카드 선택'
   if (street === 'showdown') return '쇼다운'
   return '베팅'
+}
+
+function roomStatus(street: string) {
+  if (street === 'waiting') return '대기중'
+  if (street === 'showdown') return '결과 확인'
+  return '진행중'
 }
 
 function formatCard(card: string) {

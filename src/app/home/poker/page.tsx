@@ -226,6 +226,13 @@ export default function PokerPage() {
     await callPoker({ action: 'join', roomCode: code })
   }
 
+  async function reclaimTable(code: string) {
+    setMode('multi')
+    setPracticeState(null)
+    setRoomCode(code)
+    await callPoker({ action: 'reclaim', roomCode: code })
+  }
+
   async function refreshRoom() {
     if (!roomCode) return
     await callPoker({ action: 'state', roomCode })
@@ -360,8 +367,11 @@ export default function PokerPage() {
                         <strong>{room.players}/{room.maxPlayers}</strong>
                         <span>{room.hostName ? `방장 ${room.hostName}` : '빈 테이블'}</span>
                       </div>
-                      <button onClick={() => enterTable(room.roomCode)} disabled={loading || room.players >= room.maxPlayers || room.street !== 'waiting'}>
-                        입장
+                      <button
+                        onClick={() => room.street === 'showdown' && room.players <= 1 ? reclaimTable(room.roomCode) : enterTable(room.roomCode)}
+                        disabled={loading || room.players >= room.maxPlayers || (room.street !== 'waiting' && !(room.street === 'showdown' && room.players <= 1))}
+                      >
+                        {room.street === 'showdown' && room.players <= 1 ? '정리 후 입장' : '입장'}
                       </button>
                     </div>
                   </div>

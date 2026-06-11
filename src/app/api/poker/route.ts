@@ -155,7 +155,9 @@ export async function POST(req: NextRequest) {
     if (action === 'fold') next = fold(current, identity.id)
     if (action === 'leave') next = removePlayer(current, identity.id)
     if (action === 'reclaim') {
-      if (current.street !== 'waiting') throw new Error('대기 중인 테이블만 정리할 수 있습니다.')
+      if (current.street !== 'waiting' && !(current.street === 'showdown' && current.players.length <= 1)) {
+        throw new Error('대기 중이거나 종료된 1인 테이블만 정리할 수 있습니다.')
+      }
       next = addPlayer(resetRoom(roomCode), identity)
     }
     if (action === 'nextHand') next = startNextHand(current, identity.id)

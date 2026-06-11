@@ -245,13 +245,15 @@ export default function PokerPage() {
       setRefreshIn(null)
       return
     }
+    if (remoteState.actorId === user?.id) {
+      setRefreshIn(null)
+      return
+    }
     const delay = remoteState.street === 'waiting'
       ? 5000
       : remoteState.street === 'showdown'
         ? 5000
-      : remoteState.actorId === user?.id
-        ? 5000
-        : 1800
+        : 3000
     setRefreshIn(Math.ceil(delay / 1000))
     const timer = setTimeout(() => refreshRoom(), delay)
     return () => clearTimeout(timer)

@@ -464,7 +464,12 @@ export default function PokerPage() {
             </button>
           )}
           {state?.street === 'waiting' && !isHost && mode === 'multi' && (
-            <div className="poker-help">방장이 시작할 때까지 기다려주세요.</div>
+            <>
+              <div className="poker-help">방장이 시작할 때까지 기다려주세요.</div>
+              <button className="poker-action" onClick={() => remoteAction('reclaim')} disabled={loading}>
+                테이블 정리
+              </button>
+            </>
           )}
           {state?.street === 'select_upcard' && canPickUpcard && (
             <div className="poker-help">내 카드 중 공개할 카드 1장을 선택하세요.</div>

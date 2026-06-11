@@ -66,6 +66,7 @@ export type PokerAction =
   | 'bet'
   | 'fold'
   | 'leave'
+  | 'reclaim'
   | 'nextHand'
   | 'newMatch'
   | 'reset'

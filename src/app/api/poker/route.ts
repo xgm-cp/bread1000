@@ -154,6 +154,10 @@ export async function POST(req: NextRequest) {
     if (action === 'bet') next = bet(current, identity.id, Number(body.amount ?? 1))
     if (action === 'fold') next = fold(current, identity.id)
     if (action === 'leave') next = removePlayer(current, identity.id)
+    if (action === 'reclaim') {
+      if (current.street !== 'waiting') throw new Error('대기 중인 테이블만 정리할 수 있습니다.')
+      next = addPlayer(resetRoom(roomCode), identity)
+    }
     if (action === 'nextHand') next = startNextHand(current, identity.id)
     if (action === 'newMatch') next = startNewMatch(current, identity.id)
     if (action === 'reset') {

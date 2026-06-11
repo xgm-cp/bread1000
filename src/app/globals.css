@@ -314,6 +314,7 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
 .poker-leave-room { min-height: 34px; border-radius: 8px; border: 1px solid rgba(255,92,92,0.24); background: rgba(255,92,92,0.08); color: #FF8A8A; font-size: 12px; font-weight: 800; font-family: inherit; cursor: pointer; }
 .poker-leave-room:disabled { opacity: 0.45; cursor: not-allowed; }
 .poker-message { border: 1px solid rgba(255,92,92,0.25); background: rgba(255,92,92,0.09); color: #FF8A8A; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.45; }
+.poker-refresh-hint { min-height: 28px; border: 1px solid var(--border); background: rgba(255,255,255,0.035); color: var(--text3); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
 .poker-match-winner { border: 1px solid rgba(46,204,138,0.38); background: linear-gradient(135deg, rgba(46,204,138,0.16), rgba(74,158,255,0.08)); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 0 22px rgba(46,204,138,0.12); }
 .poker-match-kicker { font-size: 10px; color: #72F2BF; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px; }
 .poker-match-name { font-size: 18px; color: var(--text); font-weight: 900; }

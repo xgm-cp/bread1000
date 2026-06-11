@@ -62,6 +62,7 @@ export default function PokerPage() {
   const [message, setMessage] = useState('')
   const [copied, setCopied] = useState(false)
   const [betAmount, setBetAmount] = useState(5)
+  const [refreshIn, setRefreshIn] = useState<number | null>(null)
   const [flyingChips, setFlyingChips] = useState<FlyingChip[]>([])
   const playerRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const potRef = useRef<HTMLDivElement | null>(null)
@@ -177,8 +178,14 @@ export default function PokerPage() {
   }, [mode, practiceState])
 
   useEffect(() => {
-    if (mode !== 'multi' || !roomCode || !remoteState) return
-    if (document.visibilityState === 'hidden') return
+    if (mode !== 'multi' || !roomCode || !remoteState) {
+      setRefreshIn(null)
+      return
+    }
+    if (document.visibilityState === 'hidden') {
+      setRefreshIn(null)
+      return
+    }
     const delay = remoteState.street === 'waiting'
       ? 5000
       : remoteState.street === 'showdown'
@@ -186,10 +193,17 @@ export default function PokerPage() {
       : remoteState.actorId === user?.id
         ? 5000
         : 1800
+    setRefreshIn(Math.ceil(delay / 1000))
     const timer = setTimeout(() => refreshRoom(), delay)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, roomCode, remoteState, user?.id])
+
+  useEffect(() => {
+    if (refreshIn == null || refreshIn <= 0) return
+    const timer = setTimeout(() => setRefreshIn(value => value == null ? null : Math.max(0, value - 1)), 1000)
+    return () => clearTimeout(timer)
+  }, [refreshIn])
 
   async function callPoker(body: Record<string, unknown>) {
     setLoading(true)
@@ -392,6 +406,12 @@ export default function PokerPage() {
         )}
 
         {message && <div className="poker-message">{message}</div>}
+
+        {mode === 'multi' && roomCode && refreshIn != null && (
+          <div className="poker-refresh-hint">
+            {refreshIn > 0 ? `${refreshIn}초 후 자동 새로고침` : '새로고침 중...'}
+          </div>
+        )}
 
         {state?.matchWinner && (
           <div className="poker-match-winner">

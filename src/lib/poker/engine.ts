@@ -4,6 +4,7 @@ const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'] 
 const SUITS: Suit[] = ['S', 'H', 'D', 'C']
 const SUIT_POWER: Record<Suit, number> = { S: 4, H: 3, D: 2, C: 1 }
 const BET_STREETS: PokerStreet[] = ['seven_3rd_bet', 'seven_4th_bet', 'seven_5th_bet', 'seven_6th_bet', 'seven_7th_bet']
+const ANTE = 1
 
 export function createEmptyState(roomCode: string): PokerState {
   return {
@@ -151,22 +152,28 @@ function dealSevenHand(state: PokerState, resultText: string) {
   const deck = shuffle(makeDeck())
   const players = state.players.map(player => ({
     ...player,
+    stack: player.stack > 0 ? Math.max(0, player.stack - ANTE) : player.stack,
     folded: player.stack <= 0,
     hand: player.stack > 0 ? [draw(deck, false), draw(deck, false), draw(deck, false)] : [],
     handRank: player.stack > 0 ? undefined : '관전',
   }))
+  const contributions: Record<string, number> = {}
+  for (const player of players) {
+    if (player.hand.length > 0) contributions[player.id] = ANTE
+  }
+  const pot = Object.values(contributions).reduce((sum, amount) => sum + amount, 0)
   return {
     ...state,
     street: 'select_upcard' as const,
     players,
     deck,
-    pot: 0,
+    pot,
     currentBet: 0,
-    contributions: {},
+    contributions,
     acted: {},
     actorId: null,
     winner: null,
-    resultText,
+    resultText: `${resultText} 기본 베팅 ${ANTE}칩이 팟에 들어갔습니다.`,
     showdownSummary: '',
   }
 }

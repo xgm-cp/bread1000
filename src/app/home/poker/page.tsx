@@ -48,6 +48,13 @@ type FlyingChip = {
   allIn: boolean
 }
 
+type ActionToast = {
+  id: string
+  playerId: string
+  label: string
+  kind: 'bet' | 'raise' | 'call' | 'check' | 'fold'
+}
+
 const cardSuit: Record<string, string> = { S: '♠', H: '♥', D: '♦', C: '♣' }
 
 export default function PokerPage() {
@@ -64,8 +71,10 @@ export default function PokerPage() {
   const [betAmount, setBetAmount] = useState(5)
   const [refreshIn, setRefreshIn] = useState<number | null>(null)
   const [flyingChips, setFlyingChips] = useState<FlyingChip[]>([])
+  const [actionToasts, setActionToasts] = useState<ActionToast[]>([])
   const playerRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const potRef = useRef<HTMLDivElement | null>(null)
+  const previousState = useRef<PublicPokerState | null>(null)
   const previousContributions = useRef<Record<string, number> | null>(null)
   const previousRoom = useRef<string | null>(null)
 
@@ -100,8 +109,12 @@ export default function PokerPage() {
     if (previousRoom.current !== state.roomCode) {
       previousRoom.current = state.roomCode
       previousContributions.current = state.contributions ?? {}
+      previousState.current = state
       return
     }
+
+    showActionChanges(previousState.current, state)
+    previousState.current = state
 
     const previous = previousContributions.current
     const next = state.contributions ?? {}
@@ -141,6 +154,52 @@ export default function PokerPage() {
       }, 720)
     }
   }, [state])
+
+  function showActionChanges(previous: PublicPokerState | null, next: PublicPokerState) {
+    if (!previous || previous.street !== next.street) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    for (const player of next.players) {
+      const beforePlayer = previous.players.find(item => item.id === player.id)
+      if (!beforePlayer) continue
+
+      if (!beforePlayer.folded && player.folded) {
+        pushActionToast(player.id, '폴드', 'fold')
+        continue
+      }
+
+      const beforeContribution = previous.contributions[player.id] ?? 0
+      const afterContribution = next.contributions[player.id] ?? 0
+      const diff = afterContribution - beforeContribution
+      if (diff <= 0) continue
+
+      const wasBetOpen = previous.currentBet > 0
+      const raised = afterContribution > previous.currentBet
+      const label = raised
+        ? wasBetOpen ? `${diff} 레이즈` : `${diff} 베팅`
+        : `${diff} 콜`
+      pushActionToast(player.id, label, raised ? (wasBetOpen ? 'raise' : 'bet') : 'call')
+    }
+
+    const previousActor = previous.actorId
+    if (previousActor && previousActor !== next.actorId) {
+      const beforeContribution = previous.contributions[previousActor] ?? 0
+      const afterContribution = next.contributions[previousActor] ?? 0
+      const beforeFolded = previous.players.find(player => player.id === previousActor)?.folded
+      const afterFolded = next.players.find(player => player.id === previousActor)?.folded
+      if (beforeContribution === afterContribution && !beforeFolded && !afterFolded) {
+        pushActionToast(previousActor, '체크', 'check')
+      }
+    }
+  }
+
+  function pushActionToast(playerId: string, label: string, kind: ActionToast['kind']) {
+    const toast: ActionToast = { id: `${Date.now()}-${playerId}-${label}`, playerId, label, kind }
+    setActionToasts(current => [...current.filter(item => item.playerId !== playerId), toast])
+    setTimeout(() => {
+      setActionToasts(current => current.filter(item => item.id !== toast.id))
+    }, 1100)
+  }
 
   const startPractice = useCallback(() => {
     if (!user) {
@@ -450,6 +509,9 @@ export default function PokerPage() {
                 className={`poker-player${player.id === user?.id ? ' me' : ''}${state.actorId === player.id ? ' turn' : ''}${player.folded ? ' folded' : ''}`}
               >
                 <div className="poker-player-head">
+                  {actionToasts.filter(toast => toast.playerId === player.id).map(toast => (
+                    <div key={toast.id} className={`poker-action-toast ${toast.kind}`}>{toast.label}</div>
+                  ))}
                   <div>
                     <div className="poker-player-name">
                       {player.name}{player.id === user?.id ? ' · 나' : ''}

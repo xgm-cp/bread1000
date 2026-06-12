@@ -156,6 +156,7 @@ function dealSevenHand(state: PokerState, resultText: string) {
     folded: player.stack <= 0,
     hand: player.stack > 0 ? [draw(deck, false), draw(deck, false), draw(deck, false)] : [],
     handRank: player.stack > 0 ? undefined : '관전',
+    handRankCards: undefined,
   }))
   const contributions: Record<string, number> = {}
   for (const player of players) {

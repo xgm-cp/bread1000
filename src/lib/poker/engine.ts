@@ -17,12 +17,14 @@ export function createEmptyState(roomCode: string): PokerState {
     pot: 0,
     currentBet: 0,
     contributions: {},
+    potContributions: {},
     acted: {},
     actorId: null,
     winner: null,
     matchWinner: null,
     resultText: '',
     showdownSummary: '',
+    lastAction: undefined,
   }
 }
 
@@ -36,6 +38,7 @@ export function normalizeState(roomCode: string, raw: unknown): PokerState {
     players: Array.isArray(state.players) ? state.players : [],
     deck: Array.isArray(state.deck) ? state.deck : [],
     contributions: state.contributions ?? {},
+    potContributions: state.potContributions ?? state.contributions ?? {},
     acted: state.acted ?? {},
   }
 }
@@ -65,8 +68,10 @@ export function removePlayer(state: PokerState, playerId: string): PokerState {
 
   const hostId = state.hostId === playerId ? players[0].id : state.hostId
   const contributions = { ...state.contributions }
+  const potContributions = { ...state.potContributions }
   const acted = { ...state.acted }
   delete contributions[playerId]
+  delete potContributions[playerId]
   delete acted[playerId]
 
   if (state.street === 'showdown' || state.street === 'waiting') {
@@ -75,6 +80,7 @@ export function removePlayer(state: PokerState, playerId: string): PokerState {
       players,
       hostId,
       contributions,
+      potContributions,
       acted,
       actorId: state.actorId === playerId ? null : state.actorId,
     }
@@ -97,6 +103,7 @@ export function removePlayer(state: PokerState, playerId: string): PokerState {
       pot: 0,
       currentBet: 0,
       contributions: {},
+      potContributions,
       acted: {},
       resultText: matchWinner ? `${matchWinner.name} 최종 승리` : `${winner.name} 승리`,
       showdownSummary: `${winner.name}님이 남은 플레이어로 승리했습니다.`,
@@ -108,8 +115,9 @@ export function removePlayer(state: PokerState, playerId: string): PokerState {
     players,
     hostId,
     contributions,
+    potContributions,
     acted,
-    actorId: state.actorId === playerId ? nextActor({ ...state, players, contributions, acted }, playerId) : state.actorId,
+    actorId: state.actorId === playerId ? nextActor({ ...state, players, contributions, potContributions, acted }, playerId) : state.actorId,
   }
 }
 
@@ -171,6 +179,7 @@ function dealSevenHand(state: PokerState, resultText: string) {
     pot,
     currentBet: 0,
     contributions,
+    potContributions: { ...contributions },
     acted: {},
     actorId: null,
     winner: null,
@@ -192,7 +201,11 @@ export function selectUpcard(state: PokerState, actorId: string, cardIndex: numb
     if (!player.hand[cardIndex]) throw new Error('카드를 찾을 수 없습니다.')
     return {
       ...player,
-      hand: player.hand.map((card, idx) => ({ ...card, faceUp: idx === cardIndex ? true : card.faceUp })),
+      hand: player.hand.map((card, idx) => ({
+        ...card,
+        faceUp: idx === cardIndex ? true : card.faceUp,
+        isDoorCard: idx === cardIndex ? true : card.isDoorCard,
+      })),
     }
   })
   const acted = { ...state.acted, [actorId]: true }
@@ -214,8 +227,17 @@ export function checkOrCall(state: PokerState, actorId: string) {
     return { ...player, stack: Math.max(0, player.stack - payAmount) }
   })
   const contributions = { ...state.contributions, [actorId]: paid + payAmount }
+  const potContributions = { ...state.potContributions, [actorId]: (state.potContributions[actorId] ?? 0) + payAmount }
   const acted = { ...state.acted, [actorId]: true }
-  return maybeAdvance({ ...state, players, contributions, pot: state.pot + payAmount, acted })
+  return maybeAdvance({
+    ...state,
+    players,
+    contributions,
+    potContributions,
+    pot: state.pot + payAmount,
+    acted,
+    lastAction: createLastAction(actorId, payAmount > 0 ? `${payAmount} 콜` : '체크', payAmount > 0 ? 'call' : 'check', payAmount),
+  })
 }
 
 export function bet(state: PokerState, actorId: string, amount: number) {
@@ -232,15 +254,19 @@ export function bet(state: PokerState, actorId: string, amount: number) {
   })
   const nextContribution = (state.contributions[actorId] ?? 0) + betAmount
   const contributions = { ...state.contributions, [actorId]: nextContribution }
+  const potContributions = { ...state.potContributions, [actorId]: (state.potContributions[actorId] ?? 0) + betAmount }
   const raised = nextContribution > state.currentBet
   const acted = raised ? resetActedForRaise(state, actorId) : { ...state.acted, [actorId]: true }
+  const wasBetOpen = state.currentBet > 0
   return maybeAdvance({
     ...state,
     players,
     pot: state.pot + betAmount,
     currentBet: Math.max(state.currentBet, nextContribution),
     contributions,
+    potContributions,
     acted,
+    lastAction: createLastAction(actorId, raised ? (wasBetOpen ? `${betAmount} 레이즈` : `${betAmount} 베팅`) : `${betAmount} 콜`, raised ? (wasBetOpen ? 'raise' : 'bet') : 'call', betAmount),
   })
 }
 
@@ -267,7 +293,7 @@ export function fold(state: PokerState, actorId: string) {
         : `${active[0].name}님이 폴드 승리했습니다.`,
     }
   }
-  return maybeAdvance({ ...state, players, acted: { ...state.acted, [actorId]: true } })
+  return maybeAdvance({ ...state, players, acted: { ...state.acted, [actorId]: true }, lastAction: createLastAction(actorId, '폴드', 'fold') })
 }
 
 export function resetRoom(roomCode: string) {
@@ -366,6 +392,16 @@ function resetActedForRaise(state: PokerState, raiserId: string) {
     if (!player.folded) acted[player.id] = player.id === raiserId
   }
   return acted
+}
+
+function createLastAction(playerId: string, label: string, kind: NonNullable<PokerState['lastAction']>['kind'], amount = 0) {
+  return {
+    id: `${Date.now()}-${playerId}-${kind}`,
+    playerId,
+    label,
+    kind,
+    amount,
+  }
 }
 
 function awardPot(players: PokerPlayer[], winnerId: string, pot: number) {

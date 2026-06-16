@@ -8,6 +8,7 @@ export function maskState(state: PokerState, viewerId: string): PublicPokerState
       ...player,
       hand: player.hand.map(card => ({
         faceUp: card.faceUp,
+        isDoorCard: card.isDoorCard,
         card: player.id === viewerId || card.faceUp || state.street === 'showdown' ? card.card : '??',
       })),
     })),

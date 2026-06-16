@@ -46,6 +46,16 @@ type FlyingChip = {
   dy: number
   scale: number
   allIn: boolean
+  kind?: 'bet' | 'payout'
+}
+
+type FlyingDealCard = {
+  id: string
+  fromX: number
+  fromY: number
+  dx: number
+  dy: number
+  delay: number
 }
 
 type ActionToast = {
@@ -53,6 +63,12 @@ type ActionToast = {
   playerId: string
   label: string
   kind: 'bet' | 'raise' | 'call' | 'check' | 'fold'
+}
+
+type DealtCard = {
+  id: string
+  playerId: string
+  delay: number
 }
 
 const cardSuit: Record<string, string> = { S: '♠', H: '♥', D: '♦', C: '♣' }
@@ -71,7 +87,10 @@ export default function PokerPage() {
   const [betAmount, setBetAmount] = useState(5)
   const [refreshIn, setRefreshIn] = useState<number | null>(null)
   const [flyingChips, setFlyingChips] = useState<FlyingChip[]>([])
+  const [flyingDealCards, setFlyingDealCards] = useState<FlyingDealCard[]>([])
   const [actionToasts, setActionToasts] = useState<ActionToast[]>([])
+  const [dealtCards, setDealtCards] = useState<DealtCard[]>([])
+  const [celebratingWinner, setCelebratingWinner] = useState<string | null>(null)
   const playerRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const potRef = useRef<HTMLDivElement | null>(null)
   const previousState = useRef<PublicPokerState | null>(null)
@@ -95,7 +114,10 @@ export default function PokerPage() {
   }, [mode, practiceState, remoteState, user])
 
   const contributions = state?.contributions ?? {}
+  const potContributions = state?.potContributions ?? contributions
   const me = state?.players.find(player => player.id === user?.id)
+  const opponents = state?.players.filter(player => player.id !== user?.id) ?? []
+  const myHandHint = me ? getHandHint(me.hand.map(card => card.card).filter(card => card !== '??')) : null
   const isHost = state?.hostId === user?.id
   const isMyTurn = state?.actorId === user?.id
   const canPickUpcard = state?.street === 'select_upcard' && me && !me.hand.some(card => card.faceUp)
@@ -110,16 +132,24 @@ export default function PokerPage() {
       previousRoom.current = state.roomCode
       previousContributions.current = state.contributions ?? {}
       previousState.current = state
+      setCelebratingWinner(null)
       return
     }
+    if (state.street !== 'showdown') setCelebratingWinner(null)
 
-    showActionChanges(previousState.current, state)
+    const previousSnapshot = previousState.current
+    showActionChanges(previousSnapshot, state)
     previousState.current = state
 
     const previous = previousContributions.current
     const next = state.contributions ?? {}
     previousContributions.current = next
     if (!previous || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const handledLastChip = state.lastAction
+      && previousSnapshot?.lastAction?.id !== state.lastAction.id
+      && isChipAction(state.lastAction.kind)
+      && (state.lastAction.amount ?? 0) > 0
+    if (handledLastChip) return
 
     for (const player of state.players) {
       const before = previous[player.id] ?? 0
@@ -127,37 +157,26 @@ export default function PokerPage() {
       const diff = after - before
       if (diff <= 0) continue
 
-      const fromEl = playerRefs.current[player.id]
-      const toEl = potRef.current
-      if (!fromEl || !toEl) continue
-
-      const from = fromEl.getBoundingClientRect()
-      const to = toEl.getBoundingClientRect()
-      const fromX = from.left + from.width / 2
-      const fromY = from.top + Math.min(from.height - 28, 72)
-      const toX = to.left + to.width / 2
-      const toY = to.top + to.height / 2
-      const scale = Math.min(1.55, 0.82 + diff / 35)
-      const chip: FlyingChip = {
-        id: `${Date.now()}-${player.id}-${diff}`,
-        amount: diff,
-        fromX,
-        fromY,
-        dx: toX - fromX,
-        dy: toY - fromY,
-        scale,
-        allIn: player.stack === 0,
-      }
-      setFlyingChips(current => [...current, chip])
-      setTimeout(() => {
-        setFlyingChips(current => current.filter(item => item.id !== chip.id))
-      }, 720)
+      flyChipToPot(player.id, diff, player.stack === 0)
     }
   }, [state])
 
   function showActionChanges(previous: PublicPokerState | null, next: PublicPokerState) {
-    if (!previous || previous.street !== next.street) return
+    if (!previous) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    queueDealtCards(previous, next)
+    showPayoutAnimation(previous, next)
+    const lastAction = next.lastAction
+    if (lastAction && previous.lastAction?.id !== lastAction.id) {
+      if (isChipAction(lastAction.kind)) {
+        const actor = next.players.find(player => player.id === lastAction.playerId)
+        if ((lastAction.amount ?? 0) > 0) flyChipToPot(lastAction.playerId, lastAction.amount ?? 0, actor?.stack === 0)
+      } else {
+        pushActionToast(lastAction.playerId, lastAction.label, lastAction.kind)
+      }
+      return
+    }
+    if (previous.street !== next.street) return
 
     for (const player of next.players) {
       const beforePlayer = previous.players.find(item => item.id === player.id)
@@ -172,13 +191,6 @@ export default function PokerPage() {
       const afterContribution = next.contributions[player.id] ?? 0
       const diff = afterContribution - beforeContribution
       if (diff <= 0) continue
-
-      const wasBetOpen = previous.currentBet > 0
-      const raised = afterContribution > previous.currentBet
-      const label = raised
-        ? wasBetOpen ? `${diff} 레이즈` : `${diff} 베팅`
-        : `${diff} 콜`
-      pushActionToast(player.id, label, raised ? (wasBetOpen ? 'raise' : 'bet') : 'call')
     }
 
     const previousActor = previous.actorId
@@ -193,12 +205,119 @@ export default function PokerPage() {
     }
   }
 
+  function showPayoutAnimation(previous: PublicPokerState, next: PublicPokerState) {
+    if (previous.street === 'showdown' || next.street !== 'showdown' || !next.winner) return
+    const fromEl = potRef.current
+    const toEl = playerRefs.current[next.winner]
+    if (!fromEl || !toEl) return
+
+    const from = fromEl.getBoundingClientRect()
+    const to = toEl.getBoundingClientRect()
+    const fromX = from.left + from.width / 2
+    const fromY = from.top + from.height / 2
+    const toX = to.left + to.width / 2
+    const toY = to.top + Math.min(to.height - 24, 82)
+    const amount = Math.max(previous.pot, Object.values(previous.potContributions ?? {}).reduce((sum, value) => sum + value, 0))
+    setTimeout(() => {
+      setCelebratingWinner(next.winner)
+      if (amount > 0) {
+        const chip: FlyingChip = {
+          id: `${Date.now()}-payout-${next.winner}`,
+          amount,
+          fromX,
+          fromY,
+          dx: toX - fromX,
+          dy: toY - fromY,
+          scale: Math.min(1.8, 1 + amount / 70),
+          allIn: false,
+          kind: 'payout',
+        }
+        setFlyingChips(current => [...current, chip])
+        setTimeout(() => {
+          setFlyingChips(current => current.filter(item => item.id !== chip.id))
+        }, 980)
+      }
+    }, 1350)
+  }
+
+  function queueDealtCards(previous: PublicPokerState, next: PublicPokerState) {
+    const cards: DealtCard[] = []
+    const flyingCards: FlyingDealCard[] = []
+    const fromEl = potRef.current
+    const from = fromEl?.getBoundingClientRect()
+    const fromX = from ? from.left + from.width / 2 : window.innerWidth / 2
+    const fromY = from ? from.top + from.height / 2 : window.innerHeight / 2
+    let dealIndex = 0
+    for (const player of next.players) {
+      const beforePlayer = previous.players.find(item => item.id === player.id)
+      const beforeCount = beforePlayer?.hand.length ?? 0
+      const target = playerRefs.current[player.id]?.getBoundingClientRect()
+      for (let idx = beforeCount; idx < player.hand.length; idx += 1) {
+        const delay = dealIndex * 90
+        const id = getCardKey(player.id, idx, player.hand[idx]?.card ?? '??')
+        cards.push({ id, playerId: player.id, delay })
+        if (target) {
+          const toX = target.left + Math.min(target.width - 22, 24 + idx * 42)
+          const toY = target.top + target.height - 38
+          flyingCards.push({
+            id: `${Date.now()}-deal-${id}`,
+            fromX,
+            fromY,
+            dx: toX - fromX,
+            dy: toY - fromY,
+            delay,
+          })
+        }
+        dealIndex += 1
+      }
+    }
+    if (cards.length === 0) return
+    setDealtCards(current => [...current, ...cards])
+    if (flyingCards.length > 0) setFlyingDealCards(current => [...current, ...flyingCards])
+    setTimeout(() => {
+      setDealtCards(current => current.filter(item => !cards.some(card => card.id === item.id)))
+      setFlyingDealCards(current => current.filter(item => !flyingCards.some(card => card.id === item.id)))
+    }, 1100 + dealIndex * 90)
+  }
+
   function pushActionToast(playerId: string, label: string, kind: ActionToast['kind']) {
     const toast: ActionToast = { id: `${Date.now()}-${playerId}-${label}`, playerId, label, kind }
     setActionToasts(current => [...current.filter(item => item.playerId !== playerId), toast])
     setTimeout(() => {
       setActionToasts(current => current.filter(item => item.id !== toast.id))
     }, 1100)
+  }
+
+  function flyChipToPot(playerId: string, amount: number, allIn = false) {
+    if (amount <= 0) return
+    const fromEl = playerRefs.current[playerId]
+    const toEl = potRef.current
+    if (!fromEl || !toEl) return
+
+    const from = fromEl.getBoundingClientRect()
+    const to = toEl.getBoundingClientRect()
+    const fromX = from.left + from.width / 2
+    const fromY = from.top + Math.min(from.height - 28, 72)
+    const toX = to.left + to.width / 2
+    const toY = to.top + to.height / 2
+    const chip: FlyingChip = {
+      id: `${Date.now()}-${playerId}-${amount}`,
+      amount,
+      fromX,
+      fromY,
+      dx: toX - fromX,
+      dy: toY - fromY,
+      scale: Math.min(1.55, 0.82 + amount / 35),
+      allIn,
+    }
+    setFlyingChips(current => [...current, chip])
+    setTimeout(() => {
+      setFlyingChips(current => current.filter(item => item.id !== chip.id))
+    }, 720)
+  }
+
+  function isChipAction(kind: ActionToast['kind']) {
+    return kind === 'bet' || kind === 'raise' || kind === 'call'
   }
 
   const startPractice = useCallback(() => {
@@ -495,16 +614,11 @@ export default function PokerPage() {
           <div className="poker-table-head">
             <div>
               <div className="poker-stage">{stageLabel(state?.street)}</div>
-              <div className="poker-pot">덱 {state?.deckCount ?? practiceState?.deck.length ?? 0}</div>
-            </div>
-            <div className="poker-pot-display" ref={potRef}>
-              <ChipStack amount={state?.pot ?? 0} tone="pot" />
-            {(state?.showdownSummary || state?.resultText) && <div className="poker-result">{state.showdownSummary || state.resultText}</div>}
             </div>
           </div>
 
           <div className="poker-players">
-            {state?.players.map(player => (
+            {state && opponents.map(player => (
               <div
                 key={player.id}
                 ref={el => { playerRefs.current[player.id] = el }}
@@ -534,22 +648,102 @@ export default function PokerPage() {
                 <div className="poker-hand">
                   {player.hand.length === 0 ? (
                     <div className="poker-empty-hand">대기 중</div>
-                  ) : player.hand.map((card, idx) => (
-                    <button
-                      key={`${player.id}-${idx}`}
-                      className={`poker-card${card.card === '??' ? ' back' : ''}${isRedCard(card.card) ? ' red' : ''}${isRankCard(player, card.card) ? ' rank-card' : ''}${state.winner === player.id && isRankCard(player, card.card) ? ' winner-rank-card' : ''}`}
-                      disabled={player.id !== user?.id || !canPickUpcard}
-                      onClick={() => actionButton('selectUpcard', idx)}
-                    >
-                      {formatCard(card.card)}
-                    </button>
-                  ))}
+                  ) : player.hand.map((card, idx) => {
+                    const dealtCard = dealtCards.find(item => item.id === getCardKey(player.id, idx, card.card))
+                    return (
+                      <button
+                        key={`${player.id}-${idx}`}
+                        className={`poker-card${card.card === '??' ? ' back' : ''}${isRedCard(card.card) ? ' red' : ''}${card.isDoorCard ? ' door-card' : ''}${dealtCard ? ' dealt-card' : ''}${isRankCard(player, card.card) ? ' rank-card' : ''}${state.winner === player.id && isRankCard(player, card.card) ? ' winner-rank-card' : ''}${state.winner === player.id && celebratingWinner === player.id && isRankCard(player, card.card) ? ' celebrate-card' : ''}`}
+                        style={dealtCard ? { '--deal-delay': `${dealtCard.delay}ms` } as React.CSSProperties : undefined}
+                        disabled={player.id !== user?.id || !canPickUpcard}
+                        onClick={() => actionButton('selectUpcard', idx)}
+                      >
+                        {formatCard(card.card)}
+                        {card.isDoorCard && <span className="poker-card-badge">첫 공개</span>}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             ))}
             {!state && <div className="poker-empty-table"><Spade size={26} /> 포커 테이블을 준비 중입니다.</div>}
           </div>
         </div>
+
+        {state && (
+          <div className="poker-pot-bar" ref={potRef}>
+            <div>
+              <div className="poker-pot-label">총 팟</div>
+              <ChipStack amount={state.pot} tone="pot" />
+            </div>
+            <div className="poker-pot-contributions">
+              {state.players
+                .filter(player => (potContributions[player.id] ?? 0) > 0)
+                .map(player => (
+                  <div key={player.id} className={`poker-pot-contribution${player.id === user?.id ? ' me' : ''}`}>
+                    <span>{player.id === user?.id ? '나' : player.name}</span>
+                    <strong>{potContributions[player.id]}</strong>
+                  </div>
+                ))}
+            </div>
+            <div className="poker-current-bet">
+              <span>라운드 기준</span>
+              <strong>{state.currentBet > 0 ? state.currentBet : '-'}</strong>
+            </div>
+            {(state.showdownSummary || state.resultText) && (
+              <div className="poker-result">{state.showdownSummary || state.resultText}</div>
+            )}
+          </div>
+        )}
+
+        {state && me && (
+          <div
+            ref={el => { playerRefs.current[me.id] = el }}
+            className={`poker-my-panel${state.actorId === me.id ? ' turn' : ''}${me.folded ? ' folded' : ''}`}
+          >
+            <div className="poker-player-head">
+              {actionToasts.filter(toast => toast.playerId === me.id).map(toast => (
+                <div key={toast.id} className={`poker-action-toast ${toast.kind}`}>{toast.label}</div>
+              ))}
+              <div>
+                <div className="poker-player-name">
+                  {me.name} · 나
+                  {state.hostId === me.id && <span className="poker-host-badge"><Crown size={11} /> 방장</span>}
+                </div>
+                <div className="poker-stack-row">
+                  <ChipStack amount={me.stack} tone="stack" label="보유" />
+                  <ChipStack amount={contributions[me.id] ?? 0} tone="bet" label="베팅" />
+                </div>
+                {myHandHint && <div className="poker-hand-hint">{myHandHint}</div>}
+                {state.street === 'showdown' && me.handRank && (
+                  <div className={`poker-hand-rank${state.winner === me.id ? ' winner' : me.folded ? ' folded-rank' : ' loser'}`}>
+                    {me.handRank}
+                  </div>
+                )}
+              </div>
+              {state.actorId === me.id && <span className="poker-turn">차례</span>}
+            </div>
+            <div className="poker-hand my-hand">
+              {me.hand.length === 0 ? (
+                <div className="poker-empty-hand">대기 중</div>
+              ) : me.hand.map((card, idx) => {
+                const dealtCard = dealtCards.find(item => item.id === getCardKey(me.id, idx, card.card))
+                return (
+                  <button
+                    key={`${me.id}-${idx}`}
+                    className={`poker-card${card.card === '??' ? ' back' : ''}${isRedCard(card.card) ? ' red' : ''}${card.isDoorCard ? ' door-card' : ''}${dealtCard ? ' dealt-card' : ''}${isRankCard(me, card.card) ? ' rank-card' : ''}${state.winner === me.id && isRankCard(me, card.card) ? ' winner-rank-card' : ''}${state.winner === me.id && celebratingWinner === me.id && isRankCard(me, card.card) ? ' celebrate-card' : ''}`}
+                    style={dealtCard ? { '--deal-delay': `${dealtCard.delay}ms` } as React.CSSProperties : undefined}
+                    disabled={!canPickUpcard}
+                    onClick={() => actionButton('selectUpcard', idx)}
+                  >
+                    {formatCard(card.card)}
+                    {card.isDoorCard && <span className="poker-card-badge">첫 공개</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="poker-actions">
           {mode === 'multi' && state?.street === 'waiting' && isHost && (
@@ -619,7 +813,7 @@ export default function PokerPage() {
         {flyingChips.map(chip => (
           <div
             key={chip.id}
-            className={`flying-chip${chip.allIn ? ' all-in' : ''}`}
+            className={`flying-chip${chip.allIn ? ' all-in' : ''}${chip.kind === 'payout' ? ' payout' : ''}`}
             style={{
               left: chip.fromX,
               top: chip.fromY,
@@ -629,12 +823,29 @@ export default function PokerPage() {
             } as React.CSSProperties}
           >
             <div className="flying-chip-pile"><span /><span /><span /></div>
-            <strong>{chip.allIn ? 'ALL IN' : `+${chip.amount}`}</strong>
+            <strong>{chip.kind === 'payout' ? `WIN +${chip.amount}` : chip.allIn ? 'ALL IN' : `+${chip.amount}`}</strong>
           </div>
+        ))}
+        {flyingDealCards.map(card => (
+          <div
+            key={card.id}
+            className="flying-deal-card"
+            style={{
+              left: card.fromX,
+              top: card.fromY,
+              '--fly-dx': `${card.dx}px`,
+              '--fly-dy': `${card.dy}px`,
+              '--fly-delay': `${card.delay}ms`,
+            } as React.CSSProperties}
+          />
         ))}
       </div>
     </div>
   )
+}
+
+function getCardKey(playerId: string, index: number, card: string) {
+  return `${playerId}-${index}-${card}`
 }
 
 function stageLabel(street?: string) {
@@ -664,6 +875,58 @@ function isRedCard(card: string) {
 
 function isRankCard(player: { handRankCards?: string[] }, card: string) {
   return card !== '??' && Boolean(player.handRankCards?.includes(card))
+}
+
+function getHandHint(cards: string[]) {
+  if (cards.length === 0) return null
+  const ranks = cards.map(card => card.slice(0, 1))
+  const suits = cards.map(card => card.slice(1, 2))
+  const rankCounts = countBy(ranks)
+  const suitCounts = countBy(suits)
+  const counts = [...rankCounts.values()].sort((a, b) => b - a)
+  const pairs = counts.filter(count => count === 2).length
+  const triples = counts.filter(count => count === 3).length
+  const quads = counts.filter(count => count === 4).length
+  const flushCount = Math.max(...suitCounts.values())
+  const straightRun = longestStraightRun(ranks)
+
+  const made =
+    quads ? '포카드 완성' :
+    triples && pairs ? '풀하우스 완성' :
+    flushCount >= 5 ? '플러시 완성' :
+    straightRun >= 5 ? '스트레이트 완성' :
+    triples ? '트리플 완성' :
+    pairs >= 2 ? '투페어 완성' :
+    pairs === 1 ? '원페어 완성' :
+    '하이카드'
+
+  const draws: string[] = []
+  if (flushCount === 4) draws.push('플러시 4장')
+  if (straightRun === 4) draws.push('스트레이트 4연결')
+  if (counts[0] === 2 && cards.length < 7) draws.push('트리플 가능')
+  if (counts[0] === 3 && cards.length < 7) draws.push('풀하우스 가능')
+
+  return draws.length > 0 ? `${made} · ${draws.join(' · ')}` : made
+}
+
+function countBy(values: string[]) {
+  const map = new Map<string, number>()
+  for (const value of values) map.set(value, (map.get(value) ?? 0) + 1)
+  return map
+}
+
+function longestStraightRun(ranks: string[]) {
+  const values = [...new Set(ranks.map(rank => '23456789TJQKA'.indexOf(rank) + 2).filter(value => value >= 2))].sort((a, b) => a - b)
+  if (values.includes(14)) values.unshift(1)
+  let best = 0
+  let current = 0
+  let previous = -99
+  for (const value of values) {
+    current = value === previous + 1 ? current + 1 : 1
+    best = Math.max(best, current)
+    previous = value
+  }
+  return best
 }
 
 function runBotAction(state: PokerState) {

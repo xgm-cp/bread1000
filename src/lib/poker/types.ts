@@ -15,6 +15,7 @@ export type PokerStreet =
 export type PlayerCard = {
   card: Card
   faceUp: boolean
+  isDoorCard?: boolean
 }
 
 export type PokerPlayer = {
@@ -37,17 +38,25 @@ export type PokerState = {
   pot: number
   currentBet: number
   contributions: Record<string, number>
+  potContributions: Record<string, number>
   acted: Record<string, boolean>
   actorId: string | null
   winner: string | null
   matchWinner: string | null
   resultText: string
   showdownSummary?: string
+  lastAction?: {
+    id: string
+    playerId: string
+    label: string
+    kind: 'bet' | 'raise' | 'call' | 'check' | 'fold'
+    amount?: number
+  }
   updatedAt?: string
 }
 
 export type PublicPokerPlayer = Omit<PokerPlayer, 'hand'> & {
-  hand: Array<{ card: Card | '??'; faceUp: boolean }>
+  hand: Array<{ card: Card | '??'; faceUp: boolean; isDoorCard?: boolean }>
 }
 
 export type PublicPokerState = Omit<PokerState, 'deck' | 'players'> & {

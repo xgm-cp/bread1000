@@ -342,7 +342,7 @@ export default function PokerPage() {
       const bot = practiceState.players.find(player => player.id === 'bot')
       if (bot && !bot.hand.some(card => card.faceUp)) {
         const timer = setTimeout(() => {
-          setPracticeState(current => current ? selectUpcard(current, 'bot', 0) : current)
+          setPracticeState(current => current ? selectUpcard(current, 'bot', chooseBotUpcard(bot.hand.map(card => card.card))) : current)
         }, 450)
         return () => clearTimeout(timer)
       }
@@ -654,7 +654,10 @@ export default function PokerPage() {
                       <button
                         key={`${player.id}-${idx}`}
                         className={`poker-card${card.card === '??' ? ' back' : ''}${isRedCard(card.card) ? ' red' : ''}${card.isDoorCard ? ' door-card' : ''}${dealtCard ? ' dealt-card' : ''}${isRankCard(player, card.card) ? ' rank-card' : ''}${state.winner === player.id && isRankCard(player, card.card) ? ' winner-rank-card' : ''}${state.winner === player.id && celebratingWinner === player.id && isRankCard(player, card.card) ? ' celebrate-card' : ''}`}
-                        style={dealtCard ? { '--deal-delay': `${dealtCard.delay}ms` } as React.CSSProperties : undefined}
+                        style={dealtCard ? {
+                          '--deal-delay': `${dealtCard.delay}ms`,
+                          '--deal-reveal-delay': `${dealtCard.delay + 560}ms`,
+                        } as React.CSSProperties : undefined}
                         disabled={player.id !== user?.id || !canPickUpcard}
                         onClick={() => actionButton('selectUpcard', idx)}
                       >
@@ -732,7 +735,10 @@ export default function PokerPage() {
                   <button
                     key={`${me.id}-${idx}`}
                     className={`poker-card${card.card === '??' ? ' back' : ''}${isRedCard(card.card) ? ' red' : ''}${card.isDoorCard ? ' door-card' : ''}${dealtCard ? ' dealt-card' : ''}${isRankCard(me, card.card) ? ' rank-card' : ''}${state.winner === me.id && isRankCard(me, card.card) ? ' winner-rank-card' : ''}${state.winner === me.id && celebratingWinner === me.id && isRankCard(me, card.card) ? ' celebrate-card' : ''}`}
-                    style={dealtCard ? { '--deal-delay': `${dealtCard.delay}ms` } as React.CSSProperties : undefined}
+                    style={dealtCard ? {
+                      '--deal-delay': `${dealtCard.delay}ms`,
+                      '--deal-reveal-delay': `${dealtCard.delay + 560}ms`,
+                    } as React.CSSProperties : undefined}
                     disabled={!canPickUpcard}
                     onClick={() => actionButton('selectUpcard', idx)}
                   >
@@ -933,28 +939,70 @@ function runBotAction(state: PokerState) {
   const bot = state.players.find(player => player.id === 'bot')
   if (!bot || bot.stack <= 0) return checkOrCall(state, 'bot')
 
-  const visibleScore = Math.max(
-    0,
-    ...bot.hand
-      .filter(card => card.faceUp)
-      .map(card => cardPower(card.card))
-  )
+  const paid = state.contributions.bot ?? 0
+  const callAmount = Math.max(0, state.currentBet - paid)
   const lateStreet = state.street === 'seven_6th_bet' || state.street === 'seven_7th_bet'
-  const confidence = visibleScore >= 11 ? 0.65 : visibleScore >= 8 ? 0.42 : 0.24
+  const finalStreet = state.street === 'seven_7th_bet'
+  const strength = botHandStrength(bot.hand.map(card => card.card))
+  const potPressure = state.pot > 0 ? callAmount / Math.max(1, state.pot + callAmount) : 0
+  const stackPressure = callAmount / Math.max(1, bot.stack)
   const roll = Math.random()
 
-  if (lateStreet && bot.stack <= 25 && roll < 0.18) {
-    return bet(state, 'bot', bot.stack)
+  if (callAmount > 0) {
+    const danger = potPressure > 0.34 || stackPressure > 0.42
+    if (strength < 34 && danger && roll < 0.72) return fold(state, 'bot')
+    if (strength < 45 && danger && roll < 0.38) return fold(state, 'bot')
+    if (strength < 28 && finalStreet && roll < 0.55) return fold(state, 'bot')
   }
-  if (roll < confidence) {
-    const base = visibleScore >= 11 ? 12 : visibleScore >= 8 ? 7 : 3
-    const swing = Math.floor(Math.random() * (lateStreet ? 10 : 5))
-    return bet(state, 'bot', Math.min(bot.stack, base + swing))
-  }
-  if (lateStreet && roll > 0.94) {
-    return bet(state, 'bot', Math.min(bot.stack, 20))
-  }
+
+  const aggression = strength + (lateStreet ? 8 : 0) - callAmount * 1.2
+  if (bot.stack <= 18 && strength >= 78 && roll < 0.48) return bet(state, 'bot', bot.stack)
+
+  if (aggression >= 88 && roll < 0.78) return bet(state, 'bot', Math.min(bot.stack, Math.max(14, Math.floor(state.pot * 0.45))))
+  if (aggression >= 68 && roll < 0.52) return bet(state, 'bot', Math.min(bot.stack, lateStreet ? 14 : 9))
+  if (callAmount === 0 && strength >= 50 && roll < 0.34) return bet(state, 'bot', Math.min(bot.stack, lateStreet ? 9 : 5))
+
   return checkOrCall(state, 'bot')
+}
+
+function chooseBotUpcard(cards: string[]) {
+  let bestIndex = 0
+  let bestPower = -1
+  cards.forEach((card, index) => {
+    const power = cardPower(card)
+    if (power > bestPower) {
+      bestPower = power
+      bestIndex = index
+    }
+  })
+  return bestIndex
+}
+
+function botHandStrength(cards: string[]) {
+  const ranks = cards.map(card => card.slice(0, 1))
+  const suits = cards.map(card => card.slice(1, 2))
+  const rankCounts = countBy(ranks)
+  const suitCounts = countBy(suits)
+  const counts = [...rankCounts.values()].sort((a, b) => b - a)
+  const high = Math.max(0, ...cards.map(cardPower))
+  const pairs = counts.filter(count => count === 2).length
+  const triples = counts.filter(count => count === 3).length
+  const quads = counts.filter(count => count >= 4).length
+  const flushCount = Math.max(0, ...suitCounts.values())
+  const straightRun = longestStraightRun(ranks)
+
+  let score = 16 + high * 2.1
+  if (pairs === 1) score += 20
+  if (pairs >= 2) score += 34
+  if (triples) score += 42
+  if (triples && pairs) score += 58
+  if (quads) score += 82
+  if (flushCount >= 5) score += 55
+  else if (flushCount === 4) score += 20
+  if (straightRun >= 5) score += 50
+  else if (straightRun === 4) score += 16
+  if (cards.length >= 6 && score < 42) score -= 7
+  return Math.max(0, Math.min(100, score))
 }
 
 function cardPower(card: string) {

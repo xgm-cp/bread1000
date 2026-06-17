@@ -385,7 +385,7 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
 .poker-card.back { color: #fff; background: linear-gradient(135deg, #1C2430, #323B4B); border-color: rgba(74,158,255,0.3); }
 .poker-card.door-card { border-color: rgba(255,209,102,0.82); box-shadow: 0 5px 12px rgba(0,0,0,0.24), 0 0 18px rgba(255,209,102,0.34), inset 0 0 0 2px rgba(255,209,102,0.18); }
 .poker-card-badge { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); border-radius: 999px; background: rgba(17,20,24,0.96); border: 1px solid rgba(255,209,102,0.55); color: #FFD166; padding: 1px 5px; font-size: 8px; font-weight: 900; white-space: nowrap; pointer-events: none; }
-.poker-card.dealt-card { animation: revealDealtCard 0.32s ease var(--deal-delay, 0ms) both; }
+.poker-card.dealt-card { opacity: 0; animation: revealDealtCard 0.24s ease var(--deal-reveal-delay, 560ms) both; }
 .poker-card.rank-card { border-color: rgba(255,92,92,0.7); box-shadow: 0 5px 12px rgba(0,0,0,0.24), 0 0 20px rgba(255,92,92,0.32), inset 0 0 0 2px rgba(255,92,92,0.18); transform: scale(1.2); z-index: 1; }
 .poker-card.winner-rank-card { border-color: rgba(46,204,138,0.95); box-shadow: 0 5px 12px rgba(0,0,0,0.24), 0 0 26px rgba(46,204,138,0.54), inset 0 0 0 2px rgba(46,204,138,0.26); transform: scale(1.2); z-index: 2; }
 .poker-card.winner-rank-card.celebrate-card::before { content: ""; position: absolute; inset: -9px; border-radius: 12px; border: 2px solid rgba(255,209,102,0.74); opacity: 0; animation: winnerCardBurst 1.25s ease-out 0.16s 2; pointer-events: none; }
@@ -448,7 +448,7 @@ nav { height: var(--nav-h); display: flex; align-items: center; justify-content:
   100% { opacity: 0; transform: translateY(-16px) scale(0.96); }
 }
 @keyframes revealDealtCard {
-  0%, 68% { opacity: 0; transform: scale(0.92); }
+  0% { opacity: 0; transform: scale(0.94); }
   100% { opacity: 1; transform: scale(1); }
 }
 @keyframes winnerCardBurst {
